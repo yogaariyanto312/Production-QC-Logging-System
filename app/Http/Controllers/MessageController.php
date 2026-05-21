@@ -56,6 +56,20 @@ class MessageController extends Controller
         return response()->json(['ok' => true]);
     }
 
+    // Admin: hapus satu pesan
+    public function destroy(\App\Models\Message $message)
+    {
+        $message->delete();
+        return response()->json(['ok' => true]);
+    }
+
+    // Admin: hapus semua pesan dari satu operator
+    public function destroyConversation($senderId)
+    {
+        \App\Models\Message::where('sender_id', $senderId)->delete();
+        return response()->json(['ok' => true]);
+    }
+
     // Operator: halaman chat
     public function chat()
     {

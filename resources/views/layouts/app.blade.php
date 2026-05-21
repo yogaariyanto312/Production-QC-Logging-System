@@ -48,6 +48,7 @@
                     ['route' => 'products.index',   'icon' => 'M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4', 'label' => 'Master Produk', 'role' => 'admin'],
                     ['route' => 'categories.index', 'icon' => 'M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z', 'label' => 'Kategori', 'role' => 'admin'],
                     ['route' => 'operators.index',   'icon' => 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z', 'label' => 'Operator', 'role' => 'admin'],
+                    ['route' => 'admins.index',      'icon' => 'M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z', 'label' => 'Manajemen Admin', 'role' => 'admin'],
                     ['route' => 'departments.index', 'icon' => 'M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4', 'label' => 'Departemen', 'role' => 'admin'],
                     ['route' => 'reports.index',    'icon' => 'M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z', 'label' => 'Laporan', 'role' => 'admin'],
                 ];
@@ -219,5 +220,103 @@
 </div>
 
 @stack('scripts')
+
+@if(auth()->check() && auth()->user()->role === 'admin')
+<style>
+@keyframes msg-shrink { from { width:100% } to { width:0% } }
+.msg-toast-bar { animation: msg-shrink 5s linear forwards; }
+</style>
+
+<div x-data="globalMsgToast()">
+    <div class="fixed bottom-5 right-5 z-60 flex flex-col gap-3 pointer-events-none" style="width:22rem">
+        <template x-for="t in toasts" :key="t.id">
+            <div class="pointer-events-auto bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-100 dark:border-slate-700 overflow-hidden"
+                 x-show="t.visible"
+                 x-transition:enter="transition ease-out duration-300"
+                 x-transition:enter-start="opacity-0 translate-y-4"
+                 x-transition:enter-end="opacity-100 translate-y-0"
+                 x-transition:leave="transition ease-in duration-200"
+                 x-transition:leave-start="opacity-100 translate-y-0"
+                 x-transition:leave-end="opacity-0 translate-y-4">
+                <div class="flex items-start gap-3 p-4 cursor-pointer"
+                     @click="window.location.href='{{ route('messages.index') }}'">
+                    <div class="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center shrink-0">
+                        <span class="text-sm font-bold text-white" x-text="t.initial"></span>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <p class="text-xs font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wide">Pesan Baru</p>
+                        <p class="text-sm font-semibold text-slate-800 dark:text-white mt-0.5" x-text="t.senderName"></p>
+                        <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 line-clamp-2" x-text="t.preview"></p>
+                    </div>
+                    <button @click.stop="dismiss(t.id)"
+                            class="text-slate-300 hover:text-slate-500 dark:hover:text-slate-400 shrink-0 p-0.5 -mt-0.5">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                    </button>
+                </div>
+                <div class="h-1 bg-slate-100 dark:bg-slate-700">
+                    <div class="h-full bg-blue-500 rounded-full msg-toast-bar"></div>
+                </div>
+            </div>
+        </template>
+    </div>
+</div>
+
+<script>
+function globalMsgToast() {
+    let knownIds = new Set();
+    let seeded   = false;
+
+    return {
+        toasts: [],
+
+        push(msg) {
+            const uid = Date.now() + Math.random();
+            this.toasts.push({
+                id:         uid,
+                senderName: msg.sender?.name ?? 'Operator',
+                initial:    (msg.sender?.name ?? 'O').charAt(0).toUpperCase(),
+                preview:    msg.message.length > 80 ? msg.message.slice(0, 80) + '…' : msg.message,
+                visible:    true,
+            });
+            setTimeout(() => this.dismiss(uid), 5000);
+        },
+
+        dismiss(uid) {
+            const t = this.toasts.find(t => t.id === uid);
+            if (t) t.visible = false;
+            setTimeout(() => { this.toasts = this.toasts.filter(t => t.id !== uid); }, 300);
+        },
+
+        async poll() {
+            try {
+                const res   = await fetch('/messages', {
+                    headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
+                });
+                const fresh = await res.json();
+
+                if (!seeded) {
+                    // load pertama: isi knownIds tanpa tampilkan toast
+                    fresh.forEach(m => knownIds.add(m.id));
+                    seeded = true;
+                } else {
+                    const onChat = window.location.pathname.replace(/\/$/, '').endsWith('/messages');
+                    fresh.filter(m => !knownIds.has(m.id)).forEach(m => {
+                        knownIds.add(m.id);
+                        if (!onChat) this.push(m);
+                    });
+                }
+            } catch(e) {}
+        },
+
+        init() {
+            this.poll();
+            setInterval(() => this.poll(), 15000);
+        }
+    };
+}
+</script>
+@endif
 </body>
 </html>

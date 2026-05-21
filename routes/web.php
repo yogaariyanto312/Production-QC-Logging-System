@@ -5,6 +5,7 @@ use App\Http\Controllers\MessageController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DepartmentController;
+use App\Http\Controllers\AdminController;
 use App\Http\Controllers\OperatorController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\ProductionLogController;
@@ -55,6 +56,11 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/messages', [MessageController::class, 'adminMessages'])->name('messages.index');
         Route::post('/messages/{message}/reply', [MessageController::class, 'reply'])->name('messages.reply');
         Route::patch('/messages/{message}/read', [MessageController::class, 'markRead'])->name('messages.read');
+        Route::delete('/messages/conversation/{senderId}', [MessageController::class, 'destroyConversation'])->name('messages.destroy-conversation');
+        Route::delete('/messages/{message}', [MessageController::class, 'destroy'])->name('messages.destroy');
+
+        // Manajemen Admin
+        Route::resource('admins', AdminController::class)->except(['show']);
 
         // Manajemen Operator
         Route::resource('operators', OperatorController::class)->except(['show']);

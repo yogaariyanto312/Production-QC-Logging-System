@@ -86,9 +86,16 @@
                         <p class="text-sm font-semibold text-slate-800 dark:text-white" x-text="activeSender?.name"></p>
                         <p class="text-xs text-slate-400" x-text="activeSender?.department ?? 'Operator'"></p>
                     </div>
-                    <div class="ml-auto flex items-center gap-1.5">
-                        <span class="w-2 h-2 bg-green-400 rounded-full"></span>
+                    <div class="ml-auto flex items-center gap-3">
                         <span class="text-xs text-slate-400" x-text="conversation.length + ' pesan'"></span>
+                        <button @click="deleteConversation(selectedId)"
+                                title="Hapus semua percakapan"
+                                class="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                      d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                            </svg>
+                        </button>
                     </div>
                 </div>
 
@@ -96,7 +103,7 @@
                 <div id="admin-chat-thread" class="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50 dark:bg-slate-900/30">
 
                     <template x-for="msg in conversation" :key="msg.id">
-                        <div class="space-y-2">
+                        <div class="space-y-2 group">
                             {{-- Pesan dari operator (kiri) --}}
                             <div class="flex justify-start items-end gap-2">
                                 <div class="w-7 h-7 rounded-full bg-blue-600 flex items-center justify-center shrink-0">
@@ -107,6 +114,14 @@
                                     <p x-text="msg.message" class="leading-relaxed"></p>
                                     <p class="text-slate-400 text-xs mt-1.5" x-text="formatTime(msg.created_at)"></p>
                                 </div>
+                                <button @click="deleteMsg(msg.id)"
+                                        title="Hapus pesan"
+                                        class="opacity-0 group-hover:opacity-100 transition-opacity p-1 text-slate-300 hover:text-red-500 rounded-lg shrink-0">
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                                    </svg>
+                                </button>
                             </div>
 
                             {{-- Balasan admin (kanan) --}}
@@ -266,6 +281,35 @@ function adminChatPage() {
                 this.$nextTick(() => this.scrollBottom());
             } catch(e) {}
             this.sending = false;
+        },
+
+        async deleteMsg(id) {
+            if (!confirm('Hapus pesan ini?')) return;
+            try {
+                await fetch(`/messages/${id}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]').content,
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                });
+                this.messages = this.messages.filter(m => m.id !== id);
+            } catch(e) {}
+        },
+
+        async deleteConversation(senderId) {
+            if (!confirm('Hapus semua pesan dari operator ini? Aksi ini tidak bisa dibatalkan.')) return;
+            try {
+                await fetch(`/messages/conversation/${senderId}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]').content,
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                });
+                this.messages = this.messages.filter(m => m.sender?.id !== senderId);
+                this.selectedId = null;
+            } catch(e) {}
         },
 
         async load() {
