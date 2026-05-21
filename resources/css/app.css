@@ -12,6 +12,9 @@
     --color-accent: #0ea5e9;
 }
 
+/* Alpine.js cloak — hide until initialized */
+[x-cloak] { display: none !important; }
+
 /* Custom scrollbar */
 ::-webkit-scrollbar {
     width: 6px;

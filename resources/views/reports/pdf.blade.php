@@ -42,7 +42,7 @@
             <tr>
                 <td>{{ $i + 1 }}</td>
                 <td><strong>{{ $row->product->name ?? '-' }}</strong></td>
-                <td>{{ $row->product->series ?? '-' }}</td>
+                <td>{{ $row->product->series_with_kva ?: '-' }}</td>
                 <td>{{ $row->product->category->name ?? '-' }}</td>
                 <td class="center">{{ number_format($row->total_shift1) }}</td>
                 <td class="center">{{ number_format($row->total_shift2) }}</td>

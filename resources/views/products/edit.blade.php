@@ -27,6 +27,16 @@
             </div>
 
             <div>
+                <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Tipe Produk <span class="text-red-500">*</span></label>
+                <select name="type"
+                        class="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900
+                               text-slate-800 dark:text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="regular" {{ old('type', $product->type) == 'regular' ? 'selected' : '' }}>Regular</option>
+                    <option value="channel" {{ old('type', $product->type) == 'channel' ? 'selected' : '' }}>Channel (UP + BT)</option>
+                </select>
+            </div>
+
+            <div>
                 <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Nama Produk <span class="text-red-500">*</span></label>
                 <input type="text" name="name" value="{{ old('name', $product->name) }}"
                        class="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900
@@ -38,6 +48,19 @@
                 <input type="text" name="series" value="{{ old('series', $product->series) }}"
                        class="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900
                               text-slate-800 dark:text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono">
+            </div>
+
+            <div>
+                <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                    KVA
+                    <span class="ml-1 text-xs font-normal text-slate-400">(opsional)</span>
+                </label>
+                <input type="text" name="kva" value="{{ old('kva', $product->kva) }}"
+                       placeholder="Contoh: 50, 100, 160, 250"
+                       class="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900
+                              text-slate-800 dark:text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500
+                              @error('kva') border-red-500 @enderror">
+                @error('kva')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
             </div>
 
             <div>

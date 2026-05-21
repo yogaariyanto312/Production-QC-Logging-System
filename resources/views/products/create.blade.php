@@ -33,6 +33,19 @@
 
             <div>
                 <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                    Tipe Produk <span class="text-red-500">*</span>
+                </label>
+                <select name="type"
+                        class="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900
+                               text-slate-800 dark:text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="regular" {{ old('type', 'regular') == 'regular' ? 'selected' : '' }}>Regular</option>
+                    <option value="channel" {{ old('type') == 'channel' ? 'selected' : '' }}>Channel (UP + BT)</option>
+                </select>
+                @error('type')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+            </div>
+
+            <div>
+                <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
                     Nama Produk <span class="text-red-500">*</span>
                 </label>
                 <input type="text" name="name" value="{{ old('name') }}"
@@ -45,7 +58,7 @@
 
             <div>
                 <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                    Seri Produk <span class="text-slate-400 font-normal">(opsional)</span>
+                    Seri Produk <span class="text-red-500">*</span>
                 </label>
                 <input type="text" name="series" value="{{ old('series') }}"
                        placeholder="Contoh: 2601601004(160)"
@@ -53,6 +66,19 @@
                               text-slate-800 dark:text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono
                               @error('series') border-red-500 @enderror">
                 @error('series')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+            </div>
+
+            <div>
+                <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                    KVA
+                    <span class="text-red-500">*</span>
+                </label>
+                <input type="text" name="kva" value="{{ old('kva') }}"
+                       placeholder="Contoh: 50, 100, 160, 250"
+                       class="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900
+                              text-slate-800 dark:text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500
+                              @error('kva') border-red-500 @enderror">
+                @error('kva')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
             </div>
 
             <div>

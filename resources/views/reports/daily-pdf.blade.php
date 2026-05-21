@@ -30,12 +30,11 @@
 
     <table style="width:auto;margin-bottom:16px">
         <tr>
-            <th>Shift 1</th><th>Shift 2</th><th>Shift 3</th><th>Grand Total</th>
+            <th>UP</th><th>BT</th><th>Grand Total</th>
         </tr>
         <tr>
             <td class="center">{{ number_format($totalShift1) }}</td>
             <td class="center">{{ number_format($totalShift2) }}</td>
-            <td class="center">{{ number_format($totalShift3) }}</td>
             <td class="center grand">{{ number_format($grandTotal) }}</td>
         </tr>
     </table>
@@ -44,20 +43,26 @@
         <thead>
             <tr>
                 <th>No</th><th>Produk</th><th>Seri</th><th>Kategori</th>
-                <th class="center">Shift 1</th><th class="center">Shift 2</th>
-                <th class="center">Shift 3</th><th class="center">Total</th><th>Operator</th>
+                <th class="center">UP</th><th class="center">BT</th>
+                <th class="center">Total</th><th>Operator</th>
             </tr>
         </thead>
         <tbody>
             @foreach($logs as $i => $log)
+            @php $isChannel = ($log->product->type ?? 'regular') === 'channel'; @endphp
             <tr>
                 <td>{{ $i + 1 }}</td>
-                <td><strong>{{ $log->product->name ?? '-' }}</strong></td>
-                <td>{{ $log->product->series ?? '-' }}</td>
+                <td>
+                    <strong>{{ $log->product->name ?? '-' }}</strong>
+                    @if($isChannel)<br><em style="font-size:9px;color:#6d28d9;">Channel UP + BT</em>@endif
+                    @if($log->notes)
+                    <br><em style="font-size:9px;color:#64748b;">{{ $log->notes }}</em>
+                    @endif
+                </td>
+                <td>{{ $log->product->series_with_kva ?: '-' }}</td>
                 <td>{{ $log->product->category->name ?? '-' }}</td>
                 <td class="center">{{ number_format($log->shift1_qty) }}</td>
                 <td class="center">{{ number_format($log->shift2_qty) }}</td>
-                <td class="center">{{ number_format($log->shift3_qty) }}</td>
                 <td class="center grand">{{ number_format($log->total_qty) }}</td>
                 <td>{{ $log->user->name ?? '-' }}</td>
             </tr>
@@ -68,7 +73,6 @@
                 <td colspan="4" class="tfoot">TOTAL</td>
                 <td class="tfoot center">{{ number_format($totalShift1) }}</td>
                 <td class="tfoot center">{{ number_format($totalShift2) }}</td>
-                <td class="tfoot center">{{ number_format($totalShift3) }}</td>
                 <td class="tfoot center grand">{{ number_format($grandTotal) }}</td>
                 <td class="tfoot"></td>
             </tr>

@@ -8,6 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     @vite(['resources/css/app.css', 'resources/js/app.js'])
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     @stack('styles')
 </head>
 <body class="h-full bg-slate-50 dark:bg-slate-900 font-sans antialiased">
@@ -23,7 +24,7 @@
 
         {{-- Logo --}}
         <div class="flex items-center gap-3 px-6 py-5 border-b border-slate-700">
-            <div class="w-9 h-9 bg-blue-600 rounded-lg flex items-center justify-center flex-shrink-0">
+            <div class="w-9 h-9 bg-blue-600 rounded-lg flex items-center justify-center shrink-0">
                 <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                           d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
@@ -42,8 +43,12 @@
                     ['route' => 'dashboard',        'icon' => 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6', 'label' => 'Dashboard', 'role' => 'all'],
                     ['route' => 'production.create','icon' => 'M12 4v16m8-8H4', 'label' => 'Input Produksi', 'role' => 'all'],
                     ['route' => 'production.index', 'icon' => 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01', 'label' => 'Riwayat Produksi', 'role' => 'all'],
+                    ['route' => 'chat',             'icon' => 'M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-3 3v-3z', 'label' => 'Chat Admin', 'role' => 'operator'],
+                    ['route' => 'messages.index',   'icon' => 'M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-3 3v-3z', 'label' => 'Pesan Masuk', 'role' => 'admin'],
                     ['route' => 'products.index',   'icon' => 'M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4', 'label' => 'Master Produk', 'role' => 'admin'],
                     ['route' => 'categories.index', 'icon' => 'M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z', 'label' => 'Kategori', 'role' => 'admin'],
+                    ['route' => 'operators.index',   'icon' => 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z', 'label' => 'Operator', 'role' => 'admin'],
+                    ['route' => 'departments.index', 'icon' => 'M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4', 'label' => 'Departemen', 'role' => 'admin'],
                     ['route' => 'reports.index',    'icon' => 'M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z', 'label' => 'Laporan', 'role' => 'admin'],
                 ];
             @endphp
@@ -56,7 +61,7 @@
                               {{ $isActive
                                  ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/30'
                                  : 'text-slate-300 hover:bg-slate-800 hover:text-white' }}">
-                        <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="{{ $item['icon'] }}"/>
                         </svg>
                         {{ $item['label'] }}
@@ -68,24 +73,56 @@
             @endforeach
         </nav>
 
-        {{-- User info --}}
-        <div class="px-4 py-4 border-t border-slate-700">
-            <div class="flex items-center gap-3">
-                <div class="w-9 h-9 rounded-full bg-blue-700 flex items-center justify-center flex-shrink-0">
+        {{-- User info + dropdown --}}
+        <div class="px-4 py-4 border-t border-slate-700 relative" x-data="{ open: false }">
+            {{-- Trigger --}}
+            <button type="button" @click="open = !open"
+                    class="w-full flex items-center gap-3 rounded-xl px-2 py-1.5 hover:bg-slate-800 transition-colors group">
+                <div class="w-9 h-9 rounded-full bg-blue-700 flex items-center justify-center shrink-0">
                     <span class="text-sm font-bold text-white">{{ strtoupper(substr(auth()->user()->name, 0, 1)) }}</span>
                 </div>
-                <div class="flex-1 min-w-0">
+                <div class="flex-1 min-w-0 text-left">
                     <p class="text-sm font-medium text-white truncate">{{ auth()->user()->name }}</p>
                     <p class="text-xs text-slate-400 capitalize">{{ auth()->user()->role }}</p>
                 </div>
+                <svg class="w-4 h-4 text-slate-400 shrink-0 transition-transform" :class="open ? 'rotate-180' : ''"
+                     fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"/>
+                </svg>
+            </button>
+
+            {{-- Dropdown menu --}}
+            <div x-show="open" x-cloak
+                 @click.outside="open = false"
+                 class="absolute bottom-full left-4 right-4 mb-2 bg-slate-800 border border-slate-700 rounded-xl shadow-xl overflow-hidden">
+
+                {{-- Profile info header --}}
+                <div class="px-4 py-3 border-b border-slate-700">
+                    <p class="text-xs text-slate-400 truncate">{{ auth()->user()->email ?? auth()->user()->username }}</p>
+                    @if(auth()->user()->phone)
+                    <p class="text-xs text-slate-500 mt-0.5">{{ auth()->user()->phone }}</p>
+                    @endif
+                </div>
+
+                {{-- Menu items --}}
+                <a href="{{ route('profile.edit') }}"
+                   class="flex items-center gap-3 px-4 py-2.5 text-sm text-slate-300 hover:bg-slate-700 hover:text-white transition-colors">
+                    <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+                    </svg>
+                    Profil Saya
+                </a>
+
                 <form method="POST" action="{{ route('logout') }}">
                     @csrf
-                    <button type="submit" title="Logout"
-                            class="p-1.5 rounded-lg text-slate-400 hover:text-red-400 hover:bg-slate-800 transition-colors">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <button type="submit"
+                            class="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-400 hover:bg-slate-700 hover:text-red-300 transition-colors">
+                        <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                   d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
                         </svg>
+                        Logout
                     </button>
                 </form>
             </div>
@@ -141,7 +178,7 @@
         <div class="fixed top-4 right-4 z-50 flex flex-col gap-2" id="toast-container">
             @if(session('success'))
             <div class="toast-auto flex items-center gap-3 px-4 py-3 bg-green-600 text-white rounded-xl shadow-lg max-w-sm">
-                <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
                 </svg>
                 <p class="text-sm font-medium">{{ session('success') }}</p>
@@ -149,7 +186,7 @@
             @endif
             @if(session('error'))
             <div class="toast-auto flex items-center gap-3 px-4 py-3 bg-red-600 text-white rounded-xl shadow-lg max-w-sm">
-                <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
                 </svg>
                 <p class="text-sm font-medium">{{ session('error') }}</p>
@@ -157,7 +194,7 @@
             @endif
             @if(session('warning'))
             <div class="toast-auto flex items-center gap-3 px-4 py-3 bg-amber-500 text-white rounded-xl shadow-lg max-w-sm">
-                <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                           d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
                 </svg>

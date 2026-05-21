@@ -13,10 +13,12 @@ class ProductionLog extends Model
     protected $fillable = [
         'product_id',
         'user_id',
+        'operator_name',
         'production_date',
         'shift1_qty',
         'shift2_qty',
         'shift3_qty',
+        'total_qty',
         'notes',
         'status',
     ];
@@ -26,7 +28,7 @@ class ProductionLog extends Model
         'shift1_qty' => 'integer',
         'shift2_qty' => 'integer',
         'shift3_qty' => 'integer',
-        'total_qty' => 'integer',
+        'total_qty' => 'float',
     ];
 
     // Relasi ke produk
@@ -41,29 +43,25 @@ class ProductionLog extends Model
         return $this->belongsTo(User::class);
     }
 
-    // Scope filter tanggal
-    public function scopeByDate($query, $date)
+    public function scopeByDate(\Illuminate\Database\Eloquent\Builder $query, string $date): \Illuminate\Database\Eloquent\Builder
     {
         return $query->whereDate('production_date', $date);
     }
 
-    // Scope filter bulan
-    public function scopeByMonth($query, $month, $year)
+    public function scopeByMonth(\Illuminate\Database\Eloquent\Builder $query, int $month, int $year): \Illuminate\Database\Eloquent\Builder
     {
         return $query->whereMonth('production_date', $month)
                      ->whereYear('production_date', $year);
     }
 
-    // Scope filter produk
-    public function scopeByProduct($query, $productId)
+    public function scopeByProduct(\Illuminate\Database\Eloquent\Builder $query, int $productId): \Illuminate\Database\Eloquent\Builder
     {
         return $query->where('product_id', $productId);
     }
 
-    // Scope search keyword
-    public function scopeSearch($query, $keyword)
+    public function scopeSearch(\Illuminate\Database\Eloquent\Builder $query, string $keyword): \Illuminate\Database\Eloquent\Builder
     {
-        return $query->whereHas('product', function ($q) use ($keyword) {
+        return $query->whereHas('product', function (\Illuminate\Database\Eloquent\Builder $q) use ($keyword) {
             $q->where('name', 'like', "%{$keyword}%")
               ->orWhere('series', 'like', "%{$keyword}%");
         })->orWhere('notes', 'like', "%{$keyword}%");

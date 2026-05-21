@@ -100,7 +100,7 @@
                                 {{ $row->product->category->name ?? '-' }}
                             </span>
                         </td>
-                        <td class="px-5 py-4 font-mono text-xs text-slate-500">{{ $row->product->series ?? '-' }}</td>
+                        <td class="px-5 py-4 font-mono text-xs text-slate-500">{{ $row->product->series_with_kva ?: '-' }}</td>
                         <td class="px-5 py-4 text-center font-medium text-slate-700 dark:text-slate-300">{{ number_format($row->total_shift1) }}</td>
                         <td class="px-5 py-4 text-center font-medium text-slate-700 dark:text-slate-300">{{ number_format($row->total_shift2) }}</td>
                         <td class="px-5 py-4 text-center font-medium text-slate-700 dark:text-slate-300">{{ number_format($row->total_shift3) }}</td>

@@ -13,8 +13,10 @@ class Product extends Model
 
     protected $fillable = [
         'category_id',
+        'type',
         'name',
         'series',
+        'kva',
         'unit',
         'description',
         'is_active',
@@ -23,6 +25,11 @@ class Product extends Model
     protected $casts = [
         'is_active' => 'boolean',
     ];
+
+    public function isChannel(): bool
+    {
+        return $this->type === 'channel';
+    }
 
     public function category(): BelongsTo
     {
@@ -51,8 +58,15 @@ class Product extends Model
             ->sum('total_qty');
     }
 
+    public function getSeriesWithKvaAttribute(): string
+    {
+        if (!$this->series) return '';
+        return $this->kva ? "{$this->series}({$this->kva})" : $this->series;
+    }
+
     public function getFullNameAttribute(): string
     {
-        return $this->series ? "{$this->name} - {$this->series}" : $this->name;
+        $s = $this->series_with_kva;
+        return $s ? "{$this->name} - {$s}" : $this->name;
     }
 }

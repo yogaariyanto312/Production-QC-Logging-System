@@ -86,11 +86,50 @@
             </div>
             @endif
 
+            {{-- Login Type Toggle --}}
+            @php $oldType = old('login_type', 'operator'); @endphp
+            <div class="flex bg-slate-800 rounded-xl p-1 mb-6">
+                <button type="button" id="tab-operator" onclick="switchTab('operator')"
+                        class="flex-1 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200
+                               {{ $oldType === 'operator' ? 'bg-blue-600 text-white shadow' : 'text-slate-400 hover:text-slate-200' }}">
+                    Operator
+                </button>
+                <button type="button" id="tab-admin" onclick="switchTab('admin')"
+                        class="flex-1 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200
+                               {{ $oldType === 'admin' ? 'bg-blue-600 text-white shadow' : 'text-slate-400 hover:text-slate-200' }}">
+                    Admin
+                </button>
+            </div>
+
             {{-- Login Form --}}
             <form method="POST" action="{{ route('login') }}" class="space-y-5">
                 @csrf
+                <input type="hidden" id="login_type" name="login_type" value="{{ $oldType }}">
 
-                <div>
+                {{-- Field Operator: Username --}}
+                <div id="field-username" class="{{ $oldType === 'admin' ? 'hidden' : '' }}">
+                    <label for="username" class="block text-sm font-medium text-slate-300 mb-2">Username</label>
+                    <div class="relative">
+                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <svg class="w-5 h-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                      d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+                            </svg>
+                        </div>
+                        <input type="text" id="username" name="username" value="{{ old('username') }}"
+                               autocomplete="username"
+                               class="w-full pl-10 pr-4 py-3 bg-slate-800 border text-white rounded-xl
+                                      placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent
+                                      {{ $errors->has('username') ? 'border-red-500' : 'border-slate-600' }}"
+                               placeholder="Masukkan username">
+                    </div>
+                    @error('username')
+                    <p class="mt-1.5 text-xs text-red-400">{{ $message }}</p>
+                    @enderror
+                </div>
+
+                {{-- Field Admin: Email --}}
+                <div id="field-email" class="{{ $oldType === 'operator' ? 'hidden' : '' }}">
                     <label for="email" class="block text-sm font-medium text-slate-300 mb-2">Email</label>
                     <div class="relative">
                         <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -99,15 +138,19 @@
                                       d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207"/>
                             </svg>
                         </div>
-                        <input type="email" id="email" name="email" value="{{ old('email') }}" required
-                               autocomplete="email" autofocus
-                               class="w-full pl-10 pr-4 py-3 bg-slate-800 border border-slate-600 text-white rounded-xl
+                        <input type="email" id="email" name="email" value="{{ old('email') }}"
+                               autocomplete="email"
+                               class="w-full pl-10 pr-4 py-3 bg-slate-800 border text-white rounded-xl
                                       placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent
-                                      @error('email') border-red-500 @enderror"
+                                      {{ $errors->has('email') ? 'border-red-500' : 'border-slate-600' }}"
                                placeholder="nama@perusahaan.com">
                     </div>
+                    @error('email')
+                    <p class="mt-1.5 text-xs text-red-400">{{ $message }}</p>
+                    @enderror
                 </div>
 
+                {{-- Password --}}
                 <div>
                     <label for="password" class="block text-sm font-medium text-slate-300 mb-2">Password</label>
                     <div class="relative">
@@ -161,6 +204,26 @@
 function togglePassword() {
     const input = document.getElementById('password');
     input.type = input.type === 'password' ? 'text' : 'password';
+}
+
+function switchTab(type) {
+    const isOperator = type === 'operator';
+    document.getElementById('login_type').value = type;
+
+    document.getElementById('field-username').classList.toggle('hidden', !isOperator);
+    document.getElementById('field-email').classList.toggle('hidden', isOperator);
+
+    const tabOp    = document.getElementById('tab-operator');
+    const tabAdmin = document.getElementById('tab-admin');
+    const active   = 'bg-blue-600 text-white shadow';
+    const inactive = 'text-slate-400 hover:text-slate-200';
+
+    tabOp.className    = tabOp.className.replace(isOperator ? inactive : active, isOperator ? active : inactive);
+    tabAdmin.className = tabAdmin.className.replace(isOperator ? active : inactive, isOperator ? inactive : active);
+
+    // Focus input yang aktif
+    const target = isOperator ? 'username' : 'email';
+    document.getElementById(target)?.focus();
 }
 </script>
 @endsection

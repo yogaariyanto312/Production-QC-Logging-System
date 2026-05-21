@@ -42,6 +42,18 @@ class ProductionLogController extends Controller
         $data = $request->validated();
         $data['user_id'] = auth()->id();
 
+        $product = Product::find($data['product_id']);
+        if ($product && $product->isChannel()) {
+            $up = (int) ($data['shift1_qty'] ?? 0);
+            $bt = (int) ($data['shift2_qty'] ?? 0);
+            $data['shift3_qty'] = 0;
+            $data['total_qty']  = ($up + $bt) / 2;
+        } else {
+            $data['shift1_qty'] = $data['shift1_qty'] ?? 0;
+            $data['shift2_qty'] = $data['shift2_qty'] ?? 0;
+            $data['shift3_qty'] = $data['shift3_qty'] ?? 0;
+        }
+
         $log = ProductionLog::create($data);
         ActivityLog::record('create', "Input produksi: {$log->product->name} ({$log->total_qty} unit)", $log);
 
@@ -70,7 +82,21 @@ class ProductionLogController extends Controller
         if (!auth()->user()->isAdmin()) {
             abort(403);
         }
-        $productionLog->update($request->validated());
+
+        $data    = $request->validated();
+        $product = Product::find($data['product_id']);
+        if ($product && $product->isChannel()) {
+            $up = (int) ($data['shift1_qty'] ?? 0);
+            $bt = (int) ($data['shift2_qty'] ?? 0);
+            $data['shift3_qty'] = 0;
+            $data['total_qty']  = ($up + $bt) / 2;
+        } else {
+            $data['shift1_qty'] = $data['shift1_qty'] ?? 0;
+            $data['shift2_qty'] = $data['shift2_qty'] ?? 0;
+            $data['shift3_qty'] = $data['shift3_qty'] ?? 0;
+        }
+
+        $productionLog->update($data);
         ActivityLog::record('update', "Edit produksi: {$productionLog->product->name} ({$productionLog->total_qty} unit)", $productionLog);
         return redirect()->route('production.index')
             ->with('success', 'Data produksi berhasil diperbarui.');

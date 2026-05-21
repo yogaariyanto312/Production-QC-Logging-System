@@ -66,8 +66,8 @@
                 </span>
             </div>
             <h3 class="font-semibold text-slate-800 dark:text-white">{{ $product->name }}</h3>
-            @if($product->series)
-            <p class="text-xs text-slate-400 font-mono mt-1">{{ $product->series }}</p>
+            @if($product->series_with_kva)
+            <p class="text-xs text-slate-400 font-mono mt-1">{{ $product->series_with_kva }}</p>
             @endif
             <div class="flex items-center gap-2 mt-2">
                 <span class="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium

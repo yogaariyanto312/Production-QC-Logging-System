@@ -2,10 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Category;
+use App\Models\Department;
 use App\Models\Product;
 use App\Models\ProductionLog;
 use App\Models\ActivityLog;
-use App\Models\Category;
 use Illuminate\Support\Facades\DB;
 
 class DashboardController extends Controller
@@ -65,8 +66,17 @@ class DashboardController extends Controller
             ->limit(5)
             ->get();
 
+        // Kategori untuk widget admin
+        $categories = Category::withCount('products')->orderBy('name')->get();
+
+        // Departemen untuk widget admin
+        $departments = Department::withCount(['operators' => fn($q) => $q->where('role', 'operator')])
+            ->orderBy('name')
+            ->get();
+
         return view('dashboard.index', compact(
-            'stats', 'chartData', 'productChart', 'recentLogs', 'recentActivities'
+            'stats', 'chartData', 'productChart', 'recentLogs', 'recentActivities',
+            'categories', 'departments'
         ));
     }
 }
