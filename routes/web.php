@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Auth\LoginController;
+use App\Http\Controllers\GambarKerjaController;
 use App\Http\Controllers\MessageController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\DashboardController;
@@ -44,6 +45,17 @@ Route::middleware(['auth'])->group(function () {
 
     // API untuk dropdown product (AJAX)
     Route::get('/api/products', [ProductController::class, 'apiList'])->name('api.products');
+
+    // Ukuran Produk (semua user bisa lihat)
+    Route::get('/products/ukuran', [ProductController::class, 'ukuranIndex'])->name('products.ukuran');
+
+    // Gambar Kerja — literal routes HARUS sebelum wildcard
+    Route::get('/gambar-kerja',                        [GambarKerjaController::class, 'index'])->name('gambar-kerja.index');
+    Route::get('/gambar-kerja/create',                 [GambarKerjaController::class, 'create'])->name('gambar-kerja.create')->middleware('role:admin');
+    Route::post('/gambar-kerja',                       [GambarKerjaController::class, 'store'])->name('gambar-kerja.store')->middleware('role:admin');
+    Route::get('/gambar-kerja/produk/{product}',        [GambarKerjaController::class, 'byProduct'])->name('gambar-kerja.by-product');
+    Route::delete('/gambar-kerja/produk/{product}/all', [GambarKerjaController::class, 'destroyByProduct'])->name('gambar-kerja.destroy-by-product')->middleware('role:admin');
+    Route::delete('/gambar-kerja/{gambarKerja}',        [GambarKerjaController::class, 'destroy'])->name('gambar-kerja.destroy')->middleware('role:admin');
 
     // Chat / Pesan
     Route::post('/messages', [MessageController::class, 'store'])->name('messages.store');

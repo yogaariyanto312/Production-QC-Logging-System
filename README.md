@@ -1,59 +1,243 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# Production QC Logging System
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+Sistem pencatatan produksi dan quality control berbasis web untuk pabrik/manufaktur. Dibangun dengan Laravel 12, memungkinkan operator mencatat hasil produksi harian per shift, sementara admin dapat memantau, menganalisis, dan mengekspor laporan.
 
-## About Laravel
+---
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+## Fitur Utama
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+| Fitur | Deskripsi |
+|---|---|
+| **Input Produksi** | Catat jumlah produksi per shift (Shift 1, 2, 3) per produk setiap harinya |
+| **Gambar Kerja** | Upload dan lihat gambar kerja (JPG/PNG/PDF) tiap produk secara berurutan |
+| **Ukuran Produk** | Referensi dimensi produk (panjang × lebar) lengkap dengan KVA |
+| **Laporan** | Rekap harian & bulanan, export ke PDF dan Excel |
+| **Manajemen User** | Role Admin dan Operator dengan hak akses berbeda |
+| **Chat Internal** | Operator bisa kirim pesan ke admin, admin bisa membalas |
+| **Activity Log** | Riwayat aktivitas seluruh pengguna tercatat otomatis |
+| **Dark Mode** | Tampilan gelap/terang tersedia di semua halaman |
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+---
 
-## Learning Laravel
+## Teknologi
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework. You can also check out [Laravel Learn](https://laravel.com/learn), where you will be guided through building a modern Laravel application.
+- **Backend** — Laravel 12, PHP 8.2
+- **Frontend** — Tailwind CSS v4, Alpine.js, Vite
+- **Database** — MySQL
+- **Export** — barryvdh/laravel-dompdf (PDF), maatwebsite/excel (Excel)
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+---
 
-## Laravel Sponsors
+## Persyaratan Sistem
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+- PHP >= 8.2 (dengan ekstensi: `pdo_mysql`, `gd`, `zip`, `mbstring`, `xml`, `fileinfo`)
+- Composer >= 2
+- Node.js >= 18 & npm
+- MySQL >= 8.0
+- Web server: Apache (XAMPP) atau Nginx
 
-### Premium Partners
+---
 
-- **[Vehikl](https://vehikl.com)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Redberry](https://redberry.international/laravel-development)**
-- **[Active Logic](https://activelogic.com)**
+## Instalasi Lokal (XAMPP)
 
-## Contributing
+### 1. Clone / Letakkan Proyek
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+```bash
+# Letakkan folder proyek di dalam htdocs
+C:\xampp\htdocs\Production-QC-Logging-System\
+```
 
-## Code of Conduct
+### 2. Install Dependensi PHP
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+```bash
+composer install
+```
 
-## Security Vulnerabilities
+### 3. Install Dependensi Frontend
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+```bash
+npm install
+```
 
-## License
+### 4. Konfigurasi Environment
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+```bash
+# Salin file contoh .env
+copy .env.example .env
+
+# Generate application key
+php artisan key:generate
+```
+
+Lalu buka file `.env` dan sesuaikan konfigurasi database:
+
+```env
+APP_NAME="Production QC Logging"
+APP_URL=http://localhost/Production-QC-Logging-System/public
+
+DB_CONNECTION=mysql
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_DATABASE=qc_production_db
+DB_USERNAME=root
+DB_PASSWORD=
+```
+
+### 5. Buat Database
+
+Buka phpMyAdmin (`http://localhost/phpmyadmin`) lalu buat database baru:
+
+```sql
+CREATE DATABASE qc_production_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+```
+
+### 6. Jalankan Migrasi
+
+```bash
+php artisan migrate
+```
+
+### 7. Buat Storage Symlink
+
+```bash
+php artisan storage:link
+```
+
+> **Penting untuk XAMPP di Windows:** Pastikan baris berikut ada di `public/.htaccess` di dalam blok `<IfModule mod_rewrite.c>`:
+> ```
+> Options +FollowSymLinks
+> ```
+> Tanpa ini, gambar yang diupload tidak akan tampil.
+
+### 8. Build Asset Frontend
+
+```bash
+# Untuk development (hot-reload)
+npm run dev
+
+# Untuk production
+npm run build
+```
+
+### 9. Konfigurasi PHP untuk Upload File Besar
+
+Buka `C:\xampp\php\php.ini` dan ubah nilai berikut:
+
+```ini
+post_max_size = 500M
+upload_max_filesize = 100M
+max_file_uploads = 50
+```
+
+Restart Apache setelah menyimpan perubahan.
+
+### 10. Buat Akun Admin Pertama
+
+```bash
+php artisan tinker
+```
+
+```php
+App\Models\User::create([
+    'name'     => 'Admin',
+    'username' => 'admin',
+    'email'    => 'admin@example.com',
+    'password' => bcrypt('password'),
+    'role'     => 'admin',
+    'is_active'=> true,
+]);
+```
+
+### 11. Akses Aplikasi
+
+Buka browser dan akses:
+
+```
+http://localhost/Production-QC-Logging-System/public
+```
+
+Login menggunakan username dan password yang dibuat di langkah sebelumnya.
+
+---
+
+## Instalasi di Shared Hosting
+
+### 1. Upload File
+
+Upload semua isi folder proyek ke direktori hosting (misal: `public_html/qc/`), **kecuali** folder `node_modules`.
+
+### 2. Pindahkan Isi Folder `public`
+
+Pindahkan semua isi folder `public/` ke root domain (`public_html/`) atau ke direktori yang diakses browser.
+
+Lalu buka file `public_html/index.php` dan ubah path-nya:
+
+```php
+// Sesuaikan path ke folder proyek
+require __DIR__.'/../qc/vendor/autoload.php';
+$app = require_once __DIR__.'/../qc/bootstrap/app.php';
+```
+
+### 3. Konfigurasi `.env`
+
+Upload dan sesuaikan `.env` dengan kredensial database hosting.
+
+### 4. Jalankan via SSH (jika tersedia)
+
+```bash
+cd ~/public_html/qc
+composer install --no-dev --optimize-autoloader
+php artisan key:generate
+php artisan migrate --force
+php artisan storage:link
+php artisan config:cache
+php artisan route:cache
+php artisan view:cache
+```
+
+### 5. Build Asset (lakukan lokal, lalu upload)
+
+Karena shared hosting biasanya tidak punya Node.js:
+
+```bash
+# Di komputer lokal — sesuaikan APP_URL ke domain hosting dulu di .env
+npm run build
+
+# Upload folder public/build/ ke server
+```
+
+---
+
+## Struktur Role Pengguna
+
+| Role | Hak Akses |
+|---|---|
+| **Admin** | Semua fitur: manajemen user, produk, kategori, departemen, laporan, upload gambar kerja, hapus data |
+| **Operator** | Input produksi, lihat gambar kerja, lihat ukuran produk, kirim pesan ke admin |
+
+---
+
+## Perintah Berguna
+
+```bash
+# Jalankan semua sekaligus (server + queue + log + vite)
+composer run dev
+
+# Jalankan migrasi ulang (hati-hati: menghapus semua data)
+php artisan migrate:fresh
+
+# Bersihkan cache
+php artisan cache:clear
+php artisan config:clear
+php artisan view:clear
+php artisan route:clear
+
+# Lihat semua route
+php artisan route:list
+```
+
+---
+
+## Lisensi
+
+Proyek ini untuk keperluan internal. Tidak untuk didistribusikan ulang tanpa izin.

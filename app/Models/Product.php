@@ -17,6 +17,8 @@ class Product extends Model
         'name',
         'series',
         'kva',
+        'panjang',
+        'lebar',
         'unit',
         'description',
         'is_active',
@@ -39,6 +41,11 @@ class Product extends Model
     public function productionLogs(): HasMany
     {
         return $this->hasMany(ProductionLog::class);
+    }
+
+    public function gambarKerja(): HasMany
+    {
+        return $this->hasMany(GambarKerja::class);
     }
 
     // Total produksi bulan ini

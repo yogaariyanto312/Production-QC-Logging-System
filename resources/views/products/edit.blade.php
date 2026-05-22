@@ -63,6 +63,33 @@
                 @error('kva')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
             </div>
 
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                        Panjang
+                        <span class="ml-1 text-xs font-normal text-slate-400">(contoh: 900mm)</span>
+                    </label>
+                    <input type="text" name="panjang" value="{{ old('panjang', $product->panjang) }}"
+                           placeholder="Contoh: 900mm"
+                           class="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900
+                                  text-slate-800 dark:text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500
+                                  @error('panjang') border-red-500 @enderror">
+                    @error('panjang')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                        Lebar
+                        <span class="ml-1 text-xs font-normal text-slate-400">(contoh: 200mm)</span>
+                    </label>
+                    <input type="text" name="lebar" value="{{ old('lebar', $product->lebar) }}"
+                           placeholder="Contoh: 200mm"
+                           class="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900
+                                  text-slate-800 dark:text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500
+                                  @error('lebar') border-red-500 @enderror">
+                    @error('lebar')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+                </div>
+            </div>
+
             <div>
                 <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Satuan <span class="text-red-500">*</span></label>
                 <select name="unit"

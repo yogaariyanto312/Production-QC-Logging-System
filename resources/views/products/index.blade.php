@@ -69,12 +69,20 @@
             @if($product->series_with_kva)
             <p class="text-xs text-slate-400 font-mono mt-1">{{ $product->series_with_kva }}</p>
             @endif
-            <div class="flex items-center gap-2 mt-2">
+            <div class="flex items-center gap-2 mt-2 flex-wrap">
                 <span class="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium
                              bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400">
                     {{ $product->category->name ?? 'Tanpa Kategori' }}
                 </span>
                 <span class="text-xs text-slate-400">· {{ $product->unit }}</span>
+                @if($product->panjang || $product->lebar)
+                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 6h18M3 12h18M3 18h18"/>
+                    </svg>
+                    {{ implode(' × ', array_filter([$product->panjang, $product->lebar])) }}
+                </span>
+                @endif
             </div>
             @if($product->description)
             <p class="text-xs text-slate-400 mt-2 line-clamp-2">{{ $product->description }}</p>

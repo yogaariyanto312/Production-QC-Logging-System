@@ -75,6 +75,21 @@ class ProductController extends Controller
         return redirect()->route('products.index')->with('success', "Produk '{$name}' berhasil dihapus.");
     }
 
+    public function ukuranIndex(Request $request)
+    {
+        $products = Product::with('category')
+            ->where('is_active', true)
+            ->when($request->search, fn($q) => $q->where('name', 'like', "%{$request->search}%")
+                ->orWhere('series', 'like', "%{$request->search}%"))
+            ->when($request->category_id, fn($q) => $q->where('category_id', $request->category_id))
+            ->orderBy('name')
+            ->get();
+
+        $categories = Category::where('is_active', true)->orderBy('name')->get();
+
+        return view('products.ukuran', compact('products', 'categories'));
+    }
+
     // API untuk select dropdown (AJAX)
     public function apiList(Request $request)
     {

@@ -19,6 +19,8 @@ class ProductRequest extends FormRequest
             'name'         => ['required', 'string', 'max:150'],
             'series'       => ['nullable', 'string', 'max:100'],
             'kva'          => ['nullable', 'string', 'max:20'],
+            'panjang'      => ['nullable', 'string', 'max:50'],
+            'lebar'        => ['nullable', 'string', 'max:50'],
             'unit'         => ['required', 'string', 'max:20'],
             'description'  => ['nullable', 'string', 'max:500'],
             'is_active'    => ['boolean'],
