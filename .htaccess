@@ -1,9 +1,9 @@
-# Disable ModSecurity jika diaktifkan hosting
-<IfModule mod_security2.c>
-    SecRuleEngine Off
-</IfModule>
-
 <IfModule mod_rewrite.c>
+    <IfModule mod_negotiation.c>
+        Options -MultiViews -Indexes
+    </IfModule>
+
+    Options +FollowSymLinks
     RewriteEngine On
 
     # Handle Authorization Header
@@ -14,23 +14,17 @@
     RewriteCond %{HTTP:x-xsrf-token} .
     RewriteRule .* - [E=HTTP_X_XSRF_TOKEN:%{HTTP:X-XSRF-Token}]
 
-    # Redirect Trailing Slashes
+    # Redirect Trailing Slashes If Not A Folder...
     RewriteCond %{REQUEST_FILENAME} !-d
     RewriteCond %{REQUEST_URI} (.+)/$
     RewriteRule ^ %1 [L,R=301]
 
-    # Serve Vite build assets dari public/build/
-    RewriteRule ^build/(.*)$ public/build/$1 [L]
+    # Serve uploaded files from storage/app/public (fallback for hosting without symlink)
+    RewriteCond %{REQUEST_URI} !storage/app/public/
+    RewriteRule ^storage/(.+)$ storage/app/public/$1 [L,NC]
 
-    # Serve file statis dari public/ jika ada
-    RewriteCond %{REQUEST_FILENAME} !-d
-    RewriteCond %{REQUEST_FILENAME} !-f
-    RewriteCond public/%{REQUEST_URI} -f
-    RewriteRule ^(.*)$ public/$1 [L]
-
-    # Semua request PHP → index.php
+    # Send Requests To Front Controller...
     RewriteCond %{REQUEST_FILENAME} !-d
     RewriteCond %{REQUEST_FILENAME} !-f
     RewriteRule ^ index.php [L]
-
 </IfModule>

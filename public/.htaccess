@@ -19,6 +19,10 @@
     RewriteCond %{REQUEST_URI} (.+)/$
     RewriteRule ^ %1 [L,R=301]
 
+    # Serve uploaded files from storage/app/public (fallback for hosting without symlink)
+    RewriteCond %{REQUEST_URI} !storage/app/public/
+    RewriteRule ^storage/(.+)$ storage/app/public/$1 [L,NC]
+
     # Send Requests To Front Controller...
     RewriteCond %{REQUEST_FILENAME} !-d
     RewriteCond %{REQUEST_FILENAME} !-f
