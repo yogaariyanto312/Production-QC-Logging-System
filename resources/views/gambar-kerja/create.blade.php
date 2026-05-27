@@ -1,44 +1,113 @@
 @extends('layouts.app')
 
-@section('title', 'Upload Gambar Kerja')
-@section('page-title', 'Upload Gambar Kerja')
-@section('page-subtitle', $selectedProduct ? $selectedProduct->name : 'Tambah gambar teknik produk')
+@php $isAddMode = request()->has('judul'); @endphp
+@section('title', $isAddMode ? 'Tambah File Gambar Kerja' : 'Upload Gambar Kerja')
+@section('page-title', $isAddMode ? 'Tambah File' : 'Upload Gambar Kerja')
+@section('page-subtitle', $isAddMode ? 'Menambah file ke grup yang sudah ada' : 'Tambah dokumen gambar teknik')
 
 @section('content')
 <div class="max-w-xl mx-auto">
     <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 overflow-hidden">
-        <div class="bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-5">
-            <h2 class="text-lg font-bold text-white">Upload Gambar Kerja</h2>
-            <p class="text-blue-100 text-sm mt-1">
-                Bisa pilih banyak file sekaligus — nomor urut otomatis
-                @if($selectedProduct)
-                    · <span class="font-semibold">{{ $selectedProduct->name }}</span>
-                @endif
+        <div class="bg-gradient-to-r {{ $isAddMode ? 'from-green-600 to-emerald-600' : 'from-blue-600 to-indigo-600' }} px-6 py-5">
+            <h2 class="text-lg font-bold text-white">{{ $isAddMode ? 'Tambah File ke Grup' : 'Upload Gambar Kerja' }}</h2>
+            <p class="text-sm mt-1 {{ $isAddMode ? 'text-green-100' : 'text-blue-100' }}">
+                {{ $isAddMode ? 'File baru akan ditambahkan ke grup: ' . request('judul') : 'Bisa pilih banyak file sekaligus — nomor urut otomatis' }}
             </p>
         </div>
 
         <form method="POST" action="{{ route('gambar-kerja.store') }}" enctype="multipart/form-data" class="p-6 space-y-5">
             @csrf
 
-            {{-- Produk --}}
+            @if($isAddMode)
+            {{-- Mode tambah file: field dikunci, tampil sebagai info --}}
+            <div class="flex items-center gap-3 px-4 py-3 bg-green-50 dark:bg-green-900/20 rounded-xl border border-green-200 dark:border-green-800">
+                <svg class="w-5 h-5 text-green-600 dark:text-green-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+                <div class="text-sm">
+                    <p class="font-semibold text-green-800 dark:text-green-300">{{ request('judul') }}</p>
+                    <p class="text-green-600 dark:text-green-400 font-mono text-xs">
+                        {{ request('seri') }}{{ request('kva') ? '-' . request('kva') . 'KVA' : '' }}
+                        {{ request('tahun') ? '· ' . request('tahun') : '' }}
+                    </p>
+                </div>
+            </div>
+            <input type="hidden" name="judul" value="{{ request('judul') }}">
+            <input type="hidden" name="seri"  value="{{ request('seri') }}">
+            <input type="hidden" name="kva"   value="{{ request('kva') }}">
+            <input type="hidden" name="tahun" value="{{ request('tahun') }}">
+
+            @else
+            {{-- Mode baru: semua field bisa diisi --}}
+
+            {{-- Judul --}}
             <div>
                 <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                    Produk <span class="text-red-500">*</span>
+                    Judul <span class="text-red-500">*</span>
                 </label>
-                <select name="product_id"
-                        class="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900
-                               text-slate-800 dark:text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500
-                               @error('product_id') border-red-500 @enderror">
-                    <option value="">-- Pilih Produk --</option>
-                    @foreach($products as $p)
-                    <option value="{{ $p->id }}"
-                        {{ old('product_id', $selectedProduct?->id) == $p->id ? 'selected' : '' }}>
-                        {{ $p->name }}{{ $p->series_with_kva ? ' — ' . $p->series_with_kva : '' }}
-                    </option>
-                    @endforeach
-                </select>
-                @error('product_id')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+                <input type="text" name="judul" value="{{ old('judul') }}"
+                       placeholder="Contoh: Gambar Teknik Trafo 500KVA"
+                       class="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900
+                              text-slate-800 dark:text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500
+                              @error('judul') border-red-500 @enderror">
+                @error('judul')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
             </div>
+
+            {{-- Seri + KVA + Tahun --}}
+            <div x-data="{ seri: '{{ old('seri') }}', kva: '{{ old('kva') }}' }">
+                <div class="grid grid-cols-3 gap-4">
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                            Seri
+                            <span class="ml-1 text-xs font-normal text-slate-400"><span class="text-red-500">*</span></span>
+                        </label>
+                        <input type="text" name="seri" x-model="seri" value="{{ old('seri') }}"
+                               placeholder="Contoh: 26#######"
+                               class="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900
+                                      text-slate-800 dark:text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500
+                                      @error('seri') border-red-500 @enderror">
+                        @error('seri')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                            KVA
+                            <span class="ml-1 text-xs font-normal text-slate-400"><span class="text-red-500">*</span></span>
+                        </label>
+                        <input type="text" name="kva" x-model="kva" value="{{ old('kva') }}"
+                               placeholder="Contoh: 50, 100, 160"
+                               class="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900
+                                      text-slate-800 dark:text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500
+                                      @error('kva') border-red-500 @enderror">
+                        @error('kva')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                            Tahun Gambar
+                        </label>
+                        <select name="tahun"
+                                class="w-full px-4 py-3 border bg-white dark:bg-slate-900
+                                       text-slate-800 dark:text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500
+                                       {{ $errors->has('tahun') ? 'border-red-500' : 'border-slate-300 dark:border-slate-600' }}">
+                            <option value="">— Pilih —</option>
+                            @for($y = now()->year + 5; $y >= 2025; $y--)
+                            <option value="{{ $y }}" {{ old('tahun') == $y ? 'selected' : '' }}>{{ $y }}</option>
+                            @endfor
+                        </select>
+                        @error('tahun')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+                    </div>
+                </div>
+
+                {{-- Preview seri(kva) realtime --}}
+                <div x-show="seri || kva" x-cloak
+                     class="mt-3 flex items-center gap-2 px-3 py-2 bg-slate-50 dark:bg-slate-700/50 rounded-xl">
+                    <span class="text-xs text-slate-500">Akan tampil sebagai:</span>
+                    <span class="text-sm font-mono font-semibold text-slate-700 dark:text-slate-200"
+                          x-text="seri + (kva ? '(' + kva + ')' : '')"></span>
+                </div>
+            </div>
+
+            @endif {{-- end isAddMode else --}}
 
             {{-- Info nomor urut --}}
             <div class="flex items-start gap-2.5 px-3 py-2.5 bg-blue-50 dark:bg-blue-900/20 rounded-xl">
@@ -46,8 +115,7 @@
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
                 </svg>
                 <p class="text-xs text-blue-700 dark:text-blue-300">
-                    Gambar akan diberi nama otomatis: <strong>Gambar 1, Gambar 2, ...</strong>
-                    melanjutkan dari gambar yang sudah ada.
+                    Beberapa file dengan judul & seri yang sama akan digabung otomatis dan diberi nomor urut lanjutan.
                 </p>
             </div>
 
@@ -80,7 +148,6 @@
                     </div>
                 </div>
 
-                {{-- Daftar file --}}
                 <template x-if="files.length">
                     <ul class="mt-3 space-y-2">
                         <template x-for="(f, i) in files" :key="i">
@@ -112,7 +179,9 @@
             </div>
 
             <div class="flex gap-3 pt-2">
-                <a href="{{ $selectedProduct ? route('gambar-kerja.by-product', $selectedProduct) : route('gambar-kerja.index') }}"
+                <a href="{{ $isAddMode
+                        ? route('gambar-kerja.by-group', ['judul' => request('judul'), 'seri' => request('seri'), 'kva' => request('kva'), 'tahun' => request('tahun')])
+                        : route('gambar-kerja.index') }}"
                    class="flex-1 py-3 text-center text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-700
                           hover:bg-slate-200 dark:hover:bg-slate-600 rounded-xl font-semibold transition-colors">
                     Batal

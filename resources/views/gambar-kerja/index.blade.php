@@ -2,40 +2,20 @@
 
 @section('title', 'Gambar Kerja')
 @section('page-title', 'Gambar Kerja')
-@section('page-subtitle', 'Pilih produk untuk melihat gambar kerjanya')
+@section('page-subtitle', 'Dokumen gambar teknik produksi')
 
 @section('content')
-<div class="space-y-5">
+<div class="space-y-6">
 
     {{-- Filter & Action Bar --}}
     <div class="bg-white dark:bg-slate-800 rounded-2xl p-5 shadow-sm border border-slate-100 dark:border-slate-700">
         <form method="GET" action="{{ route('gambar-kerja.index') }}" class="flex flex-wrap gap-3 items-end">
             <div class="flex-1 min-w-44">
-                <label class="block text-xs font-medium text-slate-500 mb-1">Cari Produk</label>
+                <label class="block text-xs font-medium text-slate-500 mb-1">Cari Judul / Seri / KVA</label>
                 <input type="text" name="search" value="{{ request('search') }}"
-                       placeholder="Nama atau seri produk..."
+                       placeholder="Nama judul, seri, atau KVA..."
                        class="w-full px-3 py-2.5 text-sm border border-slate-300 dark:border-slate-600 rounded-xl
                               bg-white dark:bg-slate-900 text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
-            </div>
-            <div class="min-w-36">
-                <label class="block text-xs font-medium text-slate-500 mb-1">Kategori</label>
-                <select name="category_id"
-                        class="w-full px-3 py-2.5 text-sm border border-slate-300 dark:border-slate-600 rounded-xl
-                               bg-white dark:bg-slate-900 text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    <option value="">Semua Kategori</option>
-                    @foreach($categories as $cat)
-                    <option value="{{ $cat->id }}" {{ request('category_id') == $cat->id ? 'selected' : '' }}>{{ $cat->name }}</option>
-                    @endforeach
-                </select>
-            </div>
-            <div class="min-w-36">
-                <label class="block text-xs font-medium text-slate-500 mb-1">Tampilkan</label>
-                <select name="has_gambar"
-                        class="w-full px-3 py-2.5 text-sm border border-slate-300 dark:border-slate-600 rounded-xl
-                               bg-white dark:bg-slate-900 text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    <option value="">Semua Produk</option>
-                    <option value="1" {{ request('has_gambar') == '1' ? 'selected' : '' }}>Ada Gambar Kerja</option>
-                </select>
             </div>
             <div class="flex gap-2">
                 <button type="submit"
@@ -43,12 +23,12 @@
                     Filter
                 </button>
                 <a href="{{ route('gambar-kerja.index') }}"
-                   class="px-4 py-2.5 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 text-slate-700 dark:text-slate-300 text-sm font-semibold rounded-xl">
+                   class="px-4 py-2.5 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 text-sm font-semibold rounded-xl transition-colors">
                     Reset
                 </a>
                 @if(auth()->user()->isAdmin())
                 <a href="{{ route('gambar-kerja.create') }}"
-                   class="px-4 py-2.5 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold rounded-xl flex items-center gap-2">
+                   class="px-4 py-2.5 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold rounded-xl flex items-center gap-2 transition-colors">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
                     </svg>
@@ -59,107 +39,138 @@
         </form>
     </div>
 
-    {{-- Grid Produk --}}
-    @if($products->isEmpty())
+    {{-- Empty state --}}
+    @if($yearGroups->isEmpty())
     <div class="bg-white dark:bg-slate-800 rounded-2xl py-16 text-center border border-slate-100 dark:border-slate-700">
         <svg class="w-14 h-14 mx-auto mb-4 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
                   d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
         </svg>
-        <p class="text-slate-500 font-medium">Tidak ada produk ditemukan</p>
+        <p class="text-slate-500 font-medium">Belum ada gambar kerja</p>
+        @if(auth()->user()->isAdmin())
+        <a href="{{ route('gambar-kerja.create') }}"
+           class="mt-4 inline-block px-5 py-2 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700">
+            Upload Sekarang
+        </a>
+        @endif
     </div>
+
     @else
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-        @foreach($products as $product)
-        @php $firstGambar = $product->gambarKerja->first(); @endphp
-        <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700
-                    hover:shadow-md transition-shadow flex flex-col group">
 
-            {{-- Thumbnail (klik ke halaman gambar) --}}
-            <a href="{{ route('gambar-kerja.by-product', $product) }}" class="block">
-                <div class="h-40 rounded-t-2xl overflow-hidden bg-slate-100 dark:bg-slate-700 relative">
-                    @if($firstGambar && $firstGambar->isImage())
-                        <img src="{{ asset('storage/' . $firstGambar->file_path) }}"
-                             alt="{{ $product->name }}"
-                             class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300">
-                    @elseif($firstGambar && $firstGambar->isPdf())
-                        <div class="w-full h-full flex flex-col items-center justify-center gap-2">
-                            <svg class="w-12 h-12 text-red-400" fill="currentColor" viewBox="0 0 24 24">
-                                <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zm-1 1.5L18.5 9H13V3.5zM6 20V4h5v7h7v9H6z"/>
-                            </svg>
-                            <span class="text-xs font-bold text-red-500 uppercase tracking-widest">PDF</span>
-                        </div>
-                    @else
-                        <div class="w-full h-full flex flex-col items-center justify-center gap-2 text-slate-300">
-                            <svg class="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
-                                      d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-                            </svg>
-                            <span class="text-xs font-medium">Belum ada gambar</span>
-                        </div>
-                    @endif
+    {{-- Sections per tahun --}}
+    @foreach($yearGroups as $tahun => $items)
+    <div class="space-y-3">
 
-                    {{-- Badge jumlah gambar --}}
-                    @if($product->gambar_kerja_count > 0)
-                    <span class="absolute top-2 right-2 px-2 py-0.5 rounded-full text-xs font-bold bg-black/60 text-white">
-                        {{ $product->gambar_kerja_count }} gambar
-                    </span>
-                    @endif
-                </div>
-
-                {{-- Info --}}
-                <div class="p-4 pb-3">
-                    <h3 class="font-semibold text-slate-800 dark:text-white text-sm leading-tight line-clamp-1
-                                group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
-                        {{ $product->name }}
-                    </h3>
-                    @if($product->series_with_kva)
-                    <p class="text-xs font-mono text-slate-400 mt-0.5">{{ $product->series_with_kva }}</p>
-                    @endif
-                    <div class="flex items-center justify-between mt-2">
-                        <span class="text-xs text-slate-400">{{ $product->category->name ?? '-' }}</span>
-                        @if($product->gambar_kerja_count > 0)
-                        <span class="text-xs font-semibold text-blue-600 dark:text-blue-400 flex items-center gap-1">
-                            Lihat gambar
-                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-                            </svg>
-                        </span>
-                        @else
-                        <span class="text-xs text-slate-300 dark:text-slate-600 italic">Belum ada</span>
-                        @endif
-                    </div>
-                </div>
-            </a>
-
-            {{-- Tombol Hapus (admin, hanya kalau ada gambar) --}}
-            @if(auth()->user()->isAdmin() && $product->gambar_kerja_count > 0)
-            <div class="px-4 pb-4 mt-auto">
-                <form method="POST" action="{{ route('gambar-kerja.destroy-by-product', $product) }}">
-                    @csrf @method('DELETE')
-                    <button type="submit"
-                            data-confirm="Hapus semua {{ $product->gambar_kerja_count }} gambar kerja '{{ $product->name }}'? Tindakan ini tidak bisa dibatalkan."
-                            class="w-full flex items-center justify-center gap-2 py-2 text-sm font-medium
-                                   text-red-600 bg-red-50 hover:bg-red-100 dark:bg-red-900/20 dark:text-red-400
-                                   rounded-xl transition-colors">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
-                        </svg>
-                        Hapus Semua Gambar
-                    </button>
-                </form>
+        {{-- Year Header --}}
+        <div class="flex items-center gap-3">
+            <div class="flex items-center gap-2 px-4 py-1.5 bg-blue-600 text-white rounded-full shadow-sm">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                </svg>
+                <span class="text-sm font-bold tracking-wide">{{ $tahun }}</span>
             </div>
-            @endif
-
+            <div class="h-px flex-1 bg-slate-200 dark:bg-slate-700"></div>
+            <span class="text-xs text-slate-400 font-medium">{{ $items->count() }} dokumen</span>
         </div>
-        @endforeach
-    </div>
 
-    {{-- Pagination --}}
-    @if($products->hasPages())
-    <div>{{ $products->links() }}</div>
-    @endif
+        {{-- Cards Grid --}}
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            @foreach($items as $group)
+            @php $firstFile = $firstFiles[$group->first_id] ?? null; @endphp
+
+            <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700
+                        hover:shadow-md hover:border-blue-200 dark:hover:border-blue-800 transition-all flex flex-col group">
+
+                {{-- Thumbnail --}}
+                <a href="{{ route('gambar-kerja.by-group', ['judul' => $group->judul, 'seri' => $group->seri, 'kva' => $group->kva, 'tahun' => $group->tahun]) }}"
+                   class="block">
+                    <div class="h-36 rounded-t-2xl overflow-hidden bg-slate-100 dark:bg-slate-700 relative">
+                        @if($group->group_thumbnail)
+                            <img src="{{ route('storage.file', $group->group_thumbnail) }}"
+                                 alt="{{ $group->judul }}"
+                                 class="w-full h-full object-cover">
+                        @elseif($firstFile?->isImage())
+                            <img src="{{ route('storage.file', $firstFile->file_path) }}"
+                                 alt="{{ $group->judul }}"
+                                 class="w-full h-full object-cover">
+                        @elseif($firstFile && $firstFile->isPdf())
+                            <div class="w-full h-full flex flex-col items-center justify-center gap-2 bg-red-50 dark:bg-red-900/20">
+                                <svg class="w-10 h-10 text-red-400" fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zm-1 1.5L18.5 9H13V3.5zM6 20V4h5v7h7v9H6z"/>
+                                </svg>
+                                <span class="text-xs font-bold text-red-500 uppercase tracking-widest">PDF</span>
+                            </div>
+                        @else
+                            <div class="w-full h-full flex flex-col items-center justify-center gap-2 text-slate-300">
+                                <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                                          d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                                </svg>
+                            </div>
+                        @endif
+
+                        {{-- File count badge --}}
+                        <span class="absolute top-2 right-2 px-2 py-0.5 rounded-full text-xs font-bold
+                                     bg-black/50 backdrop-blur-sm text-white">
+                            {{ $group->total }} file
+                        </span>
+
+                    </div>
+
+                    {{-- Info --}}
+                    <div class="p-4 pb-3">
+                        <h3 class="font-semibold text-slate-800 dark:text-white text-sm leading-tight line-clamp-2
+                                    group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors min-h-10">
+                            {{ $group->judul }}
+                        </h3>
+                        @if($group->seri || $group->kva)
+                        <p class="text-xs font-mono text-slate-400 mt-1 truncate">
+                            {{ $group->seri }}{{ $group->kva ? "-{$group->kva}KVA" : '' }}
+                        </p>
+                        @endif
+                        <div class="flex items-center justify-end mt-2">
+                            <span class="text-xs font-semibold text-blue-600 dark:text-blue-400 flex items-center gap-1">
+                                Lihat gambar
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                                </svg>
+                            </span>
+                        </div>
+                    </div>
+                </a>
+
+                {{-- Tombol Hapus (admin only) --}}
+                @if(auth()->user()->isAdmin())
+                <div class="px-4 pb-4 mt-auto">
+                    <form method="POST" action="{{ route('gambar-kerja.destroy-by-group') }}">
+                        @csrf @method('DELETE')
+                        <input type="hidden" name="judul" value="{{ $group->judul }}">
+                        <input type="hidden" name="seri"  value="{{ $group->seri }}">
+                        <input type="hidden" name="kva"   value="{{ $group->kva }}">
+                        <input type="hidden" name="tahun" value="{{ $group->tahun }}">
+                        <button type="submit"
+                                data-confirm="Hapus semua {{ $group->total }} file gambar kerja '{{ $group->judul }}'?"
+                                class="w-full flex items-center justify-center gap-2 py-2 text-xs font-medium
+                                       text-red-600 bg-red-50 hover:bg-red-100 dark:bg-red-900/20 dark:hover:bg-red-900/40 dark:text-red-400
+                                       rounded-xl transition-colors">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                      d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                            </svg>
+                            Hapus Semua
+                        </button>
+                    </form>
+                </div>
+                @endif
+
+            </div>
+            @endforeach
+        </div>
+
+    </div>
+    @endforeach
+
     @endif
 
 </div>

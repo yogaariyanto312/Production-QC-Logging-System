@@ -38,12 +38,15 @@ class OperatorController extends Controller
         $data = $request->validate([
             'name'       => ['required', 'string', 'max:150'],
             'username'   => ['required', 'string', 'max:50', 'unique:users,username'],
+            'email'      => ['nullable', 'email', 'max:255', 'unique:users,email'],
             'password'   => ['required', 'string', 'min:6', 'confirmed'],
             'department' => ['nullable', 'string', 'max:100'],
         ], [
             'name.required'      => 'Nama lengkap wajib diisi.',
             'username.required'  => 'Username wajib diisi.',
             'username.unique'    => 'Username sudah digunakan.',
+            'email.email'        => 'Format email tidak valid.',
+            'email.unique'       => 'Email sudah digunakan.',
             'password.required'  => 'Password wajib diisi.',
             'password.min'       => 'Password minimal 6 karakter.',
             'password.confirmed' => 'Konfirmasi password tidak cocok.',
@@ -74,6 +77,7 @@ class OperatorController extends Controller
         $data = $request->validate([
             'name'       => ['required', 'string', 'max:150'],
             'username'   => ['required', 'string', 'max:50', Rule::unique('users', 'username')->ignore($operator->id)],
+            'email'      => ['nullable', 'email', 'max:255', Rule::unique('users', 'email')->ignore($operator->id)],
             'password'   => ['nullable', 'string', 'min:6', 'confirmed'],
             'department' => ['nullable', 'string', 'max:100'],
             'is_active'  => ['boolean'],
@@ -81,6 +85,8 @@ class OperatorController extends Controller
             'name.required'      => 'Nama lengkap wajib diisi.',
             'username.required'  => 'Username wajib diisi.',
             'username.unique'    => 'Username sudah digunakan.',
+            'email.email'        => 'Format email tidak valid.',
+            'email.unique'       => 'Email sudah digunakan.',
             'password.min'       => 'Password minimal 6 karakter.',
             'password.confirmed' => 'Konfirmasi password tidak cocok.',
         ]);

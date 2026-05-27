@@ -34,12 +34,15 @@ class AdminController extends Controller
         $data = $request->validate([
             'name'     => ['required', 'string', 'max:150'],
             'email'    => ['required', 'email', 'max:150', 'unique:users,email'],
+            'username' => ['nullable', 'string', 'max:50', 'alpha_dash', 'unique:users,username'],
             'password' => ['required', 'string', 'min:8', 'confirmed'],
         ], [
             'name.required'      => 'Nama lengkap wajib diisi.',
             'email.required'     => 'Email wajib diisi.',
             'email.email'        => 'Format email tidak valid.',
             'email.unique'       => 'Email sudah digunakan.',
+            'username.unique'    => 'Username sudah digunakan.',
+            'username.alpha_dash' => 'Username hanya boleh huruf, angka, tanda hubung, dan garis bawah.',
             'password.required'  => 'Password wajib diisi.',
             'password.min'       => 'Password minimal 8 karakter.',
             'password.confirmed' => 'Konfirmasi password tidak cocok.',
@@ -69,12 +72,15 @@ class AdminController extends Controller
         $data = $request->validate([
             'name'     => ['required', 'string', 'max:150'],
             'email'    => ['required', 'email', 'max:150', Rule::unique('users', 'email')->ignore($admin->id)],
+            'username' => ['nullable', 'string', 'max:50', 'alpha_dash', Rule::unique('users', 'username')->ignore($admin->id)],
             'password' => ['nullable', 'string', 'min:8', 'confirmed'],
         ], [
             'name.required'      => 'Nama lengkap wajib diisi.',
             'email.required'     => 'Email wajib diisi.',
             'email.email'        => 'Format email tidak valid.',
             'email.unique'       => 'Email sudah digunakan.',
+            'username.unique'    => 'Username sudah digunakan.',
+            'username.alpha_dash' => 'Username hanya boleh huruf, angka, tanda hubung, dan garis bawah.',
             'password.min'       => 'Password minimal 8 karakter.',
             'password.confirmed' => 'Konfirmasi password tidak cocok.',
         ]);
@@ -84,6 +90,8 @@ class AdminController extends Controller
         } else {
             $data['password'] = Hash::make($data['password']);
         }
+
+        $data['username'] = $data['username'] ?: null;
 
         $admin->update($data);
         ActivityLog::record('update', "Edit admin: {$admin->name}", $admin);

@@ -28,16 +28,30 @@
                 @error('name')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
             </div>
 
-            <div>
-                <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                    Email <span class="text-red-500">*</span>
-                </label>
-                <input type="email" name="email" value="{{ old('email') }}"
-                       placeholder="contoh@email.com"
-                       class="w-full px-4 py-3 rounded-xl bg-white dark:bg-slate-900 text-slate-800 dark:text-white
-                              border {{ $errors->has('email') ? 'border-red-500' : 'border-slate-300 dark:border-slate-600' }}
-                              focus:outline-none focus:ring-2 focus:ring-purple-500">
-                @error('email')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                        Email <span class="text-red-500">*</span>
+                    </label>
+                    <input type="email" name="email" value="{{ old('email') }}"
+                           placeholder="contoh@email.com"
+                           class="w-full px-4 py-3 rounded-xl bg-white dark:bg-slate-900 text-slate-800 dark:text-white
+                                  border {{ $errors->has('email') ? 'border-red-500' : 'border-slate-300 dark:border-slate-600' }}
+                                  focus:outline-none focus:ring-2 focus:ring-purple-500">
+                    @error('email')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                        Username
+                        <span class="ml-1 text-xs font-normal text-slate-400">(opsional)</span>
+                    </label>
+                    <input type="text" name="username" value="{{ old('username') }}"
+                           placeholder="Contoh: admin123"
+                           class="w-full px-4 py-3 rounded-xl bg-white dark:bg-slate-900 text-slate-800 dark:text-white
+                                  border {{ $errors->has('username') ? 'border-red-500' : 'border-slate-300 dark:border-slate-600' }}
+                                  focus:outline-none focus:ring-2 focus:ring-purple-500">
+                    @error('username')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+                </div>
             </div>
 
             <div class="grid grid-cols-2 gap-4">

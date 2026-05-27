@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Notifications\ResetPasswordNotification;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -21,6 +22,10 @@ class User extends Authenticatable
         'role',
         'department',
         'phone',
+        'avatar',
+        'last_seen_at',
+        'typing_to',
+        'typing_at',
         'is_active',
     ];
 
@@ -38,6 +43,11 @@ class User extends Authenticatable
         ];
     }
 
+    public function isDeveloper(): bool
+    {
+        return $this->role === 'developer';
+    }
+
     public function isAdmin(): bool
     {
         return $this->role === 'admin';
@@ -48,6 +58,21 @@ class User extends Authenticatable
         return $this->role === 'operator';
     }
 
+    public function isSupervisor(): bool
+    {
+        return $this->role === 'supervisor';
+    }
+
+    public function isVisitor(): bool
+    {
+        return $this->role === 'visitor';
+    }
+
+    public function isPrivileged(): bool
+    {
+        return in_array($this->role, ['developer', 'admin', 'supervisor']);
+    }
+
     public function productionLogs(): HasMany
     {
         return $this->hasMany(ProductionLog::class);
@@ -56,5 +81,10 @@ class User extends Authenticatable
     public function activityLogs(): HasMany
     {
         return $this->hasMany(ActivityLog::class);
+    }
+
+    public function sendPasswordResetNotification($token): void
+    {
+        $this->notify(new ResetPasswordNotification($token));
     }
 }

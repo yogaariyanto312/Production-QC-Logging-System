@@ -74,6 +74,7 @@
                         <th class="px-5 py-3 text-center text-xs font-semibold text-slate-500 uppercase">UP</th>
                         <th class="px-5 py-3 text-center text-xs font-semibold text-slate-500 uppercase">BT</th>
                         <th class="px-5 py-3 text-center text-xs font-semibold text-slate-500 uppercase">Total</th>
+                        <th class="px-5 py-3 text-left text-xs font-semibold text-slate-500 uppercase">No. Urut</th>
                         <th class="px-5 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Operator</th>
                     </tr>
                 </thead>
@@ -84,20 +85,18 @@
                         <td class="px-5 py-3 text-slate-400">{{ $i + 1 }}</td>
                         <td class="px-5 py-3">
                             <div class="font-semibold text-slate-800 dark:text-white">{{ $log->product->name ?? '-' }}</div>
-                            @if($log->notes)
-                            <div class="text-xs text-slate-400 italic mt-0.5">{{ Str::limit($log->notes, 60) }}</div>
-                            @endif
                         </td>
                         <td class="px-5 py-3 font-mono text-xs text-slate-500">{{ $log->product->series_with_kva ?: '-' }}</td>
                         <td class="px-5 py-3 text-slate-500">{{ $log->product->category->name ?? '-' }}</td>
-                        <td class="px-5 py-3 text-center font-medium">{{ number_format($log->shift1_qty) }}</td>
-                        <td class="px-5 py-3 text-center font-medium">{{ number_format($log->shift2_qty) }}</td>
+                        <td class="px-5 py-3 text-center font-medium text-slate-700 dark:text-slate-200">{{ number_format($log->shift1_qty) }}</td>
+                        <td class="px-5 py-3 text-center font-medium text-slate-700 dark:text-slate-200">{{ number_format($log->shift2_qty) }}</td>
                         <td class="px-5 py-3 text-center font-bold text-blue-700 dark:text-blue-400">{{ number_format($log->total_qty) }}</td>
+                        <td class="px-5 py-3 font-mono text-xs text-slate-500 whitespace-pre-line">{{ $log->notes ?: '-' }}</td>
                         <td class="px-5 py-3 text-slate-500">{{ $log->user->name ?? '-' }}</td>
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="8" class="px-6 py-12 text-center text-slate-400">
+                        <td colspan="9" class="px-6 py-12 text-center text-slate-400">
                             Tidak ada data produksi untuk tanggal ini
                         </td>
                     </tr>
@@ -110,6 +109,7 @@
                         <td class="px-5 py-3 text-center font-bold text-slate-800 dark:text-white">{{ number_format($totalShift1) }}</td>
                         <td class="px-5 py-3 text-center font-bold text-slate-800 dark:text-white">{{ number_format($totalShift2) }}</td>
                         <td class="px-5 py-3 text-center font-black text-blue-700">{{ number_format($grandTotal) }}</td>
+                        <td></td>
                         <td></td>
                     </tr>
                 </tfoot>

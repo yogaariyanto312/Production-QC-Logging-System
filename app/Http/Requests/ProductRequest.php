@@ -8,7 +8,7 @@ class ProductRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return auth()->user()->isAdmin();
+        return auth()->user()->isPrivileged();
     }
 
     public function rules(): array
@@ -19,6 +19,7 @@ class ProductRequest extends FormRequest
             'name'         => ['required', 'string', 'max:150'],
             'series'       => ['nullable', 'string', 'max:100'],
             'kva'          => ['nullable', 'string', 'max:20'],
+            'tahun'        => ['nullable', 'integer', 'min:2025', 'max:' . (now()->year + 5)],
             'panjang'      => ['nullable', 'string', 'max:50'],
             'lebar'        => ['nullable', 'string', 'max:50'],
             'unit'         => ['required', 'string', 'max:20'],

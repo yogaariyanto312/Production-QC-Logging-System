@@ -6,6 +6,7 @@ use App\Http\Requests\ProductRequest;
 use App\Models\ActivityLog;
 use App\Models\Category;
 use App\Models\Product;
+use App\Models\ProductionLog;
 use Illuminate\Http\Request;
 
 class ProductController extends Controller
@@ -16,14 +17,21 @@ class ProductController extends Controller
             ->when($request->search, fn($q) => $q->where('name', 'like', "%{$request->search}%")
                 ->orWhere('series', 'like', "%{$request->search}%"))
             ->when($request->category_id, fn($q) => $q->where('category_id', $request->category_id))
+            ->when($request->tahun, fn($q) => $q->where('tahun', $request->tahun))
             ->when($request->status !== null && $request->status !== '', fn($q) => $q->where('is_active', $request->status))
             ->orderBy('name')
-            ->paginate(15)
-            ->withQueryString();
+            ->orderByRaw('CAST(kva AS UNSIGNED)')
+            ->orderBy('series')
+            ->get();
 
         $categories = Category::where('is_active', true)->orderBy('name')->get();
+        $years      = Product::whereNotNull('tahun')->distinct()->orderByDesc('tahun')->pluck('tahun');
 
-        return view('products.index', compact('products', 'categories'));
+        $yearGroups = $products
+            ->groupBy(fn($p) => $p->tahun ?? 0)
+            ->sortKeysDesc();
+
+        return view('products.index', compact('products', 'categories', 'years', 'yearGroups'));
     }
 
     public function create()

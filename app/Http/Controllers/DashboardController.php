@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Category;
 use App\Models\Department;
+use App\Models\Note;
 use App\Models\Product;
 use App\Models\ProductionLog;
 use App\Models\ActivityLog;
@@ -26,33 +27,46 @@ class DashboardController extends Controller
             'total_products' => Product::where('is_active', true)->count(),
         ];
 
-        // Data grafik 7 hari terakhir
-        $chartData = ProductionLog::select(
+        // Data grafik 7 hari terakhir (combo: total unit + entri + rata-rata)
+        $rawChart = ProductionLog::select(
                 DB::raw('DATE(production_date) as date'),
-                DB::raw('SUM(total_qty) as total')
+                DB::raw('SUM(total_qty) as total'),
+                DB::raw('COUNT(*) as entries')
             )
             ->where('production_date', '>=', now()->subDays(6)->toDateString())
             ->groupBy('date')
             ->orderBy('date')
             ->get()
-            ->map(fn($item) => [
-                'date'  => \Carbon\Carbon::parse($item->date)->format('d/m'),
-                'total' => $item->total,
-            ]);
+            ->keyBy('date');
 
-        // Data grafik produk bulan ini (top 5)
+        $chartData = collect();
+        for ($i = 6; $i >= 0; $i--) {
+            $d       = now()->subDays($i)->toDateString();
+            $row     = $rawChart->get($d);
+            $total   = $row ? (int) $row->total   : 0;
+            $entries = $row ? (int) $row->entries : 0;
+            $chartData->push([
+                'date'    => \Carbon\Carbon::parse($d)->locale('id')->isoFormat('dddd, D/M'),
+                'total'   => $total,
+                'entries' => $entries,
+                'avg'     => $entries > 0 ? round($total / $entries, 1) : 0,
+            ]);
+        }
+
+        // Data grafik produk bulan ini — dikelompokkan per tipe (COVER / CHANNEL / TANGKI)
         $productChart = ProductionLog::select('product_id', DB::raw('SUM(total_qty) as total'))
             ->whereMonth('production_date', $currentMonth)
             ->whereYear('production_date', $currentYear)
             ->groupBy('product_id')
-            ->orderByDesc('total')
-            ->limit(5)
-            ->with('product:id,name,series')
+            ->with('product:id,name')
             ->get()
-            ->map(fn($item) => [
-                'name'  => $item->product->name ?? 'Unknown',
-                'total' => $item->total,
-            ]);
+            ->groupBy(fn($item) => strtoupper(explode(' ', trim($item->product->name ?? 'Unknown'))[0]))
+            ->map(fn($items, $key) => [
+                'name'  => $key,
+                'total' => $items->sum('total'),
+            ])
+            ->sortByDesc('total')
+            ->values();
 
         // Input terbaru
         $recentLogs = ProductionLog::with(['product.category', 'user'])
@@ -66,6 +80,17 @@ class DashboardController extends Controller
             ->limit(5)
             ->get();
 
+        // Catatan untuk widget dashboard
+        $userId = auth()->id();
+        $recentNotes = Note::with(['user:id,name', 'targetUser:id,name'])
+            ->where(function ($q) use ($userId) {
+                $q->where('user_id', $userId)
+                  ->orWhere('target_user_id', $userId);
+            })
+            ->orderByRaw('is_done ASC, CASE WHEN due_date IS NULL THEN 1 ELSE 0 END ASC, due_date ASC, created_at DESC')
+            ->limit(5)
+            ->get();
+
         // Kategori untuk widget admin
         $categories = Category::withCount('products')->orderBy('name')->get();
 
@@ -76,7 +101,7 @@ class DashboardController extends Controller
 
         return view('dashboard.index', compact(
             'stats', 'chartData', 'productChart', 'recentLogs', 'recentActivities',
-            'categories', 'departments'
+            'categories', 'departments', 'recentNotes'
         ));
     }
 }

@@ -12,11 +12,16 @@ class GambarKerja extends Model
     protected $fillable = [
         'product_id',
         'judul',
+        'seri',
+        'kva',
+        'tahun',
         'file_path',
         'file_type',
         'keterangan',
         'uploaded_by',
         'urutan',
+        'is_thumbnail',
+        'thumbnail_path',
     ];
 
     public function product(): BelongsTo

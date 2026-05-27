@@ -4,9 +4,13 @@
 
 @section('content')
 <div class="min-h-screen flex">
+
     {{-- Left panel - Branding --}}
-    <div class="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-blue-900 via-blue-800 to-slate-900 flex-col justify-between p-12">
-        <div class="flex items-center gap-3">
+    <div class="hidden lg:flex lg:w-1/2 flex-col justify-between p-12 relative overflow-hidden"
+         style="background-image: url('{{ asset('images/IFS07479-scaled.jpg') }}'); background-size: cover; background-position: center;">
+        <div class="absolute inset-0 bg-slate-950/65"></div>
+
+        <div class="relative z-10 flex items-center gap-3">
             <div class="w-10 h-10 bg-blue-500 rounded-xl flex items-center justify-center">
                 <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -16,7 +20,7 @@
             <span class="text-xl font-bold text-white">QC Production System</span>
         </div>
 
-        <div class="space-y-6">
+        <div class="relative z-10 space-y-6">
             <div>
                 <h2 class="text-4xl font-bold text-white leading-tight">
                     Sistem Pencatatan<br>Produksi Digital
@@ -34,7 +38,7 @@
                     ['icon' => 'M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z', 'text' => 'Aman & Terlindungi'],
                 ] as $feature)
                 <div class="flex items-center gap-3 bg-white/10 backdrop-blur-sm rounded-xl p-3">
-                    <div class="w-8 h-8 bg-blue-500/30 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <div class="w-8 h-8 bg-blue-500/30 rounded-lg flex items-center justify-center shrink-0">
                         <svg class="w-4 h-4 text-blue-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="{{ $feature['icon'] }}"/>
                         </svg>
@@ -45,12 +49,13 @@
             </div>
         </div>
 
-        <p class="text-blue-400 text-sm">&copy; {{ now()->year }} QC Production System</p>
+        <p class="relative z-10 text-blue-400 text-sm">&copy; {{ now()->year }} QC Production System</p>
     </div>
 
-    {{-- Right panel - Login Form --}}
+    {{-- Right panel - Form --}}
     <div class="flex-1 flex items-center justify-center p-8">
         <div class="w-full max-w-md">
+
             {{-- Mobile logo --}}
             <div class="lg:hidden flex items-center gap-3 mb-8 justify-center">
                 <div class="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center">
@@ -67,11 +72,11 @@
                 <p class="text-slate-400 mt-2">Masuk ke QC Production System</p>
             </div>
 
-            {{-- Error Messages --}}
+            {{-- Error --}}
             @if($errors->any())
             <div class="mb-6 p-4 bg-red-900/30 border border-red-700 rounded-xl">
                 <div class="flex items-center gap-2 text-red-400">
-                    <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                               d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
                     </svg>
@@ -86,29 +91,15 @@
             </div>
             @endif
 
-            {{-- Login Type Toggle --}}
-            @php $oldType = old('login_type', 'operator'); @endphp
-            <div class="flex bg-slate-800 rounded-xl p-1 mb-6">
-                <button type="button" id="tab-operator" onclick="switchTab('operator')"
-                        class="flex-1 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200
-                               {{ $oldType === 'operator' ? 'bg-blue-600 text-white shadow' : 'text-slate-400 hover:text-slate-200' }}">
-                    Operator
-                </button>
-                <button type="button" id="tab-admin" onclick="switchTab('admin')"
-                        class="flex-1 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200
-                               {{ $oldType === 'admin' ? 'bg-blue-600 text-white shadow' : 'text-slate-400 hover:text-slate-200' }}">
-                    Admin
-                </button>
-            </div>
-
-            {{-- Login Form --}}
+            {{-- Form --}}
             <form method="POST" action="{{ route('login') }}" class="space-y-5">
                 @csrf
-                <input type="hidden" id="login_type" name="login_type" value="{{ $oldType }}">
 
-                {{-- Field Operator: Username --}}
-                <div id="field-username" class="{{ $oldType === 'admin' ? 'hidden' : '' }}">
-                    <label for="username" class="block text-sm font-medium text-slate-300 mb-2">Username</label>
+                {{-- Username / Email --}}
+                <div>
+                    <label for="identifier" class="block text-sm font-medium text-slate-300 mb-2">
+                        Username atau Email
+                    </label>
                     <div class="relative">
                         <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                             <svg class="w-5 h-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -116,38 +107,15 @@
                                       d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
                             </svg>
                         </div>
-                        <input type="text" id="username" name="username" value="{{ old('username') }}"
+                        <input type="text" id="identifier" name="identifier"
+                               value="{{ old('identifier') }}"
                                autocomplete="username"
+                               autofocus
                                class="w-full pl-10 pr-4 py-3 bg-slate-800 border text-white rounded-xl
                                       placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent
-                                      {{ $errors->has('username') ? 'border-red-500' : 'border-slate-600' }}"
-                               placeholder="Masukkan username">
+                                      {{ $errors->has('identifier') ? 'border-red-500' : 'border-slate-600' }}"
+                               placeholder="Username atau email Anda">
                     </div>
-                    @error('username')
-                    <p class="mt-1.5 text-xs text-red-400">{{ $message }}</p>
-                    @enderror
-                </div>
-
-                {{-- Field Admin: Email --}}
-                <div id="field-email" class="{{ $oldType === 'operator' ? 'hidden' : '' }}">
-                    <label for="email" class="block text-sm font-medium text-slate-300 mb-2">Email</label>
-                    <div class="relative">
-                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                            <svg class="w-5 h-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                      d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207"/>
-                            </svg>
-                        </div>
-                        <input type="email" id="email" name="email" value="{{ old('email') }}"
-                               autocomplete="email"
-                               class="w-full pl-10 pr-4 py-3 bg-slate-800 border text-white rounded-xl
-                                      placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent
-                                      {{ $errors->has('email') ? 'border-red-500' : 'border-slate-600' }}"
-                               placeholder="nama@perusahaan.com">
-                    </div>
-                    @error('email')
-                    <p class="mt-1.5 text-xs text-red-400">{{ $message }}</p>
-                    @enderror
                 </div>
 
                 {{-- Password --}}
@@ -183,6 +151,10 @@
                                class="w-4 h-4 rounded border-slate-600 bg-slate-800 text-blue-600 focus:ring-blue-500">
                         <span class="text-sm text-slate-400">Ingat saya</span>
                     </label>
+                    <a href="{{ route('password.request') }}"
+                       class="text-sm text-blue-400 hover:text-blue-300 transition-colors">
+                        Lupa password?
+                    </a>
                 </div>
 
                 <button type="submit"
@@ -204,26 +176,6 @@
 function togglePassword() {
     const input = document.getElementById('password');
     input.type = input.type === 'password' ? 'text' : 'password';
-}
-
-function switchTab(type) {
-    const isOperator = type === 'operator';
-    document.getElementById('login_type').value = type;
-
-    document.getElementById('field-username').classList.toggle('hidden', !isOperator);
-    document.getElementById('field-email').classList.toggle('hidden', isOperator);
-
-    const tabOp    = document.getElementById('tab-operator');
-    const tabAdmin = document.getElementById('tab-admin');
-    const active   = 'bg-blue-600 text-white shadow';
-    const inactive = 'text-slate-400 hover:text-slate-200';
-
-    tabOp.className    = tabOp.className.replace(isOperator ? inactive : active, isOperator ? active : inactive);
-    tabAdmin.className = tabAdmin.className.replace(isOperator ? active : inactive, isOperator ? inactive : active);
-
-    // Focus input yang aktif
-    const target = isOperator ? 'username' : 'email';
-    document.getElementById(target)?.focus();
 }
 </script>
 @endsection

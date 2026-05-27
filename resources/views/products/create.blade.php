@@ -68,17 +68,33 @@
                 @error('series')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
             </div>
 
-            <div>
-                <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                    KVA
-                    <span class="text-red-500">*</span>
-                </label>
-                <input type="text" name="kva" value="{{ old('kva') }}"
-                       placeholder="Contoh: 50, 100, 160, 250"
-                       class="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900
-                              text-slate-800 dark:text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500
-                              @error('kva') border-red-500 @enderror">
-                @error('kva')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                        KVA <span class="text-red-500">*</span>
+                    </label>
+                    <input type="text" name="kva" value="{{ old('kva') }}"
+                           placeholder="Contoh: 50, 100, 160, 250"
+                           class="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900
+                                  text-slate-800 dark:text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500
+                                  @error('kva') border-red-500 @enderror">
+                    @error('kva')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                        Tahun
+                    </label>
+                    <select name="tahun"
+                            class="w-full px-4 py-3 border bg-white dark:bg-slate-900 text-slate-800 dark:text-white
+                                   rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500
+                                   {{ $errors->has('tahun') ? 'border-red-500' : 'border-slate-300 dark:border-slate-600' }}">
+                        <option value="">— Pilih —</option>
+                        @for($y = now()->year + 5; $y >= 2025; $y--)
+                        <option value="{{ $y }}" {{ old('tahun') == $y ? 'selected' : '' }}>{{ $y }}</option>
+                        @endfor
+                    </select>
+                    @error('tahun')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+                </div>
             </div>
 
             <div class="grid grid-cols-2 gap-4">

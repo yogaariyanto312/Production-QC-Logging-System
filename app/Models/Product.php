@@ -17,6 +17,7 @@ class Product extends Model
         'name',
         'series',
         'kva',
+        'tahun',
         'panjang',
         'lebar',
         'unit',

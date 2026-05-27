@@ -92,7 +92,8 @@
                 <div class="flex items-center gap-2">
                     <span class="text-xs text-slate-400 hidden sm:block">{{ $item->created_at->format('d M Y') }}</span>
 
-                    {{-- Download --}}
+                    {{-- Download — visitor tidak bisa --}}
+                    @unless(auth()->user()->isVisitor())
                     <a href="{{ asset('storage/' . $item->file_path) }}" target="_blank" download
                        class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium
                               text-green-700 bg-green-50 hover:bg-green-100 dark:bg-green-900/20 dark:text-green-400 transition-colors">
@@ -101,6 +102,7 @@
                         </svg>
                         <span class="hidden sm:inline">Download</span>
                     </a>
+                    @endunless
 
                     {{-- Hapus (admin only) --}}
                     @if(auth()->user()->isAdmin())

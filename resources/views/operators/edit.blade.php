@@ -40,6 +40,18 @@
 
             <div>
                 <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                    Email <span class="text-slate-400 font-normal">(opsional, untuk reset password)</span>
+                </label>
+                <input type="email" name="email" value="{{ old('email', $operator->email) }}"
+                       placeholder="contoh@email.com"
+                       class="w-full px-4 py-3 rounded-xl bg-white dark:bg-slate-900 text-slate-800 dark:text-white
+                              border {{ $errors->has('email') ? 'border-red-500' : 'border-slate-300 dark:border-slate-600' }}
+                              focus:outline-none focus:ring-2 focus:ring-amber-500">
+                @error('email')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+            </div>
+
+            <div>
+                <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
                     Departemen <span class="text-slate-400 font-normal">(opsional)</span>
                 </label>
                 <select name="department"

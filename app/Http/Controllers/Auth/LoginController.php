@@ -14,65 +14,50 @@ class LoginController extends Controller
         if (Auth::check()) {
             return redirect()->route('dashboard');
         }
-        return view('auth.login');
+        return response(view('auth.login'))
+            ->header('Permissions-Policy', 'publickey-credentials-get=(), publickey-credentials-create=()');
     }
 
     public function login(Request $request)
     {
-        $isOperator = $request->input('login_type') === 'operator';
+        $request->validate([
+            'identifier' => ['required', 'string'],
+            'password'   => ['required'],
+        ], [
+            'identifier.required' => 'Username atau email wajib diisi.',
+            'password.required'   => 'Password wajib diisi.',
+        ]);
 
-        if ($isOperator) {
-            $credentials = $request->validate([
-                'username' => ['required', 'string'],
-                'password' => ['required'],
-            ], [
-                'username.required' => 'Username wajib diisi.',
-                'password.required' => 'Password wajib diisi.',
-            ]);
-            $errorKey = 'username';
-            $errorMsg = 'Username atau password yang Anda masukkan salah.';
+        $identifier = $request->input('identifier');
+        $isEmail    = str_contains($identifier, '@');
+
+        if ($isEmail) {
+            $user = \App\Models\User::where('email', $identifier)->first();
         } else {
-            $credentials = $request->validate([
-                'email'    => ['required', 'email'],
-                'password' => ['required'],
-            ], [
-                'email.required'    => 'Email wajib diisi.',
-                'email.email'       => 'Format email tidak valid.',
-                'password.required' => 'Password wajib diisi.',
-            ]);
-            $errorKey = 'email';
-            $errorMsg = 'Email atau password yang Anda masukkan salah.';
+            $user = \App\Models\User::where('username', $identifier)
+                ->orWhere('name', $identifier)
+                ->first();
         }
 
-        if (Auth::attempt($credentials, $request->boolean('remember'))) {
-            $user = Auth::user();
-
-            if (!$user->is_active) {
-                Auth::logout();
-                return back()->withErrors([$errorKey => 'Akun Anda tidak aktif. Hubungi administrator.'])->withInput();
-            }
-
-            // Pastikan login sesuai role
-            if ($isOperator && $user->role !== 'operator') {
-                Auth::logout();
-                return back()->withErrors(['username' => 'Akun ini bukan akun operator. Gunakan tab Admin.'])->withInput();
-            }
-            if (!$isOperator && $user->role === 'operator') {
-                Auth::logout();
-                return back()->withErrors(['email' => 'Akun operator harus login lewat tab Operator.'])->withInput();
-            }
-
-            $request->session()->regenerate();
-            ActivityLog::record('login', 'User login ke sistem');
-            return redirect()->intended(route('dashboard'));
+        if (!$user || !\Illuminate\Support\Facades\Hash::check($request->password, $user->password)) {
+            return back()->withErrors(['identifier' => 'Username/email atau password salah.'])->onlyInput('identifier');
         }
 
-        return back()->withErrors([$errorKey => $errorMsg])->onlyInput($errorKey);
+        if (!$user->is_active) {
+            return back()->withErrors(['identifier' => 'Akun Anda tidak aktif. Hubungi administrator.'])->onlyInput('identifier');
+        }
+
+        Auth::login($user, $request->boolean('remember'));
+        $request->session()->regenerate();
+        ActivityLog::record('login', 'User login ke sistem');
+
+        return redirect()->intended(route('dashboard'));
     }
 
     public function logout(Request $request)
     {
         ActivityLog::record('logout', 'User logout dari sistem');
+        Auth::user()?->update(['last_seen_at' => null]);
         Auth::logout();
         $request->session()->invalidate();
         $request->session()->regenerateToken();

@@ -2,14 +2,16 @@
 
 @section('title', 'Pesan Masuk')
 @section('page-title', 'Pesan Masuk')
-@section('page-subtitle', 'Chat dengan operator')
+@section('page-subtitle', 'Chat dengan operator & supervisor')
 
 @section('content')
-<div x-data="adminChatPage()" class="flex gap-0 bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 overflow-hidden"
+<div x-data="adminChatPage()" class="flex flex-col sm:flex-row bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 overflow-hidden"
      style="height: calc(100vh - 11rem)">
 
     {{-- ===== PANEL KIRI: Daftar Operator ===== --}}
-    <div class="w-80 shrink-0 flex flex-col border-r border-slate-100 dark:border-slate-700">
+    <div x-show="showLeftPanel"
+         class="w-full sm:w-80 shrink-0 flex flex-col border-b sm:border-b-0 sm:border-r border-slate-100 dark:border-slate-700"
+         style="display: flex">
 
         {{-- Header kiri --}}
         <div class="px-4 py-4 border-b border-slate-100 dark:border-slate-700">
@@ -20,7 +22,7 @@
                       class="px-2 py-0.5 bg-red-500 text-white text-xs font-bold rounded-full"></span>
             </div>
             {{-- Search --}}
-            <input x-model="search" type="text" placeholder="Cari operator..."
+            <input x-model="search" type="text" placeholder="Cari pengguna..."
                    class="w-full px-3 py-2 text-sm bg-slate-100 dark:bg-slate-900 text-slate-800 dark:text-white
                           rounded-xl border border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500">
         </div>
@@ -46,9 +48,13 @@
                     </div>
                     {{-- Info --}}
                     <div class="flex-1 min-w-0">
-                        <div class="flex items-center justify-between">
+                        <div class="flex items-center justify-between gap-1">
                             <p class="text-sm font-semibold text-slate-800 dark:text-white truncate" x-text="sender.name"></p>
-                            <p class="text-xs text-slate-400 shrink-0 ml-1" x-text="sender.lastTime"></p>
+                            <div class="flex items-center gap-1 shrink-0">
+                                <span x-show="sender.role === 'supervisor'"
+                                      class="text-xs px-1.5 py-0.5 rounded-full bg-teal-100 text-teal-700 dark:bg-teal-900/40 dark:text-teal-300 font-semibold">SPV</span>
+                                <p class="text-xs text-slate-400" x-text="sender.lastTime"></p>
+                            </div>
                         </div>
                         <p class="text-xs text-slate-400 truncate mt-0.5" x-text="sender.lastMessage"></p>
                         <p x-show="sender.department" class="text-xs text-blue-400 mt-0.5" x-text="sender.department"></p>
@@ -59,9 +65,9 @@
     </div>
 
     {{-- ===== PANEL KANAN: Percakapan ===== --}}
-    <div class="flex-1 flex flex-col min-w-0">
+    <div x-show="showRightPanel" class="flex-1 flex flex-col min-w-0">
 
-        {{-- Tidak ada yang dipilih --}}
+        {{-- Tidak ada yang dipilih (desktop only, mobile langsung pilih dari list) --}}
         <div x-show="!selectedId" class="flex-1 flex flex-col items-center justify-center text-center p-8">
             <div class="w-20 h-20 bg-slate-100 dark:bg-slate-700 rounded-2xl flex items-center justify-center mb-4">
                 <svg class="w-10 h-10 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -70,7 +76,7 @@
                 </svg>
             </div>
             <p class="text-slate-500 dark:text-slate-400 font-medium">Pilih percakapan</p>
-            <p class="text-sm text-slate-400 mt-1">Klik nama operator di sebelah kiri untuk membuka chat</p>
+            <p class="text-sm text-slate-400 mt-1">Klik nama pengguna di sebelah kiri untuk membuka chat</p>
         </div>
 
         {{-- Area percakapan --}}
@@ -79,12 +85,20 @@
 
                 {{-- Header percakapan --}}
                 <div class="flex items-center gap-3 px-5 py-4 border-b border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-800 shrink-0">
-                    <div class="w-9 h-9 rounded-full bg-blue-600 flex items-center justify-center shrink-0">
+                    {{-- Tombol back (mobile only) --}}
+                    <button @click="showList = true" class="sm:hidden p-1.5 -ml-1 text-slate-500 hover:text-slate-800 dark:hover:text-white rounded-lg">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                        </svg>
+                    </button>
+                    <div class="w-9 h-9 rounded-full flex items-center justify-center shrink-0"
+                         :class="activeSender?.role === 'supervisor' ? 'bg-teal-600' : 'bg-blue-600'">
                         <span class="text-sm font-bold text-white" x-text="activeSender?.name.charAt(0).toUpperCase()"></span>
                     </div>
                     <div>
                         <p class="text-sm font-semibold text-slate-800 dark:text-white" x-text="activeSender?.name"></p>
-                        <p class="text-xs text-slate-400" x-text="activeSender?.department ?? 'Operator'"></p>
+                        <p class="text-xs text-slate-400"
+                           x-text="activeSender?.role === 'supervisor' ? 'Supervisor' + (activeSender?.department ? ' · ' + activeSender.department : '') : (activeSender?.department ?? 'Operator')"></p>
                     </div>
                     <div class="ml-auto flex items-center gap-3">
                         <span class="text-xs text-slate-400" x-text="conversation.length + ' pesan'"></span>
@@ -106,7 +120,8 @@
                         <div class="space-y-2 group">
                             {{-- Pesan dari operator (kiri) --}}
                             <div class="flex justify-start items-end gap-2">
-                                <div class="w-7 h-7 rounded-full bg-blue-600 flex items-center justify-center shrink-0">
+                                <div class="w-7 h-7 rounded-full flex items-center justify-center shrink-0"
+                                     :class="activeSender?.role === 'supervisor' ? 'bg-teal-600' : 'bg-blue-600'">
                                     <span class="text-xs font-bold text-white" x-text="activeSender?.name.charAt(0).toUpperCase()"></span>
                                 </div>
                                 <div class="max-w-[70%] bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600
@@ -183,6 +198,11 @@ function adminChatPage() {
         search: '',
         replyText: '',
         sending: false,
+        isMobile: window.innerWidth < 640,
+        showList: true,
+
+        get showLeftPanel()  { return !this.isMobile || this.showList; },
+        get showRightPanel() { return !this.isMobile || !this.showList; },
 
         get senders() {
             const map = {};
@@ -194,6 +214,7 @@ function adminChatPage() {
                         id: sid,
                         name: msg.sender.name,
                         department: msg.sender.department ?? '',
+                        role: msg.sender.role ?? 'operator',
                         messages: [],
                         unread: 0,
                         lastTime: '',
@@ -237,6 +258,7 @@ function adminChatPage() {
 
         selectSender(id) {
             this.selectedId = id;
+            if (this.isMobile) this.showList = false;
             this.$nextTick(() => this.scrollBottom());
             const unread = this.messages.filter(m => m.sender?.id === id && !m.is_read);
             unread.forEach(m => this.markRead(m.id));
@@ -344,6 +366,10 @@ function adminChatPage() {
         },
 
         init() {
+            window.addEventListener('resize', () => {
+                this.isMobile = window.innerWidth < 640;
+                if (!this.isMobile) this.showList = true;
+            });
             setInterval(() => this.load(), 15000);
         }
     };

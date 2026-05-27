@@ -11,9 +11,41 @@
     <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 overflow-hidden">
         <div class="bg-linear-to-r from-slate-700 to-slate-800 px-6 py-6">
             <div class="flex items-center gap-4">
-                <div class="w-16 h-16 rounded-2xl bg-blue-600 flex items-center justify-center shrink-0">
-                    <span class="text-2xl font-black text-white">{{ strtoupper(substr($user->name, 0, 1)) }}</span>
+                {{-- Avatar --}}
+                @if(auth()->user()->isVisitor())
+                {{-- Visitor: foto tampil saja, tidak bisa klik/ubah --}}
+                <div class="relative shrink-0" id="avatar-wrapper">
+                    @if($user->avatar)
+                    <img id="avatar-preview" src="{{ Storage::disk('public')->url($user->avatar) }}" alt="Foto Profil"
+                         class="w-16 h-16 rounded-2xl object-cover border-2 border-white/20">
+                    @else
+                    <div class="w-16 h-16 rounded-2xl bg-blue-600 flex items-center justify-center">
+                        <span class="text-2xl font-black text-white">{{ strtoupper(substr($user->name, 0, 1)) }}</span>
+                    </div>
+                    @endif
                 </div>
+                @else
+                <div class="relative shrink-0 group" id="avatar-wrapper">
+                    @if($user->avatar)
+                    <img id="avatar-preview" src="{{ Storage::disk('public')->url($user->avatar) }}" alt="Foto Profil"
+                         class="w-16 h-16 rounded-2xl object-cover border-2 border-white/20">
+                    @else
+                    <div id="avatar-initials" class="w-16 h-16 rounded-2xl bg-blue-600 flex items-center justify-center">
+                        <span class="text-2xl font-black text-white">{{ strtoupper(substr($user->name, 0, 1)) }}</span>
+                    </div>
+                    <img id="avatar-preview" src="" alt="" class="w-16 h-16 rounded-2xl object-cover border-2 border-white/20 hidden">
+                    @endif
+                    <label for="avatar-input"
+                           class="absolute inset-0 rounded-2xl bg-black/50 flex items-center justify-center
+                                  opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
+                        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                  d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/>
+                        </svg>
+                    </label>
+                </div>
+                @endif
                 <div>
                     <p class="text-lg font-bold text-white">{{ $user->name }}</p>
                     <p class="text-slate-400 text-sm capitalize mt-0.5">{{ $user->role }}
@@ -22,12 +54,19 @@
                         @endif
                     </p>
                     <p class="text-slate-500 text-xs mt-1">Bergabung {{ $user->created_at->format('d M Y') }}</p>
+                    @unless(auth()->user()->isVisitor())
+                    <p class="text-slate-500 text-xs mt-0.5">Klik foto untuk mengubah · Maks. 5 MB</p>
+                    @endunless
                 </div>
             </div>
         </div>
 
-        <form method="POST" action="{{ route('profile.update') }}" class="p-6 space-y-5">
+        <form method="POST" action="{{ route('profile.update') }}" enctype="multipart/form-data" class="p-6 space-y-5">
             @csrf @method('PUT')
+            @unless(auth()->user()->isVisitor())
+            <input type="file" id="avatar-input" name="avatar" accept="image/jpeg,image/png,image/webp,image/gif" class="hidden">
+            @error('avatar')<p class="text-xs text-red-500 -mt-2">{{ $message }}</p>@enderror
+            @endunless
 
             {{-- Informasi Umum --}}
             <div>
@@ -167,6 +206,28 @@
 </div>
 
 <script>
+// Avatar preview
+document.getElementById('avatar-input').addEventListener('change', function() {
+    const file = this.files[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+        alert('Ukuran foto maksimal 5 MB.');
+        this.value = '';
+        return;
+    }
+
+    const preview = document.getElementById('avatar-preview');
+    const initials = document.getElementById('avatar-initials');
+    const reader = new FileReader();
+    reader.onload = e => {
+        preview.src = e.target.result;
+        preview.classList.remove('hidden');
+        if (initials) initials.classList.add('hidden');
+    };
+    reader.readAsDataURL(file);
+});
+
 function togglePwd(id, btn) {
     const input = document.getElementById(id);
     const isText = input.type === 'text';

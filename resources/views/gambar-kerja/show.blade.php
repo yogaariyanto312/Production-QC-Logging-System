@@ -42,6 +42,7 @@
             </div>
 
             <div class="flex items-center gap-2 flex-shrink-0">
+                @unless(auth()->user()->isVisitor())
                 <a href="{{ $gambarKerja->url }}" target="_blank" download
                    class="flex items-center gap-2 px-4 py-2.5 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold rounded-xl transition-colors">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -49,6 +50,7 @@
                     </svg>
                     Download
                 </a>
+                @endunless
                 @if(auth()->user()->isAdmin())
                 <form method="POST" action="{{ route('gambar-kerja.destroy', $gambarKerja) }}">
                     @csrf @method('DELETE')

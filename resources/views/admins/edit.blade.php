@@ -27,15 +27,29 @@
                 @error('name')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
             </div>
 
-            <div>
-                <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                    Email <span class="text-red-500">*</span>
-                </label>
-                <input type="email" name="email" value="{{ old('email', $admin->email) }}"
-                       class="w-full px-4 py-3 rounded-xl bg-white dark:bg-slate-900 text-slate-800 dark:text-white
-                              border {{ $errors->has('email') ? 'border-red-500' : 'border-slate-300 dark:border-slate-600' }}
-                              focus:outline-none focus:ring-2 focus:ring-amber-500">
-                @error('email')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                        Email <span class="text-red-500">*</span>
+                    </label>
+                    <input type="email" name="email" value="{{ old('email', $admin->email) }}"
+                           class="w-full px-4 py-3 rounded-xl bg-white dark:bg-slate-900 text-slate-800 dark:text-white
+                                  border {{ $errors->has('email') ? 'border-red-500' : 'border-slate-300 dark:border-slate-600' }}
+                                  focus:outline-none focus:ring-2 focus:ring-amber-500">
+                    @error('email')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                        Username
+                        <span class="ml-1 text-xs font-normal text-slate-400">(opsional)</span>
+                    </label>
+                    <input type="text" name="username" value="{{ old('username', $admin->username) }}"
+                           placeholder="Contoh: admin123"
+                           class="w-full px-4 py-3 rounded-xl bg-white dark:bg-slate-900 text-slate-800 dark:text-white
+                                  border {{ $errors->has('username') ? 'border-red-500' : 'border-slate-300 dark:border-slate-600' }}
+                                  focus:outline-none focus:ring-2 focus:ring-amber-500">
+                    @error('username')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+                </div>
             </div>
 
             {{-- Reset Password --}}
@@ -47,7 +61,7 @@
                 <div class="grid grid-cols-2 gap-4">
                     <div>
                         <label class="block text-xs font-medium text-slate-500 mb-1.5">Password Baru</label>
-                        <input type="password" name="password"
+                        <input type="password" name="password" value="" autocomplete="new-password"
                                placeholder="Min. 8 karakter"
                                class="w-full px-4 py-3 rounded-xl bg-white dark:bg-slate-900 text-slate-800 dark:text-white
                                       border {{ $errors->has('password') ? 'border-red-500' : 'border-slate-300 dark:border-slate-600' }}
@@ -56,7 +70,7 @@
                     </div>
                     <div>
                         <label class="block text-xs font-medium text-slate-500 mb-1.5">Konfirmasi Password</label>
-                        <input type="password" name="password_confirmation"
+                        <input type="password" name="password_confirmation" value="" autocomplete="new-password"
                                placeholder="Ulangi password baru"
                                class="w-full px-4 py-3 rounded-xl bg-white dark:bg-slate-900 text-slate-800 dark:text-white
                                       border border-slate-300 dark:border-slate-600

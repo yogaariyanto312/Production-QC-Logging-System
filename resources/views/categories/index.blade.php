@@ -19,6 +19,7 @@
                 Cari
             </button>
         </form>
+        @if(auth()->user()->isDeveloper())
         <a href="{{ route('categories.create') }}"
            class="px-4 py-2.5 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold rounded-xl flex items-center gap-2">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -26,6 +27,7 @@
             </svg>
             Tambah Kategori
         </a>
+        @endif
     </div>
 
     {{-- Table --}}
@@ -39,7 +41,9 @@
                     <th class="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Keterangan</th>
                     <th class="px-6 py-3 text-center text-xs font-semibold text-slate-500 uppercase tracking-wider">Produk</th>
                     <th class="px-6 py-3 text-center text-xs font-semibold text-slate-500 uppercase tracking-wider">Status</th>
+                    @if(auth()->user()->isDeveloper())
                     <th class="px-6 py-3 text-center text-xs font-semibold text-slate-500 uppercase tracking-wider">Aksi</th>
+                    @endif
                 </tr>
             </thead>
             <tbody class="divide-y divide-slate-100 dark:divide-slate-700">
@@ -61,6 +65,7 @@
                             {{ $category->is_active ? 'Aktif' : 'Nonaktif' }}
                         </span>
                     </td>
+                    @if(auth()->user()->isDeveloper())
                     <td class="px-6 py-4">
                         <div class="flex items-center justify-center gap-2">
                             <a href="{{ route('categories.edit', $category) }}"
@@ -83,11 +88,15 @@
                             </form>
                         </div>
                     </td>
+                    @endif
                 </tr>
                 @empty
                 <tr>
-                    <td colspan="7" class="px-6 py-16 text-center text-slate-400">
-                        Belum ada kategori. <a href="{{ route('categories.create') }}" class="text-blue-600 hover:underline">Tambah sekarang</a>
+                    <td colspan="{{ auth()->user()->isDeveloper() ? 7 : 6 }}" class="px-6 py-16 text-center text-slate-400">
+                        Belum ada kategori.
+                        @if(auth()->user()->isDeveloper())
+                        <a href="{{ route('categories.create') }}" class="text-blue-600 hover:underline">Tambah sekarang</a>
+                        @endif
                     </td>
                 </tr>
                 @endforelse

@@ -31,10 +31,10 @@
                 <th>Produk</th>
                 <th>Seri</th>
                 <th>Kategori</th>
-                <th class="center">Shift 1</th>
-                <th class="center">Shift 2</th>
-                <th class="center">Shift 3</th>
+                <th class="center">UP</th>
+                <th class="center">BT</th>
                 <th class="center">Grand Total</th>
+                <th>No. Urut Terakhir</th>
             </tr>
         </thead>
         <tbody>
@@ -46,8 +46,8 @@
                 <td>{{ $row->product->category->name ?? '-' }}</td>
                 <td class="center">{{ number_format($row->total_shift1) }}</td>
                 <td class="center">{{ number_format($row->total_shift2) }}</td>
-                <td class="center">{{ number_format($row->total_shift3) }}</td>
                 <td class="center grand">{{ number_format($row->grand_total) }}</td>
+                <td style="font-family: monospace; font-size: 9px; white-space: pre-line;">{{ $row->last_notes ?: '-' }}</td>
             </tr>
             @endforeach
         </tbody>
@@ -56,8 +56,8 @@
                 <td colspan="4" class="tfoot">TOTAL KESELURUHAN</td>
                 <td class="tfoot center">{{ number_format($report->sum('total_shift1')) }}</td>
                 <td class="tfoot center">{{ number_format($report->sum('total_shift2')) }}</td>
-                <td class="tfoot center">{{ number_format($report->sum('total_shift3')) }}</td>
                 <td class="tfoot center grand">{{ number_format($report->sum('grand_total')) }}</td>
+                <td class="tfoot"></td>
             </tr>
         </tfoot>
     </table>

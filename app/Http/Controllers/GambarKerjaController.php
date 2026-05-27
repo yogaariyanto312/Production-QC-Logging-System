@@ -3,68 +3,96 @@
 namespace App\Http\Controllers;
 
 use App\Models\ActivityLog;
-use App\Models\Category;
 use App\Models\GambarKerja;
-use App\Models\Product;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class GambarKerjaController extends Controller
 {
-    // Daftar produk yang punya gambar kerja (+ produk yang belum punya, untuk admin)
     public function index(Request $request)
     {
-        $categories = Category::where('is_active', true)->orderBy('name')->get();
+        $query = GambarKerja::selectRaw(
+                'judul, seri, kva, tahun,
+                 YEAR(MIN(created_at)) as upload_year,
+                 COUNT(*) as total,
+                 MIN(id) as first_id,
+                 MAX(thumbnail_path) as group_thumbnail'
+            )
+            ->groupBy('judul', 'seri', 'kva', 'tahun');
 
-        $products = Product::with(['gambarKerja' => fn($q) => $q->orderBy('urutan')])
-            ->withCount('gambarKerja')
-            ->where('is_active', true)
-            ->when($request->search, fn($q) => $q->where('name', 'like', "%{$request->search}%")
-                ->orWhere('series', 'like', "%{$request->search}%"))
-            ->when($request->category_id, fn($q) => $q->where('category_id', $request->category_id))
-            ->when($request->has_gambar, fn($q) => $q->has('gambarKerja'))
-            ->orderBy('name')
-            ->paginate(16)
-            ->withQueryString();
+        if ($request->search) {
+            $search = $request->search;
+            $query->where(fn($q) => $q->where('judul', 'like', "%{$search}%")
+                ->orWhere('seri', 'like', "%{$search}%")
+                ->orWhere('kva', 'like', "%{$search}%"));
+        }
 
-        return view('gambar-kerja.index', compact('products', 'categories'));
+        $allGroups  = $query->get();
+        $firstFiles = GambarKerja::whereIn('id', $allGroups->pluck('first_id'))->get()->keyBy('id');
+
+        // Kelompokkan berdasar tahun (fallback ke tahun upload), urut KVA dalam setiap tahun
+        $yearGroups = $allGroups
+            ->map(fn($g) => tap($g, fn($g) => $g->display_year = $g->tahun ?? $g->upload_year))
+            ->sortByDesc('display_year')
+            ->groupBy('display_year')
+            ->map(fn($items) => $items->sortBy(fn($g) => (int) ($g->kva ?? 0))->values());
+
+        return view('gambar-kerja.index', compact('yearGroups', 'firstFiles'));
     }
 
-    // Halaman semua gambar kerja milik satu produk, berurutan
-    public function byProduct(Product $product)
+    public function byGroup(Request $request)
     {
-        $gambarKerja = $product->gambarKerja()
+        $judul = $request->judul;
+        $seri  = $request->seri ?: null;
+        $kva   = $request->kva ?: null;
+        $tahun = $request->tahun ? (int) $request->tahun : null;
+
+        $gambarKerja = GambarKerja::where('judul', $judul)
+            ->where('seri', $seri)
+            ->where('kva', $kva)
+            ->where('tahun', $tahun)
             ->with('uploader')
             ->orderBy('urutan')
             ->get();
 
-        return view('gambar-kerja.by-product', compact('product', 'gambarKerja'));
+        $thumbnailPath = $gambarKerja->first()?->thumbnail_path;
+
+        return view('gambar-kerja.by-group', compact('judul', 'seri', 'kva', 'tahun', 'gambarKerja', 'thumbnailPath'));
     }
 
-    public function create(Request $request)
+    public function create()
     {
-        $products       = Product::where('is_active', true)->orderBy('name')->get();
-        $selectedProduct = $request->product_id ? Product::find($request->product_id) : null;
-        return view('gambar-kerja.create', compact('products', 'selectedProduct'));
+        return view('gambar-kerja.create');
     }
 
     public function store(Request $request)
     {
         $request->validate([
-            'product_id' => ['required', 'exists:products,id'],
-            'files'      => ['required', 'array', 'min:1'],
-            'files.*'    => ['file', 'mimes:jpg,jpeg,png,pdf', 'max:102400'],
+            'judul'    => ['required', 'string', 'max:150'],
+            'seri'     => ['nullable', 'string', 'max:150'],
+            'kva'      => ['nullable', 'string', 'max:50'],
+            'tahun'    => ['nullable', 'integer', 'min:2025', 'max:' . (now()->year + 5)],
+            'files'    => ['required', 'array', 'min:1'],
+            'files.*'  => ['file', 'mimes:jpg,jpeg,png,pdf', 'max:102400'],
             'keterangan' => ['nullable', 'string', 'max:300'],
         ], [
-            'product_id.required' => 'Produk wajib dipilih.',
-            'files.required'      => 'File gambar kerja wajib diupload.',
-            'files.*.mimes'       => 'Format file harus JPG, PNG, atau PDF.',
-            'files.*.max'         => 'Ukuran setiap file maksimal 100MB.',
+            'judul.required' => 'Judul gambar kerja wajib diisi.',
+            'files.required' => 'File gambar kerja wajib diupload.',
+            'files.*.mimes'  => 'Format file harus JPG, PNG, atau PDF.',
+            'files.*.max'    => 'Ukuran setiap file maksimal 100MB.',
         ]);
 
-        // Nomor urutan lanjutan dari yang sudah ada
-        $nextUrutan = GambarKerja::where('product_id', $request->product_id)->max('urutan') + 1;
+        $judul = $request->judul;
+        $seri  = $request->seri ?: null;
+        $kva   = $request->kva ?: null;
+        $tahun = $request->tahun ? (int) $request->tahun : null;
+
+        $nextUrutan = GambarKerja::where('judul', $judul)
+            ->where('seri', $seri)
+            ->where('kva', $kva)
+            ->where('tahun', $tahun)
+            ->max('urutan') + 1;
 
         foreach ($request->file('files') as $index => $file) {
             $ext      = $file->getClientOriginalExtension();
@@ -72,54 +100,138 @@ class GambarKerjaController extends Controller
             $filePath = $file->storeAs('gambar-kerja', Str::uuid() . '.' . $ext, 'public');
             $urutan   = $nextUrutan + $index;
 
-            $gambar = GambarKerja::create([
-                'product_id'  => $request->product_id,
-                'judul'       => 'Gambar ' . $urutan,
+            GambarKerja::create([
+                'judul'       => $judul,
+                'seri'        => $seri,
+                'kva'         => $kva,
+                'tahun'       => $tahun,
                 'file_path'   => $filePath,
                 'file_type'   => $fileType,
                 'keterangan'  => $request->keterangan,
-                'uploaded_by' => auth()->id(),
+                'uploaded_by' => auth()->user()?->id,
                 'urutan'      => $urutan,
             ]);
-
-            ActivityLog::record('create', "Upload gambar kerja: {$gambar->judul} - {$gambar->product->name}", $gambar);
         }
 
-        $total = count($request->file('files'));
-        return redirect()->route('gambar-kerja.by-product', $request->product_id)
-            ->with('success', "{$total} gambar kerja berhasil diupload.");
+        $seriKva = $seri . ($kva ? "({$kva})" : '');
+        $label   = $judul . ($seriKva ? " · {$seriKva}" : '');
+        ActivityLog::record('create', "Upload gambar kerja: {$label}");
+
+        return redirect()->route('gambar-kerja.by-group', ['judul' => $judul, 'seri' => $seri, 'kva' => $kva, 'tahun' => $tahun])
+            ->with('success', count($request->file('files')) . " file berhasil diupload.");
     }
 
-    public function destroyByProduct(Product $product)
+    public function destroyByGroup(Request $request)
     {
-        $gambarList = GambarKerja::where('product_id', $product->id)->get();
+        $judul = $request->judul;
+        $seri  = $request->seri ?: null;
+        $kva   = $request->kva ?: null;
+        $tahun = $request->tahun ? (int) $request->tahun : null;
+
+        $gambarList = GambarKerja::where('judul', $judul)->where('seri', $seri)->where('kva', $kva)->where('tahun', $tahun)->get();
         foreach ($gambarList as $g) {
             Storage::disk('public')->delete($g->file_path);
         }
-        GambarKerja::where('product_id', $product->id)->delete();
+        GambarKerja::where('judul', $judul)->where('seri', $seri)->where('kva', $kva)->where('tahun', $tahun)->delete();
 
-        ActivityLog::record('delete', "Hapus semua gambar kerja: {$product->name}");
+        $seriKva = $seri . ($kva ? "({$kva})" : '');
+        $label   = $judul . ($seriKva ? " · {$seriKva}" : '');
+        ActivityLog::record('delete', "Hapus semua gambar kerja: {$label}");
 
         return redirect()->route('gambar-kerja.index')
-            ->with('success', "Semua gambar kerja '{$product->name}' berhasil dihapus.");
+            ->with('success', "Semua gambar kerja '{$label}' berhasil dihapus.");
+    }
+
+    public function serveFile(string $path)
+    {
+        abort_unless(Storage::disk('public')->exists($path), 404);
+        return response()->file(Storage::disk('public')->path($path));
+    }
+
+    public function deleteThumbnail(Request $request)
+    {
+        $judul = $request->judul;
+        $seri  = $request->seri ?: null;
+        $kva   = $request->kva ?: null;
+        $tahun = $request->tahun ? (int) $request->tahun : null;
+
+        $path = GambarKerja::where('judul', $judul)
+            ->where('seri', $seri)->where('kva', $kva)->where('tahun', $tahun)
+            ->whereNotNull('thumbnail_path')
+            ->value('thumbnail_path');
+
+        if ($path) {
+            Storage::disk('public')->delete($path);
+        }
+
+        GambarKerja::where('judul', $judul)
+            ->where('seri', $seri)->where('kva', $kva)->where('tahun', $tahun)
+            ->update(['thumbnail_path' => null]);
+
+        return back()->with('success', 'Thumbnail berhasil dihapus.');
+    }
+
+    public function uploadThumbnail(Request $request)
+    {
+        $request->validate([
+            'judul'     => ['required', 'string'],
+            'seri'      => ['nullable', 'string'],
+            'kva'       => ['nullable', 'string'],
+            'tahun'     => ['nullable', 'integer'],
+            'thumbnail' => ['required', 'image', 'mimes:jpg,jpeg,png', 'max:5120'],
+        ], [
+            'thumbnail.required' => 'File gambar thumbnail wajib dipilih.',
+            'thumbnail.image'    => 'File harus berupa gambar.',
+            'thumbnail.max'      => 'Ukuran thumbnail maksimal 5MB.',
+        ]);
+
+        $judul = $request->judul;
+        $seri  = $request->seri ?: null;
+        $kva   = $request->kva ?: null;
+        $tahun = $request->tahun ? (int) $request->tahun : null;
+
+        // Hapus thumbnail lama dari storage jika ada
+        $existing = GambarKerja::where('judul', $judul)
+            ->where('seri', $seri)->where('kva', $kva)->where('tahun', $tahun)
+            ->whereNotNull('thumbnail_path')
+            ->value('thumbnail_path');
+
+        if ($existing) {
+            Storage::disk('public')->delete($existing);
+        }
+
+        // Simpan thumbnail baru
+        $path = $request->file('thumbnail')->store('gambar-kerja/thumbnails', 'public');
+
+        // Update semua record dalam grup
+        GambarKerja::where('judul', $judul)
+            ->where('seri', $seri)->where('kva', $kva)->where('tahun', $tahun)
+            ->update(['thumbnail_path' => $path]);
+
+        return back()->with('success', 'Thumbnail berhasil diperbarui.');
     }
 
     public function destroy(GambarKerja $gambarKerja)
     {
-        $productId = $gambarKerja->product_id;
-        Storage::disk('public')->delete($gambarKerja->file_path);
         $judul = $gambarKerja->judul;
+        $seri  = $gambarKerja->seri;
+        $kva   = $gambarKerja->kva;
+        $tahun = $gambarKerja->tahun;
+
+        Storage::disk('public')->delete($gambarKerja->file_path);
         $gambarKerja->delete();
 
-        // Renomor ulang urutan supaya tetap berurutan
-        GambarKerja::where('product_id', $productId)
+        GambarKerja::where('judul', $judul)
+            ->where('seri', $seri)
+            ->where('kva', $kva)
+            ->where('tahun', $tahun)
             ->orderBy('urutan')
             ->get()
-            ->each(fn($g, $i) => $g->update(['urutan' => $i + 1, 'judul' => 'Gambar ' . ($i + 1)]));
+            ->each(fn($g, $i) => $g->update(['urutan' => $i + 1]));
 
-        ActivityLog::record('delete', "Hapus gambar kerja: {$judul}");
+        ActivityLog::record('delete', "Hapus file gambar kerja dari: {$judul}");
 
-        return redirect()->route('gambar-kerja.by-product', $productId)
-            ->with('success', "Gambar kerja '{$judul}' berhasil dihapus dan nomor urut diperbarui.");
+        return redirect()->route('gambar-kerja.by-group', ['judul' => $judul, 'seri' => $seri, 'kva' => $kva, 'tahun' => $tahun])
+            ->with('success', "File berhasil dihapus dan nomor urut diperbarui.");
     }
 }

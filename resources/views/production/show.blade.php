@@ -85,8 +85,8 @@
                 </div>
                 @if($productionLog->notes)
                 <div class="py-3">
-                    <span class="text-sm text-slate-500">Catatan</span>
-                    <p class="mt-1 text-sm text-slate-800 dark:text-white bg-slate-50 dark:bg-slate-700/50 rounded-lg p-3">
+                    <span class="text-sm text-slate-500">Nomor Urut</span>
+                    <p class="mt-1 text-sm text-slate-800 dark:text-white bg-slate-50 dark:bg-slate-700/50 rounded-lg p-3 whitespace-pre-line font-mono">
                         {{ $productionLog->notes }}
                     </p>
                 </div>
@@ -100,7 +100,7 @@
                           hover:bg-slate-200 dark:hover:bg-slate-600 rounded-xl font-semibold text-sm transition-colors">
                     ← Kembali
                 </a>
-                @if(auth()->user()->isAdmin())
+                @if(auth()->user()->isPrivileged())
                 <a href="{{ route('production.edit', $productionLog) }}"
                    class="flex-1 py-3 text-center text-white bg-amber-500 hover:bg-amber-600 rounded-xl font-semibold text-sm transition-colors">
                     Edit Data

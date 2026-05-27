@@ -42,13 +42,16 @@
                                border {{ $errors->has('product_id') ? 'border-red-500' : 'border-slate-300 dark:border-slate-600' }}
                                focus:outline-none focus:ring-2 focus:ring-blue-500">
                     <option value="">-- Pilih Produk --</option>
-                    @foreach($products as $product)
-                    <option value="{{ $product->id }}"
-                            data-type="{{ $product->type }}"
-                            {{ old('product_id') == $product->id ? 'selected' : '' }}>
-                        {{ $product->name }}{{ $product->series_with_kva ? ' — ' . $product->series_with_kva : '' }}
-                        ({{ $product->category->name ?? 'Tanpa Kategori' }})
-                    </option>
+                    @foreach($products->groupBy('name') as $groupName => $groupItems)
+                    <optgroup label="{{ $groupName }}">
+                        @foreach($groupItems as $product)
+                        <option value="{{ $product->id }}"
+                                data-type="{{ $product->type }}"
+                                {{ old('product_id') == $product->id ? 'selected' : '' }}>
+                            {{ ($product->series ?: '—') . ($product->kva ? ' · ' . $product->kva . ' KVA' : '') }}
+                        </option>
+                        @endforeach
+                    </optgroup>
                     @endforeach
                 </select>
                 @error('product_id')
@@ -126,17 +129,50 @@
                 </div>
             </div>
 
-            {{-- Catatan --}}
-            <div>
-                <label for="notes" class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                    Catatan 
-                </label>
-                <textarea id="notes" name="notes" rows="3"
-                          placeholder="Tambahkan catatan khusus jika ada..."
-                          class="w-full px-4 py-3 rounded-xl resize-none bg-white dark:bg-slate-900
-                                 text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500
-                                 border {{ $errors->has('notes') ? 'border-red-500' : 'border-slate-300 dark:border-slate-600' }}">{{ old('notes') }}</textarea>
+            {{-- Nomor Urut - Regular --}}
+            <div id="section-notes-regular">
+                <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Nomor Urut</label>
+                <div class="flex items-center gap-3">
+                    <div class="flex-1">
+                        <label class="block text-xs text-slate-400 mb-1">Nomor Awal</label>
+                        <input type="number" id="no_awal_regular" min="1" placeholder="Contoh: 98"
+                               class="w-full px-4 py-3 rounded-xl bg-white dark:bg-slate-900 text-slate-800 dark:text-white
+                                      border border-slate-300 dark:border-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div class="pt-4 text-slate-400 font-bold">→</div>
+                    <div class="flex-1">
+                        <label class="block text-xs text-slate-400 mb-1">Preview</label>
+                        <div class="px-4 py-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 font-mono text-sm text-blue-600 dark:text-blue-400 min-h-12">
+                            <span id="preview-regular">—</span>
+                        </div>
+                    </div>
+                </div>
             </div>
+
+            {{-- Nomor Urut - Channel --}}
+            <div id="section-notes-channel" class="hidden">
+                <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Nomor Urut</label>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-2 text-center">Nomor Awal UP</label>
+                        <input type="number" id="no_awal_up" min="1" placeholder="Contoh: 435"
+                               class="w-full px-4 py-3 text-center text-lg font-bold rounded-xl
+                                      bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-white
+                                      border border-slate-300 dark:border-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <p id="preview-up" class="mt-2 text-xs text-center font-mono text-blue-500 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 rounded-lg px-2 py-1.5 min-h-7">—</p>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-2 text-center">Nomor Awal BT</label>
+                        <input type="number" id="no_awal_bt" min="1" placeholder="Contoh: 438"
+                               class="w-full px-4 py-3 text-center text-lg font-bold rounded-xl
+                                      bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-white
+                                      border border-slate-300 dark:border-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <p id="preview-bt" class="mt-2 text-xs text-center font-mono text-purple-500 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/20 rounded-lg px-2 py-1.5 min-h-7">—</p>
+                    </div>
+                </div>
+            </div>
+
+            <input type="hidden" id="notes" name="notes" value="{{ old('notes') }}">
 
             {{-- Action Buttons --}}
             <div class="flex gap-3 pt-2">
@@ -157,35 +193,80 @@
 
 <script>
 (function () {
-    const productSelect   = document.getElementById('product_id');
-    const sectionChannel  = document.getElementById('section-channel');
-    const sectionRegular  = document.getElementById('section-regular');
-    const channelUp       = document.getElementById('channel_up');
-    const channelBt       = document.getElementById('channel_bt');
-    const channelDisplay  = document.getElementById('channel-total-display');
-    const totalHidden     = document.getElementById('total_qty_channel');
-    const totalRegular    = document.getElementById('total_qty_regular');
+    const productSelect       = document.getElementById('product_id');
+    const sectionChannel      = document.getElementById('section-channel');
+    const sectionRegular      = document.getElementById('section-regular');
+    const sectionNotesChannel = document.getElementById('section-notes-channel');
+    const sectionNotesRegular = document.getElementById('section-notes-regular');
+    const channelUp           = document.getElementById('channel_up');
+    const channelBt           = document.getElementById('channel_bt');
+    const channelDisplay      = document.getElementById('channel-total-display');
+    const totalHidden         = document.getElementById('total_qty_channel');
+    const totalRegular        = document.getElementById('total_qty_regular');
+    const noAwalRegular       = document.getElementById('no_awal_regular');
+    const noAwalUp            = document.getElementById('no_awal_up');
+    const noAwalBt            = document.getElementById('no_awal_bt');
+    const previewRegular      = document.getElementById('preview-regular');
+    const previewUp           = document.getElementById('preview-up');
+    const previewBt           = document.getElementById('preview-bt');
+    const notesHidden         = document.getElementById('notes');
+
+    function pad(n) {
+        const s = String(Math.round(n));
+        return s.length < 3 ? s.padStart(3, '0') : s;
+    }
+
+    function generateRegular() {
+        const start = parseInt(noAwalRegular.value);
+        const qty   = Math.ceil(parseFloat(totalRegular.value) || 0);
+        if (!start || qty <= 0) {
+            previewRegular.textContent = '—';
+            notesHidden.value = '';
+            return;
+        }
+        const text = `NO.${pad(start)}-${pad(start + qty)}`;
+        previewRegular.textContent = text;
+        notesHidden.value = text;
+    }
+
+    function generateChannel() {
+        const up    = parseInt(channelUp.value) || 0;
+        const bt    = parseInt(channelBt.value) || 0;
+        const total = up + bt;
+        const startUp = parseInt(noAwalUp.value);
+        const startBt = parseInt(noAwalBt.value);
+
+        previewUp.textContent = (startUp && up > 0)
+            ? `UP NO.${pad(startUp)}-${pad(startUp + up)}` : '—';
+        previewBt.textContent = (startBt && bt > 0)
+            ? `BT NO.${pad(startBt)}-${pad(startBt + bt)}` : '—';
+
+        const lines = [previewUp.textContent, previewBt.textContent].filter(t => t !== '—');
+        notesHidden.value = lines.join('\n');
+    }
 
     function calcChannel() {
         const up    = parseInt(channelUp.value) || 0;
         const bt    = parseInt(channelBt.value) || 0;
         const total = (up + bt) / 2;
         channelDisplay.textContent = total % 1 === 0 ? total.toLocaleString('id-ID') : total.toFixed(1);
-        totalHidden.value          = total;
+        totalHidden.value = total;
+        generateChannel();
     }
 
     function switchMode(type) {
         const isChannel = type === 'channel';
         sectionChannel.classList.toggle('hidden', !isChannel);
         sectionRegular.classList.toggle('hidden', isChannel);
+        sectionNotesChannel.classList.toggle('hidden', !isChannel);
+        sectionNotesRegular.classList.toggle('hidden', isChannel);
 
-        // Disable the inactive input so it isn't submitted with the wrong name
-        totalRegular.disabled  = isChannel;
-        totalHidden.disabled   = !isChannel;
-        channelUp.disabled     = !isChannel;
-        channelBt.disabled     = !isChannel;
+        totalRegular.disabled = isChannel;
+        totalHidden.disabled  = !isChannel;
+        channelUp.disabled    = !isChannel;
+        channelBt.disabled    = !isChannel;
 
-        if (isChannel) calcChannel();
+        if (isChannel) calcChannel(); else generateRegular();
     }
 
     function getSelectedType() {
@@ -196,8 +277,11 @@
     productSelect.addEventListener('change', () => switchMode(getSelectedType()));
     channelUp.addEventListener('input', calcChannel);
     channelBt.addEventListener('input', calcChannel);
+    totalRegular.addEventListener('input', generateRegular);
+    noAwalRegular.addEventListener('input', generateRegular);
+    noAwalUp.addEventListener('input', generateChannel);
+    noAwalBt.addEventListener('input', generateChannel);
 
-    // Init on page load (handles old() repopulation)
     switchMode(getSelectedType());
 }());
 </script>

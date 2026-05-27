@@ -5,11 +5,22 @@
 @section('page-subtitle', 'Rekap dan export data produksi bulanan')
 
 @section('content')
-<div class="space-y-6">
+@php
+    $fmtQty = fn($v) => fmod((float)$v, 1) == 0 ? number_format($v) : number_format($v, 1);
+    $monthName = $months[$month] ?? '';
+    $catGroups = $report->groupBy(fn($r) => $r->product->category->name ?? 'Lainnya')->sortKeys();
 
-    {{-- Filter Bulan --}}
+    $totalUp    = $report->sum('total_shift1');
+    $totalBt    = $report->sum('total_shift2');
+    $totalTanki = $report->filter(fn($r) => str_contains(strtolower($r->product->category->name ?? ''), 'tangki'))->sum('grand_total');
+    $totalCover = $report->filter(fn($r) => str_contains(strtolower($r->product->category->name ?? ''), 'cover'))->sum('grand_total');
+    $grandTotal = $report->sum('grand_total');
+@endphp
+<div class="space-y-5">
+
+    {{-- Filter & Export Bar --}}
     <div class="bg-white dark:bg-slate-800 rounded-2xl p-5 shadow-sm border border-slate-100 dark:border-slate-700">
-        <form method="GET" class="flex flex-wrap gap-4 items-end">
+        <form method="GET" class="flex flex-wrap gap-3 items-end">
             <div>
                 <label class="block text-xs font-medium text-slate-500 mb-1">Bulan</label>
                 <select name="month"
@@ -35,14 +46,21 @@
                 Tampilkan
             </button>
             <div class="flex-1"></div>
-            {{-- Export Buttons --}}
+            <a href="{{ route('reports.daily') }}"
+               class="px-4 py-2.5 bg-slate-600 hover:bg-slate-700 text-white text-sm font-semibold rounded-xl flex items-center gap-2 transition-colors">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                </svg>
+                Laporan Harian
+            </a>
             <a href="{{ route('reports.export-excel', ['month' => $month, 'year' => $year]) }}"
                class="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-xl flex items-center gap-2 transition-colors">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                           d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
                 </svg>
-                Export Excel
+                Excel
             </a>
             <a href="{{ route('reports.export-pdf', ['month' => $month, 'year' => $year]) }}"
                class="px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-xl flex items-center gap-2 transition-colors">
@@ -50,94 +68,143 @@
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                           d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
                 </svg>
-                Export PDF
-            </a>
-            <a href="{{ route('reports.daily') }}"
-               class="px-4 py-2.5 bg-slate-700 hover:bg-slate-800 text-white text-sm font-semibold rounded-xl flex items-center gap-2 transition-colors">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                          d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
-                </svg>
-                Laporan Harian
+                PDF
             </a>
         </form>
     </div>
 
-    {{-- Report Title --}}
-    <div class="flex items-center gap-3">
-        <h2 class="text-lg font-bold text-slate-800 dark:text-white">
-            Rekap Produksi — {{ $months[$month] ?? '' }} {{ $year }}
-        </h2>
-        <span class="px-3 py-1 bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400 text-sm font-semibold rounded-full">
-            {{ $report->count() }} produk · Total: {{ number_format($report->sum('grand_total')) }} unit
-        </span>
-    </div>
+    @if($report->count() > 0)
 
-    {{-- Monthly Report Table --}}
-    <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 overflow-hidden">
-        <div class="overflow-x-auto">
-            <table class="w-full text-sm">
-                <thead class="bg-slate-50 dark:bg-slate-900/50">
-                    <tr>
-                        <th class="px-5 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Produk</th>
-                        <th class="px-5 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Kategori</th>
-                        <th class="px-5 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Seri</th>
-                        <th class="px-5 py-3 text-center text-xs font-semibold text-slate-500 uppercase tracking-wider">Shift 1</th>
-                        <th class="px-5 py-3 text-center text-xs font-semibold text-slate-500 uppercase tracking-wider">Shift 2</th>
-                        <th class="px-5 py-3 text-center text-xs font-semibold text-slate-500 uppercase tracking-wider">Shift 3</th>
-                        <th class="px-5 py-3 text-center text-xs font-semibold text-slate-500 uppercase tracking-wider">Grand Total</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-slate-100 dark:divide-slate-700">
-                    @forelse($report as $row)
-                    <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/50">
-                        <td class="px-5 py-4 font-semibold text-slate-800 dark:text-white">
-                            {{ $row->product->name ?? '-' }}
-                        </td>
-                        <td class="px-5 py-4">
-                            <span class="inline-flex px-2 py-0.5 rounded-md text-xs font-medium
-                                         bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400">
-                                {{ $row->product->category->name ?? '-' }}
-                            </span>
-                        </td>
-                        <td class="px-5 py-4 font-mono text-xs text-slate-500">{{ $row->product->series_with_kva ?: '-' }}</td>
-                        <td class="px-5 py-4 text-center font-medium text-slate-700 dark:text-slate-300">{{ number_format($row->total_shift1) }}</td>
-                        <td class="px-5 py-4 text-center font-medium text-slate-700 dark:text-slate-300">{{ number_format($row->total_shift2) }}</td>
-                        <td class="px-5 py-4 text-center font-medium text-slate-700 dark:text-slate-300">{{ number_format($row->total_shift3) }}</td>
-                        <td class="px-5 py-4 text-center">
-                            <span class="inline-flex px-3 py-1 rounded-full text-sm font-bold
-                                         bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400">
-                                {{ number_format($row->grand_total) }}
-                            </span>
-                        </td>
-                    </tr>
-                    @empty
-                    <tr>
-                        <td colspan="7" class="px-6 py-16 text-center text-slate-400">
-                            Tidak ada data produksi untuk periode ini
-                        </td>
-                    </tr>
-                    @endforelse
-                </tbody>
-                @if($report->count() > 0)
-                <tfoot class="bg-slate-50 dark:bg-slate-900/50 border-t-2 border-slate-200 dark:border-slate-600">
-                    <tr>
-                        <td colspan="3" class="px-5 py-4 text-sm font-bold text-slate-700 dark:text-slate-300">TOTAL</td>
-                        <td class="px-5 py-4 text-center text-sm font-bold text-slate-700 dark:text-slate-300">{{ number_format($report->sum('total_shift1')) }}</td>
-                        <td class="px-5 py-4 text-center text-sm font-bold text-slate-700 dark:text-slate-300">{{ number_format($report->sum('total_shift2')) }}</td>
-                        <td class="px-5 py-4 text-center text-sm font-bold text-slate-700 dark:text-slate-300">{{ number_format($report->sum('total_shift3')) }}</td>
-                        <td class="px-5 py-4 text-center">
-                            <span class="inline-flex px-3 py-1 rounded-full text-sm font-black
-                                         bg-blue-600 text-white">
-                                {{ number_format($report->sum('grand_total')) }}
-                            </span>
-                        </td>
-                    </tr>
-                </tfoot>
-                @endif
-            </table>
+    {{-- Summary Cards --}}
+    <div class="grid grid-cols-4 gap-4">
+        <div class="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-4">
+            <p class="text-xs text-blue-500 mb-1 font-medium text-center">Total Channel</p>
+            <p class="text-[10px] text-blue-400 text-center mb-2">{{ $monthName }} {{ $year }}</p>
+            <div class="grid grid-cols-2 divide-x divide-blue-200 dark:divide-blue-800">
+                <div class="text-center pr-2">
+                    <p class="text-lg font-bold text-blue-700 dark:text-blue-300">{{ number_format($totalUp) }}</p>
+                    <p class="text-xs text-blue-400 mt-0.5">UP</p>
+                </div>
+                <div class="text-center pl-2">
+                    <p class="text-lg font-bold text-purple-700 dark:text-purple-300">{{ number_format($totalBt) }}</p>
+                    <p class="text-xs text-purple-600 mt-0.5">BT</p>
+                </div>
+            </div>
+        </div>
+        <div class="bg-slate-800 rounded-xl p-4 text-center">
+            <p class="text-xs text-white mb-1 font-medium">Total Tanki</p>
+            <p class="text-[10px] text-slate-400 mb-2">{{ $monthName }} {{ $year }}</p>
+            <p class="text-xl font-bold text-white mt-1">{{ $fmtQty($totalTanki) }}</p>
+            <p class="text-xs text-slate-400 mt-1">unit</p>
+        </div>
+        <div class="bg-slate-800 rounded-xl p-4 text-center">
+            <p class="text-xs text-white mb-1 font-medium">Total Cover</p>
+            <p class="text-[10px] text-slate-400 mb-2">{{ $monthName }} {{ $year }}</p>
+            <p class="text-xl font-bold text-white mt-1">{{ $fmtQty($totalCover) }}</p>
+            <p class="text-xs text-slate-400 mt-1">unit</p>
+        </div>
+        <div class="bg-slate-800 rounded-xl p-4 text-center">
+            <p class="text-xs text-slate-400 mb-1 font-medium">Grand Total</p>
+            <p class="text-[10px] text-slate-500 mb-2">{{ $monthName }} {{ $year }}</p>
+            <p class="text-xl font-bold text-white mt-1">{{ $fmtQty($grandTotal) }}</p>
+            <p class="text-xs text-slate-500 mt-1">semua kategori</p>
         </div>
     </div>
+
+    {{-- Section header --}}
+    <div class="flex items-center gap-3">
+        <div class="flex items-center gap-2 px-4 py-1.5 bg-blue-600 text-white rounded-full shadow-sm shrink-0">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+            </svg>
+            <span class="text-sm font-bold tracking-wide">{{ $monthName }} {{ $year }}</span>
+        </div>
+        <div class="h-px flex-1 bg-slate-200 dark:bg-slate-700"></div>
+        <span class="text-xs text-slate-400 font-medium shrink-0">{{ $report->count() }} produk</span>
+    </div>
+
+    {{-- Category Cards --}}
+    <div class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
+        @foreach($catGroups as $catName => $rows)
+        @php $catTotal = $rows->sum('grand_total'); @endphp
+        <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 overflow-hidden">
+
+            {{-- Card header --}}
+            <div class="flex items-center justify-between px-4 py-3 border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/40">
+                <div class="flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-blue-500"></span>
+                    <span class="text-sm font-bold text-slate-700 dark:text-white">{{ $catName }}</span>
+                    <span class="text-xs text-slate-400">· {{ $rows->count() }} produk</span>
+                </div>
+                <span class="text-sm font-bold text-blue-600 dark:text-blue-400">
+                    {{ $fmtQty($catTotal) }} <span class="text-xs font-normal text-slate-400">unit</span>
+                </span>
+            </div>
+
+            {{-- Rows --}}
+            <div class="divide-y divide-slate-100 dark:divide-slate-700">
+                @foreach($rows as $row)
+                @php $isChannel = ($row->product->type ?? 'regular') === 'channel'; @endphp
+                <div class="px-4 py-2.5 flex items-center gap-3 hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
+
+                    {{-- Info kiri --}}
+                    <div class="min-w-0 flex-1">
+                        <div class="flex items-baseline gap-2 flex-wrap">
+                            <p class="text-sm font-semibold text-slate-800 dark:text-white">{{ $row->product->name ?? '-' }}</p>
+                            @if($row->product->series_with_kva)
+                            <span class="text-xs text-slate-400 font-mono">{{ $row->product->series_with_kva }}</span>
+                            @endif
+                        </div>
+                        @if($row->last_notes)
+                        <p class="text-xs text-slate-400 italic mt-0.5">{{ Str::limit($row->last_notes, 40) }}</p>
+                        @endif
+                    </div>
+
+                    {{-- Channel UP/BT + Total ditumpuk --}}
+                    @if($isChannel)
+                    <div class="shrink-0 flex flex-col items-end gap-1">
+                        <div class="flex items-center gap-1.5 text-xs">
+                            <span class="text-slate-400">UP</span>
+                            <span class="font-bold text-blue-500">{{ number_format($row->total_shift1) }}</span>
+                            <span class="text-slate-600">|</span>
+                            <span class="text-slate-400">BT</span>
+                            <span class="font-bold text-purple-500">{{ number_format($row->total_shift2) }}</span>
+                        </div>
+                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-sm font-bold
+                                     bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400">
+                            <span class="text-xs font-normal opacity-70">Total:</span>
+                            {{ $fmtQty($row->grand_total) }}
+                            <span class="text-xs font-normal opacity-70">Unit</span>
+                        </span>
+                    </div>
+                    @else
+                    <span class="shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-sm font-bold
+                                 bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400">
+                        <span class="text-xs font-normal opacity-70">Total:</span>
+                        {{ $fmtQty($row->grand_total) }}
+                        <span class="text-xs font-normal opacity-70">Unit</span>
+                    </span>
+                    @endif
+
+                </div>
+                @endforeach
+            </div>
+
+        </div>
+        @endforeach
+    </div>
+
+    @else
+    <div class="bg-white dark:bg-slate-800 rounded-2xl py-16 text-center border border-slate-100 dark:border-slate-700">
+        <svg class="w-14 h-14 mx-auto mb-4 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                  d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+        </svg>
+        <p class="text-slate-500 dark:text-slate-400 font-medium">Tidak ada data produksi</p>
+        <p class="text-slate-400 text-sm mt-1">Pilih bulan dan tahun yang berbeda</p>
+    </div>
+    @endif
 
 </div>
 @endsection

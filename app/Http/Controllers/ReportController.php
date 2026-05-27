@@ -20,7 +20,13 @@ class ReportController extends Controller
                 DB::raw('SUM(shift1_qty) as total_shift1'),
                 DB::raw('SUM(shift2_qty) as total_shift2'),
                 DB::raw('SUM(shift3_qty) as total_shift3'),
-                DB::raw('SUM(total_qty) as grand_total')
+                DB::raw('SUM(total_qty) as grand_total'),
+                DB::raw("(SELECT notes FROM production_logs p2
+                           WHERE p2.product_id = production_logs.product_id
+                             AND MONTH(p2.production_date) = {$month}
+                             AND YEAR(p2.production_date)  = {$year}
+                           ORDER BY p2.production_date DESC, p2.created_at DESC
+                           LIMIT 1) as last_notes")
             )
             ->with('product.category')
             ->whereMonth('production_date', $month)
@@ -58,7 +64,13 @@ class ReportController extends Controller
                 DB::raw('SUM(shift1_qty) as total_shift1'),
                 DB::raw('SUM(shift2_qty) as total_shift2'),
                 DB::raw('SUM(shift3_qty) as total_shift3'),
-                DB::raw('SUM(total_qty) as grand_total')
+                DB::raw('SUM(total_qty) as grand_total'),
+                DB::raw("(SELECT notes FROM production_logs p2
+                           WHERE p2.product_id = production_logs.product_id
+                             AND MONTH(p2.production_date) = {$month}
+                             AND YEAR(p2.production_date)  = {$year}
+                           ORDER BY p2.production_date DESC, p2.created_at DESC
+                           LIMIT 1) as last_notes")
             )
             ->with('product.category')
             ->whereMonth('production_date', $month)

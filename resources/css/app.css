@@ -66,6 +66,29 @@
     animation: spin 1s linear infinite;
 }
 
+/* Date input calendar icon — force white in dark mode */
+@media (prefers-color-scheme: dark) {
+    input[type="date"]::-webkit-calendar-picker-indicator,
+    input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+        filter: brightness(0) invert(1);
+        cursor: pointer;
+    }
+}
+
+/* Also applies when dark class is toggled manually via JS */
+.dark input[type="date"]::-webkit-calendar-picker-indicator,
+.dark input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+    filter: brightness(0) invert(1);
+    cursor: pointer;
+}
+
+@media print {
+    input[type="date"]::-webkit-calendar-picker-indicator,
+    input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+        display: none !important;
+    }
+}
+
 /* Pulse for live badge */
 @keyframes pulse-dot {
     0%, 100% { opacity: 1; }

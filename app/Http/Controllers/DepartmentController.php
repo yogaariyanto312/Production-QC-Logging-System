@@ -39,7 +39,7 @@ class DepartmentController extends Controller
         $dept = Department::create($data);
         ActivityLog::record('create', "Tambah departemen: {$dept->name}", $dept);
 
-        return redirect()->route('departments.index')
+        return redirect()->route('management.index', ['tab' => 'department'])
             ->with('success', "Departemen '{$dept->name}' berhasil ditambahkan.");
     }
 
@@ -62,7 +62,7 @@ class DepartmentController extends Controller
         $department->update($data);
         ActivityLog::record('update', "Edit departemen: {$department->name}", $department);
 
-        return redirect()->route('departments.index')
+        return redirect()->route('management.index', ['tab' => 'department'])
             ->with('success', "Departemen '{$department->name}' berhasil diperbarui.");
     }
 
@@ -77,7 +77,7 @@ class DepartmentController extends Controller
         $department->delete();
         ActivityLog::record('delete', "Hapus departemen: {$name}");
 
-        return redirect()->route('departments.index')
+        return redirect()->route('management.index', ['tab' => 'department'])
             ->with('success', "Departemen '{$name}' berhasil dihapus.");
     }
 
