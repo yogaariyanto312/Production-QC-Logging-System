@@ -7,6 +7,7 @@ use App\Models\Department;
 use App\Models\Note;
 use App\Models\Product;
 use App\Models\ProductionLog;
+use App\Models\ProductionTarget;
 use App\Models\ActivityLog;
 use Illuminate\Support\Facades\DB;
 
@@ -14,16 +15,16 @@ class DashboardController extends Controller
 {
     public function index()
     {
-        $today = now()->toDateString();
+        $today        = now()->toDateString();
         $currentMonth = now()->month;
-        $currentYear = now()->year;
+        $currentYear  = now()->year;
 
         // Statistik utama
         $stats = [
-            'today_total'   => ProductionLog::whereDate('production_date', $today)->sum('total_qty'),
-            'today_entries' => ProductionLog::whereDate('production_date', $today)->count(),
-            'monthly_total' => ProductionLog::whereMonth('production_date', $currentMonth)
-                                ->whereYear('production_date', $currentYear)->sum('total_qty'),
+            'today_total'    => ProductionLog::whereDate('production_date', $today)->sum('total_qty'),
+            'today_entries'  => ProductionLog::whereDate('production_date', $today)->count(),
+            'monthly_total'  => ProductionLog::whereMonth('production_date', $currentMonth)
+                                    ->whereYear('production_date', $currentYear)->sum('total_qty'),
             'total_products' => Product::where('is_active', true)->count(),
         ];
 
@@ -68,10 +69,39 @@ class DashboardController extends Controller
             ->sortByDesc('total')
             ->values();
 
-        // Input terbaru
+        // Top 5 operator hari ini
+        $topOperators = ProductionLog::whereDate('production_date', $today)
+            ->whereNotNull('operator_name')->where('operator_name', '!=', '')
+            ->select('operator_name', DB::raw('SUM(total_qty) as total'))
+            ->groupBy('operator_name')
+            ->orderByDesc('total')
+            ->limit(5)
+            ->get();
+
+        // Defect rate per produk bulan ini (hanya yang ada reject)
+        $defectRates = ProductionLog::whereMonth('production_date', $currentMonth)
+            ->whereYear('production_date', $currentYear)
+            ->where('reject_qty', '>', 0)
+            ->select('product_id',
+                DB::raw('SUM(total_qty) as total_prod'),
+                DB::raw('SUM(reject_qty) as total_reject')
+            )
+            ->groupBy('product_id')
+            ->with('product:id,name')
+            ->orderByDesc('total_reject')
+            ->limit(7)
+            ->get()
+            ->map(fn($r) => [
+                'name'   => $r->product->name ?? '-',
+                'rate'   => round(($r->total_reject / max($r->total_prod + $r->total_reject, 1)) * 100, 1),
+                'reject' => (int) $r->total_reject,
+            ])
+            ->values();
+
+        // Input terbaru — hanya data hari ini
         $recentLogs = ProductionLog::with(['product.category', 'user'])
+            ->whereDate('production_date', $today)
             ->orderByDesc('created_at')
-            ->limit(8)
             ->get();
 
         // Aktivitas terbaru
@@ -91,6 +121,23 @@ class DashboardController extends Controller
             ->limit(5)
             ->get();
 
+        // Target vs Aktual hari ini
+        $todayTargets = ProductionTarget::with('product')
+            ->where('target_date', $today)
+            ->get();
+        $totalTarget = $todayTargets->sum('target_qty');
+        $totalActual = ProductionLog::whereDate('production_date', $today)->sum('total_qty');
+        $targetPct   = $totalTarget > 0 ? min(round(($totalActual / $totalTarget) * 100), 100) : null;
+
+        // Reject stats hari ini
+        $rejectStats    = ProductionLog::whereDate('production_date', $today)
+            ->selectRaw('SUM(reject_qty) as total_reject, SUM(total_qty) as total_prod')
+            ->first();
+        $todayReject    = (int) ($rejectStats->total_reject ?? 0);
+        $todayRejectPct = ($rejectStats->total_prod + $todayReject) > 0
+            ? round(($todayReject / ($rejectStats->total_prod + $todayReject)) * 100, 1)
+            : 0;
+
         // Kategori untuk widget admin
         $categories = Category::withCount('products')->orderBy('name')->get();
 
@@ -101,7 +148,56 @@ class DashboardController extends Controller
 
         return view('dashboard.index', compact(
             'stats', 'chartData', 'productChart', 'recentLogs', 'recentActivities',
-            'categories', 'departments', 'recentNotes'
+            'categories', 'departments', 'recentNotes',
+            'todayTargets', 'totalTarget', 'totalActual', 'targetPct',
+            'todayReject', 'todayRejectPct',
+            'topOperators', 'defectRates'
         ));
+    }
+
+    public function liveStats()
+    {
+        $today        = now()->toDateString();
+        $currentMonth = now()->month;
+        $currentYear  = now()->year;
+
+        $todayTotal   = (float) ProductionLog::whereDate('production_date', $today)->sum('total_qty');
+        $todayEntries = ProductionLog::whereDate('production_date', $today)->count();
+        $monthlyTotal = (float) ProductionLog::whereMonth('production_date', $currentMonth)
+                            ->whereYear('production_date', $currentYear)->sum('total_qty');
+
+        $rejectStats    = ProductionLog::whereDate('production_date', $today)
+            ->selectRaw('SUM(reject_qty) as total_reject, SUM(total_qty) as total_prod')
+            ->first();
+        $todayReject    = (int) ($rejectStats->total_reject ?? 0);
+        $todayRejectPct = ($rejectStats->total_prod + $todayReject) > 0
+            ? round(($todayReject / ($rejectStats->total_prod + $todayReject)) * 100, 1)
+            : 0;
+
+        $totalTarget = ProductionTarget::where('target_date', $today)->sum('target_qty');
+        $totalActual = $todayTotal;
+        $targetPct   = $totalTarget > 0 ? min(round(($totalActual / $totalTarget) * 100), 100) : null;
+
+        $topOperators = ProductionLog::whereDate('production_date', $today)
+            ->whereNotNull('operator_name')->where('operator_name', '!=', '')
+            ->select('operator_name', DB::raw('SUM(total_qty) as total'))
+            ->groupBy('operator_name')
+            ->orderByDesc('total')
+            ->limit(5)
+            ->get()
+            ->map(fn($r) => ['name' => $r->operator_name, 'total' => (float) $r->total]);
+
+        return response()->json([
+            'today_total'    => $todayTotal,
+            'today_entries'  => $todayEntries,
+            'monthly_total'  => $monthlyTotal,
+            'today_reject'   => $todayReject,
+            'reject_pct'     => $todayRejectPct,
+            'target_pct'     => $targetPct,
+            'total_target'   => (int) $totalTarget,
+            'total_actual'   => $totalActual,
+            'top_operators'  => $topOperators,
+            'updated_at'     => now()->timezone('Asia/Jakarta')->format('H:i:s'),
+        ]);
     }
 }

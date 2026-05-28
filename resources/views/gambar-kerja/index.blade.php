@@ -26,7 +26,7 @@
                    class="px-4 py-2.5 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 text-sm font-semibold rounded-xl transition-colors">
                     Reset
                 </a>
-                @if(auth()->user()->isAdmin())
+                @if(auth()->user()->isPrivileged())
                 <a href="{{ route('gambar-kerja.create') }}"
                    class="px-4 py-2.5 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold rounded-xl flex items-center gap-2 transition-colors">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -47,7 +47,7 @@
                   d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
         </svg>
         <p class="text-slate-500 font-medium">Belum ada gambar kerja</p>
-        @if(auth()->user()->isAdmin())
+        @if(auth()->user()->isPrivileged())
         <a href="{{ route('gambar-kerja.create') }}"
            class="mt-4 inline-block px-5 py-2 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700">
             Upload Sekarang
@@ -74,10 +74,45 @@
             <span class="text-xs text-slate-400 font-medium">{{ $items->count() }} dokumen</span>
         </div>
 
-        {{-- Cards Grid --}}
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            @foreach($items as $group)
-            @php $firstFile = $firstFiles[$group->first_id] ?? null; @endphp
+        {{-- Pre-group by series category --}}
+        @php
+            $subGroups = [
+                'standar'  => ['label' => 'Standar / PLN', 'dot' => 'bg-slate-400',  'text' => 'text-slate-500 dark:text-slate-400',   'items' => collect()],
+                'swasta'   => ['label' => 'Seri Swasta',   'dot' => 'bg-amber-500',  'text' => 'text-amber-600 dark:text-amber-400',   'items' => collect()],
+                'typetest' => ['label' => 'Seri Typetest', 'dot' => 'bg-purple-500', 'text' => 'text-purple-600 dark:text-purple-400', 'items' => collect()],
+            ];
+            foreach ($items as $_g) {
+                $kat = $_g->kategori_seri ?? 'pln';
+                if ($kat === 'typetest')     $subGroups['typetest']['items']->push($_g);
+                elseif ($kat === 'swasta')   $subGroups['swasta']['items']->push($_g);
+                else                         $subGroups['standar']['items']->push($_g);
+            }
+        @endphp
+
+        @foreach($subGroups as $subKey => $sub)
+        @if($sub['items']->isNotEmpty())
+        <div class="space-y-3">
+
+            {{-- Sub-category Header --}}
+            <div class="flex items-center gap-2 pl-1">
+                <span class="w-2 h-2 rounded-full {{ $sub['dot'] }} shrink-0"></span>
+                <span class="text-xs font-bold {{ $sub['text'] }} uppercase tracking-wider">{{ $sub['label'] }}</span>
+                <div class="h-px flex-1 bg-slate-200 dark:bg-slate-700"></div>
+                <span class="text-xs text-slate-400">{{ $sub['items']->count() }} dokumen</span>
+            </div>
+
+            {{-- Cards Grid --}}
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            @foreach($sub['items'] as $group)
+            @php
+                $firstFile   = $firstFiles[$group->first_id] ?? null;
+                $kat         = $group->kategori_seri ?? 'pln';
+                $seriesBadge = match($kat) {
+                    'typetest' => ['label' => 'Typetest', 'class' => 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400'],
+                    'swasta'   => ['label' => 'Swasta',   'class' => 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'],
+                    default    => null,
+                };
+            @endphp
 
             <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700
                         hover:shadow-md hover:border-blue-200 dark:hover:border-blue-800 transition-all flex flex-col group">
@@ -124,10 +159,18 @@
                                     group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors min-h-10">
                             {{ $group->judul }}
                         </h3>
+                        @if($seriesBadge)
+                        <span class="inline-block mt-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold {{ $seriesBadge['class'] }}">
+                            Seri {{ $seriesBadge['label'] }}
+                        </span>
+                        @endif
                         @if($group->seri || $group->kva)
                         <p class="text-xs font-mono text-slate-400 mt-1 truncate">
                             {{ $group->seri }}{{ $group->kva ? "-{$group->kva}KVA" : '' }}
                         </p>
+                        @endif
+                        @if($group->keterangan)
+                        <p class="text-xs text-slate-400 dark:text-slate-500 mt-1 italic">{{ Str::words($group->keterangan, 18, '...') }}</p>
                         @endif
                         <div class="flex items-center justify-end mt-2">
                             <span class="text-xs font-semibold text-blue-600 dark:text-blue-400 flex items-center gap-1">
@@ -140,8 +183,8 @@
                     </div>
                 </a>
 
-                {{-- Tombol Hapus (admin only) --}}
-                @if(auth()->user()->isAdmin())
+                {{-- Tombol Hapus (privileged only) --}}
+                @if(auth()->user()->isPrivileged())
                 <div class="px-4 pb-4 mt-auto">
                     <form method="POST" action="{{ route('gambar-kerja.destroy-by-group') }}">
                         @csrf @method('DELETE')
@@ -166,7 +209,11 @@
 
             </div>
             @endforeach
-        </div>
+            </div>{{-- /Cards Grid --}}
+
+        </div>{{-- /sub-category --}}
+        @endif
+        @endforeach
 
     </div>
     @endforeach

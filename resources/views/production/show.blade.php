@@ -8,7 +8,7 @@
 <div class="max-w-2xl mx-auto space-y-5">
 
     <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 overflow-hidden">
-        <div class="bg-linear-to-r from-slate-700 to-slate-800 px-6 py-5">
+        <div class="bg-gradient-to-r from-slate-700 to-slate-800 px-6 py-5">
             <div class="flex items-center justify-between">
                 <div>
                     <h2 class="text-lg font-bold text-white">{{ $productionLog->product->name ?? '-' }}</h2>
@@ -91,7 +91,49 @@
                     </p>
                 </div>
                 @endif
+                @if($productionLog->keterangan)
+                <div class="py-3">
+                    <span class="text-sm text-slate-500">Keterangan</span>
+                    <p class="mt-1 text-sm text-slate-800 dark:text-white bg-slate-50 dark:bg-slate-700/50 rounded-lg p-3 whitespace-pre-line">
+                        {{ $productionLog->keterangan }}
+                    </p>
+                </div>
+                @endif
             </div>
+
+            {{-- Reject Info --}}
+            @if($productionLog->reject_qty > 0)
+            <div class="bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-800 rounded-xl p-4">
+                <p class="text-sm font-semibold text-red-700 dark:text-red-400 mb-3 flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                    </svg>
+                    Reject / Defect
+                </p>
+                <div class="grid grid-cols-3 gap-3 text-center">
+                    <div>
+                        <p class="text-2xl font-black text-red-600 dark:text-red-400">{{ $productionLog->reject_qty }}</p>
+                        <p class="text-xs text-slate-500">unit reject</p>
+                    </div>
+                    <div>
+                        <p class="text-2xl font-black text-orange-600 dark:text-orange-400">{{ $productionLog->rejectRate() }}%</p>
+                        <p class="text-xs text-slate-500">reject rate</p>
+                    </div>
+                    <div>
+                        <p class="text-sm font-semibold text-slate-700 dark:text-slate-200 mt-1">
+                            {{ $productionLog->rejectCategoryLabel() }}
+                        </p>
+                        <p class="text-xs text-slate-500">kategori</p>
+                    </div>
+                </div>
+                @if($productionLog->reject_notes)
+                <p class="mt-3 text-xs text-slate-500 bg-white dark:bg-slate-800 rounded-lg px-3 py-2">
+                    {{ $productionLog->reject_notes }}
+                </p>
+                @endif
+            </div>
+            @endif
 
             {{-- Buttons --}}
             <div class="flex gap-3 pt-2">

@@ -8,7 +8,7 @@
 <div class="max-w-xl mx-auto">
     <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 overflow-hidden">
 
-        <div class="bg-linear-to-r from-green-600 to-emerald-600 px-6 py-5">
+        <div class="bg-gradient-to-r from-green-600 to-emerald-600 px-6 py-5">
             <h2 class="text-lg font-bold text-white">Form Tambah Operator</h2>
             <p class="text-green-100 text-sm mt-1">Operator dapat login dan menginput data produksi</p>
         </div>

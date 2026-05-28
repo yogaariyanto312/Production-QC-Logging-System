@@ -11,76 +11,169 @@
     <div class="{{ auth()->user()->isVisitor() ? 'grid grid-cols-1 sm:grid-cols-3 gap-3' : 'grid grid-cols-2 lg:grid-cols-4 gap-3' }}">
 
         {{-- Today --}}
-        <div class="bg-white dark:bg-slate-800 rounded-xl p-4 shadow-sm border border-slate-100 dark:border-slate-700 flex items-center gap-3">
-            <div class="w-10 h-10 bg-blue-100 dark:bg-blue-900/40 rounded-xl flex items-center justify-center shrink-0">
-                <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                          d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2"/>
-                </svg>
+        <div class="bg-white dark:bg-slate-800 rounded-xl p-4 shadow-sm border border-slate-100 dark:border-slate-700">
+            <div class="flex items-center justify-between mb-3">
+                <div class="w-9 h-9 bg-blue-100 dark:bg-blue-900/40 rounded-xl flex items-center justify-center shrink-0">
+                    <svg class="w-4.5 h-4.5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2"/>
+                    </svg>
+                </div>
+                <span class="inline-flex items-center gap-1 text-[10px] font-semibold text-green-600 bg-green-50 dark:bg-green-900/30 dark:text-green-400 px-1.5 py-0.5 rounded-full">
+                    <span class="w-1.5 h-1.5 bg-green-500 rounded-full pulse-dot"></span>Live
+                </span>
             </div>
-            <div class="flex-1 min-w-0">
-                <p class="text-xl font-bold text-slate-800 dark:text-white leading-tight">{{ number_format($stats['today_total']) }}</p>
-                <p class="text-xs text-slate-500 dark:text-slate-400">Total Unit Hari Ini</p>
-                <p class="text-xs text-slate-400 mt-0.5">{{ $stats['today_entries'] }} entri</p>
-            </div>
-            <span class="inline-flex items-center gap-1 text-xs font-medium text-green-600 bg-green-50 dark:bg-green-900/30 dark:text-green-400 px-2 py-0.5 rounded-full shrink-0">
-                <span class="w-1.5 h-1.5 bg-green-500 rounded-full pulse-dot"></span>Live
-            </span>
+            <p id="stat-today-total" class="text-2xl font-extrabold text-slate-800 dark:text-white leading-none">{{ number_format($stats['today_total']) }}</p>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-snug">Total Unit Hari Ini</p>
+            <p class="text-[10px] text-slate-400 mt-0.5"><span id="stat-today-entries">{{ $stats['today_entries'] }}</span> entri</p>
         </div>
 
         {{-- Monthly --}}
-        <div class="bg-white dark:bg-slate-800 rounded-xl p-4 shadow-sm border border-slate-100 dark:border-slate-700 flex items-center gap-3">
-            <div class="w-10 h-10 bg-purple-100 dark:bg-purple-900/40 rounded-xl flex items-center justify-center shrink-0">
-                <svg class="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                          d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
-                </svg>
+        <div class="bg-white dark:bg-slate-800 rounded-xl p-4 shadow-sm border border-slate-100 dark:border-slate-700">
+            <div class="flex items-center justify-between mb-3">
+                <div class="w-9 h-9 bg-purple-100 dark:bg-purple-900/40 rounded-xl flex items-center justify-center shrink-0">
+                    <svg class="w-4.5 h-4.5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                    </svg>
+                </div>
             </div>
-            <div class="flex-1 min-w-0">
-                <p class="text-xl font-bold text-slate-800 dark:text-white leading-tight">{{ number_format($stats['monthly_total']) }}</p>
-                <p class="text-xs text-slate-500 dark:text-slate-400">Total Bulan Ini</p>
-                <p class="text-xs text-slate-400 mt-0.5">{{ now()->translatedFormat('F Y') }}</p>
-            </div>
+            <p id="stat-monthly-total" class="text-2xl font-extrabold text-slate-800 dark:text-white leading-none">{{ number_format($stats['monthly_total']) }}</p>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-snug">Total Bulan Ini</p>
+            <p class="text-[10px] text-slate-400 mt-0.5">{{ now()->translatedFormat('F Y') }}</p>
         </div>
 
         {{-- Products --}}
-        <div class="bg-white dark:bg-slate-800 rounded-xl p-4 shadow-sm border border-slate-100 dark:border-slate-700 flex items-center gap-3">
-            <div class="w-10 h-10 bg-amber-100 dark:bg-amber-900/40 rounded-xl flex items-center justify-center shrink-0">
-                <svg class="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                          d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
-                </svg>
+        <div class="bg-white dark:bg-slate-800 rounded-xl p-4 shadow-sm border border-slate-100 dark:border-slate-700">
+            <div class="flex items-center justify-between mb-3">
+                <div class="w-9 h-9 bg-amber-100 dark:bg-amber-900/40 rounded-xl flex items-center justify-center shrink-0">
+                    <svg class="w-4.5 h-4.5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
+                    </svg>
+                </div>
             </div>
-            <div class="flex-1 min-w-0">
-                <p class="text-xl font-bold text-slate-800 dark:text-white leading-tight">{{ $stats['total_products'] }}</p>
-                <p class="text-xs text-slate-500 dark:text-slate-400">Produk Aktif</p>
-                <p class="text-xs text-slate-400 mt-0.5">Terdaftar di sistem</p>
-            </div>
+            <p class="text-2xl font-extrabold text-slate-800 dark:text-white leading-none">{{ $stats['total_products'] }}</p>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-snug">Produk Aktif</p>
+            <p class="text-[10px] text-slate-400 mt-0.5">Terdaftar di sistem</p>
         </div>
 
         {{-- Quick Action --}}
         @unless(auth()->user()->isVisitor())
-        <div class="bg-gradient-to-br from-blue-600 to-blue-700 rounded-xl p-4 shadow-sm flex flex-col justify-center gap-2">
-            <p class="text-xs font-semibold text-blue-100">Aksi Cepat</p>
-            <a href="{{ route('production.create') }}"
-               class="flex items-center gap-2 w-full py-2 px-3 bg-white/20 hover:bg-white/30 text-white rounded-lg text-xs font-medium transition-colors">
-                <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
-                </svg>
-                Input Produksi
-            </a>
-            @if(auth()->user()->isPrivileged())
-            <a href="{{ route('reports.daily') }}"
-               class="flex items-center gap-2 w-full py-2 px-3 bg-white/20 hover:bg-white/30 text-white rounded-lg text-xs font-medium transition-colors">
-                <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                          d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/>
-                </svg>
-                Laporan Harian
-            </a>
-            @endif
+        <div class="rounded-xl p-4 shadow-sm flex flex-col"
+             style="background: linear-gradient(to bottom right, #2563eb, #1d4ed8)">
+            {{-- Icon + label atas --}}
+            <div class="flex items-center gap-2 mb-3">
+                <div class="w-9 h-9 bg-white/20 rounded-xl flex items-center justify-center shrink-0">
+                    <svg class="w-4.5 h-4.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                    </svg>
+                </div>
+                <span class="text-sm font-bold text-white">Aksi Cepat</span>
+            </div>
+            {{-- Tombol-tombol --}}
+            <div class="flex flex-col gap-2 mt-auto">
+                <a href="{{ route('production.create') }}"
+                   class="flex items-center gap-2 py-2 px-3 bg-white/20 hover:bg-white/30 text-white rounded-xl text-xs font-semibold transition-colors">
+                    <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                    </svg>
+                    Input Produksi
+                </a>
+                @if(auth()->user()->isPrivileged())
+                <a href="{{ route('reports.daily') }}"
+                   class="flex items-center gap-2 py-2 px-3 bg-white/20 hover:bg-white/30 text-white rounded-xl text-xs font-semibold transition-colors">
+                    <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/>
+                    </svg>
+                    Laporan Harian
+                </a>
+                @endif
+            </div>
         </div>
         @endunless
+    </div>
+
+    {{-- ====== TARGET vs AKTUAL + REJECT ====== --}}
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+
+        {{-- Target vs Aktual --}}
+        <div class="bg-white dark:bg-slate-800 rounded-xl p-4 shadow-sm border border-slate-100 dark:border-slate-700">
+            <div class="flex items-center justify-between mb-3">
+                <div>
+                    <h3 class="text-sm font-semibold text-slate-800 dark:text-white">Target Hari Ini</h3>
+                    <p class="text-xs text-slate-400">{{ now()->translatedFormat('d F Y') }}</p>
+                </div>
+                @if(auth()->user()->isPrivileged())
+                <a href="{{ route('production.targets.index') }}"
+                   class="text-xs text-blue-500 hover:text-blue-700 font-medium">Kelola →</a>
+                @endif
+            </div>
+            @if($totalTarget > 0)
+            <div class="space-y-3">
+                <div class="flex items-end justify-between">
+                    <div>
+                        <p id="stat-target-actual" class="text-2xl font-black text-slate-800 dark:text-white">{{ number_format($totalActual) }}</p>
+                        <p class="text-xs text-slate-400">aktual dari <span id="stat-target-total">{{ number_format($totalTarget) }}</span> target</p>
+                    </div>
+                    <p id="stat-target-pct" class="text-2xl font-black {{ $targetPct >= 100 ? 'text-green-500' : ($targetPct >= 70 ? 'text-amber-500' : 'text-blue-500') }}">
+                        {{ $targetPct }}%
+                    </p>
+                </div>
+                <div class="h-3 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
+                    <div id="stat-target-bar" class="h-full rounded-full transition-all {{ $targetPct >= 100 ? 'bg-green-500' : ($targetPct >= 70 ? 'bg-amber-400' : 'bg-blue-500') }}"
+                         style="width: {{ $targetPct }}%"></div>
+                </div>
+                @foreach($todayTargets->take(3) as $t)
+                @php $act = \App\Models\ProductionLog::whereDate('production_date', today())->where('product_id', $t->product_id)->sum('total_qty'); @endphp
+                <div class="flex items-center justify-between text-xs">
+                    <span class="text-slate-500 truncate max-w-[60%]">{{ $t->product->name ?? '-' }}</span>
+                    <span class="font-semibold {{ $act >= $t->target_qty ? 'text-green-600' : 'text-slate-600 dark:text-slate-300' }}">
+                        {{ number_format($act) }}/{{ number_format($t->target_qty) }}
+                    </span>
+                </div>
+                @endforeach
+                @if($todayTargets->count() > 3)
+                <a href="{{ route('production.targets.index') }}"
+                   class="text-xs text-slate-400 hover:text-blue-500">+{{ $todayTargets->count() - 3 }} produk lainnya</a>
+                @endif
+            </div>
+            @else
+            <div class="flex flex-col items-center justify-center py-6 text-center">
+                <p class="text-slate-400 text-sm">Belum ada target</p>
+                @if(auth()->user()->isPrivileged())
+                <a href="{{ route('production.targets.index') }}"
+                   class="mt-2 text-xs text-blue-500 hover:underline">Set target sekarang →</a>
+                @endif
+            </div>
+            @endif
+        </div>
+
+        {{-- Reject Stats --}}
+        <div class="bg-white dark:bg-slate-800 rounded-xl p-4 shadow-sm border border-slate-100 dark:border-slate-700">
+            <h3 class="text-sm font-semibold text-slate-800 dark:text-white mb-1">Reject Hari Ini</h3>
+            <p class="text-xs text-slate-400 mb-4">Defect / produk reject</p>
+            <div class="flex items-center justify-center py-4">
+                <div class="text-center">
+                    <p id="stat-reject-count" class="text-4xl font-black {{ $todayReject > 0 ? 'text-red-500' : 'text-green-500' }}">
+                        {{ $todayReject > 0 ? number_format($todayReject) : '0' }}
+                    </p>
+                    <p class="text-xs text-slate-400 mt-1">unit reject</p>
+                    @if($todayReject > 0)
+                    <div class="mt-3 px-3 py-1.5 bg-red-50 dark:bg-red-900/20 rounded-lg">
+                        <p id="stat-reject-pct" class="text-sm font-bold text-red-600 dark:text-red-400">{{ $todayRejectPct }}%</p>
+                        <p class="text-[10px] text-red-400">reject rate</p>
+                    </div>
+                    @else
+                    <div class="mt-3 px-3 py-1.5 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                        <p class="text-xs text-green-600 dark:text-green-400 font-medium">Tidak ada reject hari ini ✓</p>
+                    </div>
+                    @endif
+                </div>
+            </div>
+        </div>
     </div>
 
     {{-- ====== CHARTS ====== --}}
@@ -105,12 +198,87 @@
                 <p class="text-xs text-slate-400">{{ now()->translatedFormat('F Y') }}</p>
             </div>
             {{-- Canvas --}}
-            <div class="relative mx-auto" style="height:260px;width:260px">
-                <canvas id="barChart"></canvas>
+            <div class="relative mx-auto w-full" style="max-width:260px; aspect-ratio:1/1">
+                <canvas id="barChart" style="position:absolute;inset:0;width:100%!important;height:100%!important"></canvas>
             </div>
             {{-- Legend HTML --}}
             <div id="doughnutLegend" class="mt-3 space-y-1.5"></div>
         </div>
+    </div>
+
+    {{-- ====== TOP OPERATOR + DEFECT RATE ====== --}}
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+
+        {{-- Top Operator Hari Ini --}}
+        <div class="bg-white dark:bg-slate-800 rounded-xl p-3 shadow-sm border border-slate-100 dark:border-slate-700">
+            <div class="flex items-center justify-between mb-2.5">
+                <div>
+                    <h3 class="text-sm font-semibold text-slate-800 dark:text-white">Top Operator</h3>
+                    <p class="text-[10px] text-slate-400">Hari ini · unit terproduksi</p>
+                </div>
+            </div>
+            @php $opMax = $topOperators->max('total') ?: 1; @endphp
+            <div id="operatorList" class="space-y-2">
+                @forelse($topOperators as $i => $op)
+                <div class="flex items-center gap-2.5">
+                    <span class="w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center shrink-0
+                                 {{ $i === 0 ? 'bg-amber-400 text-white' : ($i === 1 ? 'bg-slate-300 dark:bg-slate-600 text-slate-600 dark:text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400') }}">
+                        {{ $i + 1 }}
+                    </span>
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-medium text-slate-700 dark:text-slate-200 truncate">{{ $op->operator_name }}</span>
+                            <span class="text-xs font-bold text-slate-800 dark:text-white ml-2 shrink-0">
+                                {{ number_format($op->total) }} <span class="font-normal text-slate-400 text-[10px]">unit</span>
+                            </span>
+                        </div>
+                        <div class="mt-0.5 h-1.5 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
+                            <div class="h-full rounded-full bg-blue-500 transition-all"
+                                 style="width: {{ round(($op->total / $opMax) * 100) }}%"></div>
+                        </div>
+                    </div>
+                </div>
+                @empty
+                <p class="text-xs text-slate-400 py-4 text-center">Belum ada data hari ini</p>
+                @endforelse
+            </div>
+        </div>
+
+        {{-- Defect Rate per Produk --}}
+        <div class="bg-white dark:bg-slate-800 rounded-xl p-3 shadow-sm border border-slate-100 dark:border-slate-700">
+            <div class="flex items-center justify-between mb-2.5">
+                <div>
+                    <h3 class="text-sm font-semibold text-slate-800 dark:text-white">Defect Rate</h3>
+                    <p class="text-[10px] text-slate-400">{{ now()->translatedFormat('F Y') }} · per produk</p>
+                </div>
+            </div>
+            <div class="space-y-2">
+                @forelse($defectRates as $dr)
+                <div class="flex items-center gap-2.5">
+                    <span class="text-[11px] font-bold w-9 text-right shrink-0
+                                 {{ $dr['rate'] >= 10 ? 'text-red-500' : ($dr['rate'] >= 5 ? 'text-amber-500' : 'text-green-600') }}">
+                        {{ $dr['rate'] }}%
+                    </span>
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs text-slate-600 dark:text-slate-300 truncate">{{ $dr['name'] }}</span>
+                            <span class="text-[10px] text-slate-400 ml-2 shrink-0">{{ $dr['reject'] }} reject</span>
+                        </div>
+                        <div class="mt-0.5 h-1.5 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
+                            <div class="h-full rounded-full transition-all
+                                        {{ $dr['rate'] >= 10 ? 'bg-red-500' : ($dr['rate'] >= 5 ? 'bg-amber-400' : 'bg-green-500') }}"
+                                 style="width: {{ min($dr['rate'] * 5, 100) }}%"></div>
+                        </div>
+                    </div>
+                </div>
+                @empty
+                <div class="flex items-center justify-center py-4">
+                    <span class="text-xs text-green-600 dark:text-green-400 font-medium">Tidak ada reject bulan ini ✓</span>
+                </div>
+                @endforelse
+            </div>
+        </div>
+
     </div>
 
     {{-- ====== KATEGORI + DEPARTEMEN (privileged only) ====== --}}
@@ -274,7 +442,7 @@
 
             <div class="p-4">
                 {{-- Nama hari --}}
-                <div class="grid grid-cols-7 mb-1">
+                <div class="mb-1" style="display:grid;grid-template-columns:repeat(7,1fr)">
                     @foreach(['Sen','Sel','Rab','Kam','Jum','Sab','Min'] as $d)
                     <div class="text-center py-1 text-xs font-semibold
                                 {{ in_array($d, ['Sab','Min']) ? 'text-rose-400' : 'text-slate-400 dark:text-slate-500' }}">
@@ -284,7 +452,7 @@
                 </div>
 
                 {{-- Grid tanggal --}}
-                <div class="grid grid-cols-7 gap-y-0.5">
+                <div style="display:grid;grid-template-columns:repeat(7,1fr);row-gap:2px">
                     @for($i = 0; $i < $startOffset; $i++)<div></div>@endfor
 
                     @for($day = 1; $day <= $daysInMonth; $day++)
@@ -340,7 +508,7 @@
     <div id="editCategoryModal"
          class="fixed inset-0 z-50 hidden items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
         <div class="w-full max-w-md bg-white dark:bg-slate-800 rounded-2xl shadow-2xl overflow-hidden">
-            <div class="flex items-center justify-between px-5 py-4 bg-linear-to-r from-amber-500 to-orange-500">
+            <div class="flex items-center justify-between px-5 py-4 bg-gradient-to-r from-amber-500 to-orange-500">
                 <h3 class="text-sm font-bold text-white">Edit Cepat Kategori</h3>
                 <button onclick="closeEditModal()" class="p-1 rounded-lg text-amber-100 hover:text-white hover:bg-white/20 transition-colors">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -392,6 +560,7 @@
     @endif
 
     {{-- ====== RECENT LOGS ====== --}}
+    {{-- Input Produksi Terbaru — card layout --}}
     <div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700 overflow-hidden">
         <div class="flex items-center justify-between px-4 py-3 border-b border-slate-100 dark:border-slate-700">
             <h3 class="text-sm font-semibold text-slate-800 dark:text-white">Input Produksi Terbaru</h3>
@@ -399,60 +568,145 @@
                 Lihat semua →
             </a>
         </div>
-        <div class="overflow-x-auto">
-            <table class="w-full text-xs">
-                <thead class="bg-slate-50 dark:bg-slate-900/50">
-                    <tr>
-                        <th class="px-4 py-2.5 text-left font-semibold text-slate-500 uppercase tracking-wide">Tanggal</th>
-                        <th class="px-4 py-2.5 text-left font-semibold text-slate-500 uppercase tracking-wide">Produk</th>
-                        <th class="px-4 py-2.5 text-center font-semibold text-slate-500 uppercase tracking-wide">S1</th>
-                        <th class="px-4 py-2.5 text-center font-semibold text-slate-500 uppercase tracking-wide">S2</th>
-                        <th class="px-4 py-2.5 text-center font-semibold text-slate-500 uppercase tracking-wide">S3</th>
-                        <th class="px-4 py-2.5 text-center font-semibold text-slate-500 uppercase tracking-wide">Total</th>
-                        <th class="px-4 py-2.5 text-left font-semibold text-slate-500 uppercase tracking-wide">Operator</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-slate-100 dark:divide-slate-700">
-                    @forelse($recentLogs as $log)
-                    <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
-                        <td class="px-4 py-2.5 whitespace-nowrap">
-                            <span class="text-slate-700 dark:text-slate-300 font-medium">{{ $log->production_date->format('d/m/Y') }}</span>
-                            @if($log->production_date->isToday())
-                            <span class="ml-1 px-1 py-0.5 text-xs bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 rounded">Hari ini</span>
-                            @endif
-                        </td>
-                        <td class="px-4 py-2.5">
-                            <div class="font-medium text-slate-800 dark:text-white">{{ $log->product->name ?? '-' }}</div>
-                            @if($log->product->series_with_kva)
-                            <div class="text-slate-400 font-mono">{{ $log->product->series_with_kva }}</div>
-                            @endif
-                        </td>
-                        <td class="px-4 py-2.5 text-center text-slate-500 dark:text-slate-400">{{ number_format($log->shift1_qty) }}</td>
-                        <td class="px-4 py-2.5 text-center text-slate-500 dark:text-slate-400">{{ number_format($log->shift2_qty) }}</td>
-                        <td class="px-4 py-2.5 text-center text-slate-500 dark:text-slate-400">{{ number_format($log->shift3_qty) }}</td>
-                        <td class="px-4 py-2.5 text-center">
-                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400">
-                                {{ number_format($log->total_qty) }}
+
+        <div class="p-4 space-y-5">
+            @php
+                $fmtQty    = fn($n) => number_format($n, 0, ',', '.');
+                $dateGroups = $recentLogs->groupBy(fn($l) => $l->production_date->format('Y-m-d'));
+            @endphp
+
+            @forelse($dateGroups as $dateStr => $dayLogs)
+            @php
+                $carbon    = \Illuminate\Support\Carbon::parse($dateStr)->locale('id');
+                $dayName   = $carbon->translatedFormat('l');
+                $dateFmt   = $carbon->translatedFormat('d F Y');
+                $catGroups = $dayLogs->groupBy(fn($l) => $l->product->category->name ?? 'Lainnya');
+                $dayTotal  = $dayLogs->sum('total_qty');
+            @endphp
+            <div class="space-y-3">
+
+                {{-- Date header --}}
+                <div class="flex items-center gap-3">
+                    <div class="flex items-center gap-2 px-3 py-1 bg-slate-700 dark:bg-slate-600 text-white rounded-full shrink-0">
+                        <svg class="w-3 h-3 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                  d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                        </svg>
+                        <span class="text-[11px] font-semibold text-slate-300">{{ $dayName }}</span>
+                        <span class="text-xs font-bold">{{ $dateFmt }}</span>
+                    </div>
+                    <div class="h-px flex-1 bg-slate-200 dark:bg-slate-700"></div>
+                    <span class="text-xs text-slate-400 font-medium shrink-0">
+                        {{ $fmtQty($dayTotal) }} unit · {{ $dayLogs->count() }} entri
+                    </span>
+                </div>
+
+                {{-- Category cards per hari --}}
+                <div class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-3">
+                    @foreach($catGroups as $catName => $catLogs)
+                    @php $catTotal = $catLogs->sum('total_qty'); @endphp
+                    <div class="bg-slate-50 dark:bg-slate-900/40 rounded-xl border border-slate-100 dark:border-slate-700 overflow-hidden">
+
+                        {{-- Card header --}}
+                        <div class="flex items-center justify-between px-3 py-2.5 border-b border-slate-100 dark:border-slate-700 bg-white/50 dark:bg-slate-800/50">
+                            <div class="flex items-center gap-2">
+                                <span class="w-2 h-2 rounded-full bg-blue-500 shrink-0"></span>
+                                <span class="text-xs font-bold text-slate-700 dark:text-white">{{ $catName }}</span>
+                                <span class="text-[10px] text-slate-400">· {{ $catLogs->count() }} entri</span>
+                            </div>
+                            <span class="text-xs font-bold text-blue-600 dark:text-blue-400">
+                                {{ $fmtQty($catTotal) }} <span class="text-[10px] font-normal text-slate-400">unit</span>
                             </span>
-                        </td>
-                        <td class="px-4 py-2.5 text-slate-500 dark:text-slate-400">{{ $log->user->name ?? '-' }}</td>
-                    </tr>
-                    @empty
-                    <tr>
-                        <td colspan="7" class="px-4 py-10 text-center text-slate-400">
-                            <p class="text-sm">Belum ada data produksi hari ini</p>
-                            @unless(auth()->user()->isVisitor())
-                            <a href="{{ route('production.create') }}" class="mt-1 inline-block text-blue-600 text-xs hover:underline">Input sekarang →</a>
-                            @endunless
-                        </td>
-                    </tr>
-                    @endforelse
-                </tbody>
-            </table>
+                        </div>
+
+                        {{-- Entry rows --}}
+                        <div class="divide-y divide-slate-100 dark:divide-slate-700/50">
+                            @foreach($catLogs as $log)
+                            @php $isChannel = ($log->product->type ?? 'regular') === 'channel'; @endphp
+                            <div class="px-3 py-2 flex items-center gap-2 hover:bg-white dark:hover:bg-slate-800/60 transition-colors">
+
+                                {{-- Info kiri --}}
+                                <div class="min-w-0 flex-1">
+                                    <div class="flex items-baseline gap-1.5 flex-wrap">
+                                        <p class="text-xs font-semibold text-slate-800 dark:text-white">{{ $log->product->name ?? '-' }}</p>
+                                        @if($log->product->series_with_kva)
+                                        <span class="text-[10px] text-slate-400 font-mono">{{ $log->product->series_with_kva }}</span>
+                                        @endif
+                                    </div>
+                                    <div class="flex items-center gap-1.5 flex-wrap mt-0.5">
+                                        @if($log->notes)
+                                        <span class="text-[10px] text-slate-400 italic">{{ Str::limit($log->notes, 35) }}</span>
+                                        <span class="text-slate-300 dark:text-slate-600 text-[10px]">·</span>
+                                        @endif
+                                        <span class="text-[10px] text-slate-400">{{ $log->user->name ?? '-' }}</span>
+                                    </div>
+                                </div>
+
+                                {{-- Channel: UP/BT + Total --}}
+                                @if($isChannel)
+                                <div class="shrink-0 flex flex-col items-end gap-0.5">
+                                    <div class="flex items-center gap-1 text-[10px]">
+                                        <span class="text-slate-400">UP</span>
+                                        <span class="font-bold text-blue-500">{{ number_format($log->shift1_qty) }}</span>
+                                        <span class="text-slate-500">|</span>
+                                        <span class="text-slate-400">BT</span>
+                                        <span class="font-bold text-purple-500">{{ number_format($log->shift2_qty) }}</span>
+                                    </div>
+                                    <span class="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-xs font-bold
+                                                 bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400">
+                                        <span class="text-[10px] font-normal opacity-70">Total:</span>
+                                        {{ $fmtQty($log->total_qty) }}
+                                        <span class="text-[10px] font-normal opacity-70">Unit</span>
+                                    </span>
+                                </div>
+                                @else
+                                {{-- Regular: Total saja --}}
+                                <span class="shrink-0 inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-xs font-bold
+                                             bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400">
+                                    <span class="text-[10px] font-normal opacity-70">Total:</span>
+                                    {{ $fmtQty($log->total_qty) }}
+                                    <span class="text-[10px] font-normal opacity-70">Unit</span>
+                                </span>
+                                @endif
+
+                            </div>
+                            @endforeach
+                        </div>
+
+                    </div>
+                    @endforeach
+                </div>
+
+            </div>
+            @empty
+            <div class="flex flex-col items-center justify-center py-12 text-center">
+                <div class="w-12 h-12 bg-slate-100 dark:bg-slate-700 rounded-xl flex items-center justify-center mb-3">
+                    <svg class="w-6 h-6 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                              d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+                    </svg>
+                </div>
+                <p class="text-sm text-slate-400">Belum ada data produksi</p>
+                @unless(auth()->user()->isVisitor())
+                <a href="{{ route('production.create') }}" class="mt-1 text-blue-600 text-xs hover:underline">Input sekarang →</a>
+                @endunless
+            </div>
+            @endforelse
         </div>
     </div>
 
 </div>
+
+{{-- ====== AUTO REFRESH TOGGLE (fixed bottom-right) ====== --}}
+<div id="autoRefreshBtn"
+     class="fixed bottom-6 right-6 z-50 hidden sm:flex items-center gap-2 px-3 py-2 rounded-full shadow-lg cursor-pointer select-none
+            bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:shadow-xl transition-all">
+    <span id="refreshDot" class="w-2 h-2 rounded-full bg-green-500 pulse-dot shrink-0"></span>
+    <span id="refreshLabel" class="text-xs font-semibold text-slate-700 dark:text-slate-200">Live</span>
+    <span id="refreshCountdown" class="text-xs text-slate-400">30s</span>
+    <span id="refreshUpdatedAt" class="hidden text-[10px] text-slate-400 sm:inline"></span>
+</div>
+
 @endsection
 
 @push('scripts')
@@ -647,5 +901,105 @@ if (legendEl && doughnutData.length) {
         </div>`;
     }).join('');
 }
+</script>
+
+<script>
+let operatorChartInstance = null; // kept for compat with fetchLiveStats
+
+// ====== AUTO REFRESH ======
+const AR_INTERVAL = 30;
+let arEnabled  = localStorage.getItem('dashAutoRefresh') !== 'false';
+let arTimer    = null;
+let cdTimer    = null;
+let cdVal      = AR_INTERVAL;
+
+async function fetchLiveStats() {
+    try {
+        const r = await fetch('{{ route("api.dashboard.live") }}');
+        if (!r.ok) return;
+        const d = await r.json();
+        const fmt  = n => Math.round(n).toLocaleString('id-ID');
+        const set  = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+
+        set('stat-today-total',   fmt(d.today_total));
+        set('stat-today-entries', d.today_entries);
+        set('stat-monthly-total', fmt(d.monthly_total));
+        set('stat-reject-count',  fmt(d.today_reject));
+        set('stat-reject-pct',    d.reject_pct + '%');
+
+        if (d.target_pct !== null) {
+            set('stat-target-actual', fmt(d.total_actual));
+            set('stat-target-total',  fmt(d.total_target));
+            set('stat-target-pct',    d.target_pct + '%');
+            const bar = document.getElementById('stat-target-bar');
+            if (bar) bar.style.width = d.target_pct + '%';
+        }
+
+        const listEl = document.getElementById('operatorList');
+        if (listEl && d.top_operators?.length) {
+            const maxT  = Math.max(...d.top_operators.map(o => o.total), 1);
+            const rk    = ['bg-amber-400 text-white', 'bg-slate-300 text-slate-600', 'bg-slate-100 text-slate-500'];
+            listEl.innerHTML = d.top_operators.map((o, i) => {
+                const pct = Math.round((o.total / maxT) * 100);
+                const rc  = rk[i] ?? rk[2];
+                return `<div class="flex items-center gap-2.5">
+                    <span class="w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center shrink-0 ${rc}">${i + 1}</span>
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-medium text-slate-700 dark:text-slate-200 truncate">${o.name}</span>
+                            <span class="text-xs font-bold text-slate-800 dark:text-white ml-2 shrink-0">${o.total.toLocaleString('id-ID')} <span class="font-normal text-slate-400 text-[10px]">unit</span></span>
+                        </div>
+                        <div class="mt-0.5 h-1.5 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
+                            <div class="h-full rounded-full bg-blue-500 transition-all" style="width:${pct}%"></div>
+                        </div>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        const ua = document.getElementById('refreshUpdatedAt');
+        if (ua) { ua.textContent = ' · ' + d.updated_at; ua.classList.remove('hidden'); }
+    } catch {}
+}
+
+function arStart() {
+    cdVal = AR_INTERVAL;
+    fetchLiveStats();
+    arTimer = setInterval(fetchLiveStats, AR_INTERVAL * 1000);
+    cdTimer = setInterval(() => {
+        cdVal--;
+        if (cdVal <= 0) cdVal = AR_INTERVAL;
+        const el = document.getElementById('refreshCountdown');
+        if (el) el.textContent = cdVal + 's';
+    }, 1000);
+    arSetUI(true);
+}
+
+function arStop() {
+    clearInterval(arTimer); clearInterval(cdTimer);
+    arTimer = null; cdTimer = null;
+    arSetUI(false);
+}
+
+function arSetUI(on) {
+    const dot   = document.getElementById('refreshDot');
+    const label = document.getElementById('refreshLabel');
+    const count = document.getElementById('refreshCountdown');
+    if (dot) {
+        dot.classList.toggle('bg-green-500', on);
+        dot.classList.toggle('pulse-dot', on);
+        dot.classList.toggle('bg-slate-400', !on);
+    }
+    if (label) label.textContent = on ? 'Live' : 'Paused';
+    if (count) { count.textContent = AR_INTERVAL + 's'; count.classList.toggle('hidden', !on); }
+}
+
+document.getElementById('autoRefreshBtn')?.addEventListener('click', () => {
+    arEnabled = !arEnabled;
+    localStorage.setItem('dashAutoRefresh', arEnabled);
+    arEnabled ? arStart() : arStop();
+});
+
+arEnabled ? arStart() : arSetUI(false);
 </script>
 @endpush

@@ -20,16 +20,42 @@ class ProductionLog extends Model
         'shift3_qty',
         'total_qty',
         'notes',
+        'manual_series',
+        'manual_kva',
+        'keterangan',
         'status',
+        'reject_qty',
+        'reject_category',
+        'reject_notes',
     ];
 
     protected $casts = [
         'production_date' => 'date',
-        'shift1_qty' => 'integer',
-        'shift2_qty' => 'integer',
-        'shift3_qty' => 'integer',
-        'total_qty' => 'float',
+        'shift1_qty'      => 'integer',
+        'shift2_qty'      => 'integer',
+        'shift3_qty'      => 'integer',
+        'total_qty'       => 'float',
+        'reject_qty'      => 'integer',
     ];
+
+    public static array $rejectCategories = [
+        'material'    => 'Bahan Baku',
+        'mesin'       => 'Mesin / Alat',
+        'human_error' => 'Human Error',
+        'desain'      => 'Desain / Spesifikasi',
+        'lainnya'     => 'Lainnya',
+    ];
+
+    public function rejectCategoryLabel(): string
+    {
+        return self::$rejectCategories[$this->reject_category] ?? '-';
+    }
+
+    public function rejectRate(): float
+    {
+        $total = $this->total_qty + $this->reject_qty;
+        return $total > 0 ? round(($this->reject_qty / $total) * 100, 1) : 0;
+    }
 
     // Relasi ke produk
     public function product(): BelongsTo

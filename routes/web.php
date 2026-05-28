@@ -2,6 +2,8 @@
 
 use App\Http\Controllers\Auth\ForgotPasswordController;
 use App\Http\Controllers\Auth\LoginController;
+use App\Http\Controllers\BotSettingController;
+use App\Http\Controllers\TelegramWebhookController;
 use App\Http\Controllers\ManagementController;
 use App\Http\Controllers\SupervisorController;
 use App\Http\Controllers\GambarKerjaController;
@@ -15,8 +17,12 @@ use App\Http\Controllers\OperatorController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\ProductionLogController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\ProductionTargetController;
 use App\Http\Controllers\ReportController;
 use Illuminate\Support\Facades\Route;
+
+// Telegram webhook — no auth, no CSRF (exempt via bootstrap/app.php)
+Route::post('/telegram/webhook', [TelegramWebhookController::class, 'handle'])->name('telegram.webhook');
 
 // Auth routes (guest only)
 Route::middleware('guest')->group(function () {
@@ -44,13 +50,20 @@ Route::middleware(['auth'])->group(function () {
 
     // Dashboard
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+    Route::get('/api/dashboard-live', [DashboardController::class, 'liveStats'])->name('api.dashboard.live');
 
-    // About
-    Route::get('/about', fn() => view('about'))->name('about');
+    // About — load developer pertama yang aktif
+    Route::get('/about', function () {
+        $developer = \App\Models\User::where('role', 'developer')
+            ->where('is_active', true)
+            ->first();
+        return view('about', compact('developer'));
+    })->name('about');
 
     // Profil
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::put('/profile', [ProfileController::class, 'update'])->name('profile.update');
+    Route::post('/profile/about-avatar', [ProfileController::class, 'updateAboutAvatar'])->name('profile.about-avatar');
 
     // Riwayat Produksi — semua role bisa lihat
     Route::get('/production', [ProductionLogController::class, 'index'])->name('production.index');
@@ -64,24 +77,41 @@ Route::middleware(['auth'])->group(function () {
         Route::delete('/production/{productionLog}', [ProductionLogController::class, 'destroy'])->name('production.destroy');
     });
 
+    // Target Produksi — literal, HARUS sebelum wildcard {productionLog}
+    Route::middleware('role:developer,admin,supervisor')->group(function () {
+        Route::get('/production/targets',                       [ProductionTargetController::class, 'index'])->name('production.targets.index');
+        Route::post('/production/targets',                      [ProductionTargetController::class, 'store'])->name('production.targets.store');
+        // Literal routes HARUS sebelum wildcard {productionTarget}
+        Route::post('/production/targets/schedule-photo',       [ProductionTargetController::class, 'uploadSchedulePhoto'])->name('production.targets.schedule-photo.store');
+        Route::delete('/production/targets/schedule-photo',     [ProductionTargetController::class, 'deleteSchedulePhoto'])->name('production.targets.schedule-photo.destroy');
+        Route::delete('/production/targets/{productionTarget}', [ProductionTargetController::class, 'destroy'])->name('production.targets.destroy');
+    });
+
     // Show detail — setelah literal routes supaya tidak di-capture duluan oleh wildcard
     Route::get('/production/{productionLog}', [ProductionLogController::class, 'show'])->name('production.show');
 
     // API untuk dropdown product (AJAX)
     Route::get('/api/products', [ProductController::class, 'apiList'])->name('api.products');
 
+    // API — nomor urut terakhir per produk (untuk hint di form input)
+    Route::get('/api/production/last-serial', [ProductionLogController::class, 'lastSerial'])->name('api.production.last-serial');
+    // API — live data target produksi (untuk auto-refresh)
+    Route::get('/api/production/targets-live', [ProductionTargetController::class, 'liveData'])->name('api.targets.live');
+
     // Ukuran Produk (semua user bisa lihat)
     Route::get('/products/ukuran', [ProductController::class, 'ukuranIndex'])->name('products.ukuran');
 
     // Gambar Kerja — literal routes HARUS sebelum wildcard
     Route::get('/gambar-kerja',           [GambarKerjaController::class, 'index'])->name('gambar-kerja.index');
-    Route::get('/gambar-kerja/create',    [GambarKerjaController::class, 'create'])->name('gambar-kerja.create')->middleware('role:admin');
-    Route::post('/gambar-kerja',          [GambarKerjaController::class, 'store'])->name('gambar-kerja.store')->middleware('role:admin');
+    Route::get('/gambar-kerja/create',    [GambarKerjaController::class, 'create'])->name('gambar-kerja.create')->middleware('role:developer,admin');
+    Route::post('/gambar-kerja',          [GambarKerjaController::class, 'store'])->name('gambar-kerja.store')->middleware('role:developer,admin');
     Route::get('/gambar-kerja/group',     [GambarKerjaController::class, 'byGroup'])->name('gambar-kerja.by-group');
-    Route::delete('/gambar-kerja/group',  [GambarKerjaController::class, 'destroyByGroup'])->name('gambar-kerja.destroy-by-group')->middleware('role:admin');
-    Route::post('/gambar-kerja/group/thumbnail',          [GambarKerjaController::class, 'uploadThumbnail'])->name('gambar-kerja.upload-thumbnail')->middleware('role:admin');
-    Route::delete('/gambar-kerja/group/thumbnail',       [GambarKerjaController::class, 'deleteThumbnail'])->name('gambar-kerja.delete-thumbnail')->middleware('role:admin');
-    Route::delete('/gambar-kerja/{gambarKerja}', [GambarKerjaController::class, 'destroy'])->name('gambar-kerja.destroy')->middleware('role:admin');
+    Route::delete('/gambar-kerja/group',  [GambarKerjaController::class, 'destroyByGroup'])->name('gambar-kerja.destroy-by-group')->middleware('role:developer,admin');
+    Route::post('/gambar-kerja/group/thumbnail',          [GambarKerjaController::class, 'uploadThumbnail'])->name('gambar-kerja.upload-thumbnail')->middleware('role:developer,admin');
+    Route::delete('/gambar-kerja/group/thumbnail',       [GambarKerjaController::class, 'deleteThumbnail'])->name('gambar-kerja.delete-thumbnail')->middleware('role:developer,admin');
+    Route::patch('/gambar-kerja/group/kategori',         [GambarKerjaController::class, 'updateKategori'])->name('gambar-kerja.update-kategori')->middleware('role:developer,admin');
+    Route::patch('/gambar-kerja/group/info',             [GambarKerjaController::class, 'updateInfo'])->name('gambar-kerja.update-info')->middleware('role:developer,admin');
+    Route::delete('/gambar-kerja/{gambarKerja}', [GambarKerjaController::class, 'destroy'])->name('gambar-kerja.destroy')->middleware('role:developer,admin');
 
     // Notes
     Route::get('/notes', [NoteController::class, 'index'])->name('notes.index');
@@ -147,5 +177,13 @@ Route::middleware(['auth'])->group(function () {
         Route::resource('departments', DepartmentController::class)->except(['show']);
         Route::post('/departments/quick-store', [DepartmentController::class, 'quickStore'])->name('departments.quick-store');
         Route::resource('categories', CategoryController::class)->except(['show']);
+
+        // Developer Tools — Bot Notifikasi
+        Route::get('/developer/bot-settings',                  [BotSettingController::class, 'index'])->name('developer.bot-settings');
+        Route::post('/developer/bot-settings',                 [BotSettingController::class, 'update'])->name('developer.bot-settings.update');
+        Route::post('/developer/bot-settings/test',            [BotSettingController::class, 'test'])->name('developer.bot-settings.test');
+        Route::post('/developer/bot-settings/webhook-register',[BotSettingController::class, 'registerWebhook'])->name('developer.bot-settings.webhook-register');
+        Route::post('/developer/bot-settings/webhook-info',    [BotSettingController::class, 'webhookInfo'])->name('developer.bot-settings.webhook-info');
+        Route::post('/developer/bot-settings/send-daily-report', [BotSettingController::class, 'sendDailyReport'])->name('developer.bot-settings.send-daily-report');
     });
 });

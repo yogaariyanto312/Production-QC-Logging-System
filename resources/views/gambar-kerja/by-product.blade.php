@@ -94,7 +94,7 @@
 
                     {{-- Download — visitor tidak bisa --}}
                     @unless(auth()->user()->isVisitor())
-                    <a href="{{ asset('storage/' . $item->file_path) }}" target="_blank" download
+                    <a href="{{ route('storage.file', ['path' => $item->file_path]) }}" target="_blank" download
                        class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium
                               text-green-700 bg-green-50 hover:bg-green-100 dark:bg-green-900/20 dark:text-green-400 transition-colors">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -125,14 +125,14 @@
             {{-- Preview --}}
             @if($item->isImage())
             <div class="bg-slate-50 dark:bg-slate-900/50 p-4 flex justify-center" x-data="{ zoom: false }">
-                <img src="{{ asset('storage/' . $item->file_path) }}"
+                <img src="{{ route('storage.file', ['path' => $item->file_path]) }}"
                      alt="{{ $item->judul }}"
                      @click="zoom = !zoom"
                      :class="zoom ? 'w-full cursor-zoom-out' : 'max-h-[500px] cursor-zoom-in'"
                      class="rounded-xl shadow object-contain transition-all duration-300">
             </div>
             @else
-            <iframe src="{{ asset('storage/' . $item->file_path) }}"
+            <iframe src="{{ route('storage.file', ['path' => $item->file_path]) }}"
                     class="w-full border-0"
                     style="height: 70vh;"
                     title="{{ $item->judul }}">

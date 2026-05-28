@@ -15,10 +15,12 @@ class Category extends Model
         'code',
         'description',
         'is_active',
+        'has_manual_serial',
     ];
 
     protected $casts = [
-        'is_active' => 'boolean',
+        'is_active'         => 'boolean',
+        'has_manual_serial' => 'boolean',
     ];
 
     public function products(): HasMany

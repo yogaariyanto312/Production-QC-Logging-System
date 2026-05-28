@@ -73,10 +73,14 @@ class MessageController extends Controller
         return response()->json(['ok' => true]);
     }
 
-    // Admin: hapus semua pesan dari satu operator
+    // Hapus seluruh percakapan antara user saat ini dan kontak tertentu
     public function destroyConversation($senderId)
     {
-        \App\Models\Message::where('sender_id', $senderId)->delete();
+        $myId = auth()->id();
+        \App\Models\Message::where(function ($q) use ($senderId, $myId) {
+            $q->where(fn($q) => $q->where('sender_id', $senderId)->where('recipient_id', $myId))
+              ->orWhere(fn($q) => $q->where('sender_id', $myId)->where('recipient_id', $senderId));
+        })->delete();
         return response()->json(['ok' => true]);
     }
 
@@ -115,7 +119,15 @@ class MessageController extends Controller
     {
         $user = auth()->user();
 
-        if ($user->role === 'admin') {
+        if ($user->role === 'developer') {
+            // Developer melihat semua user aktif kecuali diri sendiri
+            $users = \App\Models\User::where('id', '!=', $user->id)
+                ->where('is_active', true)
+                ->whereIn('role', ['admin', 'supervisor', 'operator', 'visitor'])
+                ->orderByRaw("FIELD(role, 'admin', 'supervisor', 'operator', 'visitor')")
+                ->orderBy('name')
+                ->get(['id', 'name', 'role', 'department', 'avatar', 'last_seen_at']);
+        } elseif ($user->role === 'admin') {
             // Admin melihat operator & supervisor (untuk inbox)
             $users = \App\Models\User::whereIn('role', ['operator', 'supervisor', 'visitor'])
                 ->where('is_active', true)

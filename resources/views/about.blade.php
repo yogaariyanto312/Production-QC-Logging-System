@@ -94,13 +94,18 @@
                 {{-- Avatar --}}
                 <div class="w-24 h-24 rounded-2xl shadow-xl shrink-0 overflow-hidden"
                      style="background: linear-gradient(145deg, #93c5fd, #1d4ed8);">
-                    @if(file_exists(public_path('images/profile-about.jpg')))
-                        <img src="{{ asset('images/profile-about.jpg') }}"
-                             alt="yogaariyanto"
+                    @php
+                        $aboutPhoto = $developer?->about_avatar ?? $developer?->avatar ?? null;
+                    @endphp
+                    @if($aboutPhoto)
+                        <img src="{{ route('storage.file', ['path' => $aboutPhoto]) }}"
+                             alt="{{ $developer->name }}"
                              class="w-full h-full object-cover">
                     @else
                         <div class="w-full h-full flex items-center justify-center">
-                            <span class="text-3xl font-black text-white select-none">Y</span>
+                            <span class="text-3xl font-black text-white select-none">
+                                {{ strtoupper(substr($developer->name ?? 'Y', 0, 1)) }}
+                            </span>
                         </div>
                     @endif
                 </div>
@@ -123,18 +128,23 @@
         {{-- Konten --}}
         <div class="px-6 py-5">
 
-            {{-- Nama --}}
-            <div class="mb-3">
-                <h2 class="text-xl font-extrabold text-slate-800 dark:text-white">yogaariyanto</h2>
-                <p class="text-sm font-semibold text-blue-500 dark:text-blue-400 mt-0.5">@qc.yoga</p>
+            {{-- Handle --}}
+            @if($developer && $developer->handle)
+            <div class="mb-6">
+                <p class="text-sm font-semibold text-blue-500 dark:text-blue-400">
+                    {{ '@' . ltrim($developer->handle, '@') }}
+                </p>
             </div>
+            @endif
 
             {{-- Bio --}}
-            <p class="text-sm text-slate-500 dark:text-slate-400 mt-3 leading-relaxed">
-                Quality Control Engineer sekaligus developer internal sistem ini.
-                Bertanggung jawab atas desain, pengembangan, dan pemeliharaan
-                aplikasi QC Production System.
-            </p>
+            @php
+                $bioText = $developer->bio ?? 'Quality Control Engineer sekaligus developer internal sistem ini. Bertanggung jawab atas desain, pengembangan, dan pemeliharaan aplikasi QC Production System.';
+                $bioParagraphs = array_values(array_filter(explode("\n\n", $bioText), 'strlen'));
+            @endphp
+            @foreach($bioParagraphs as $para)
+            <p class="text-sm text-slate-500 dark:text-slate-400 leading-relaxed whitespace-pre-line{{ $loop->first ? '' : ' mt-1' }}">{{ trim($para) }}</p>
+            @endforeach
 
             {{-- Divider --}}
             <div class="border-t border-slate-100 dark:border-slate-700" style="margin-top: 28px; margin-bottom: 24px;"></div>
@@ -167,12 +177,14 @@
 
             </div>
 
-            {{-- Social Buttons --}}
+            {{-- Social Buttons — dinamis dari DB --}}
+            @if($developer && ($developer->link_instagram || $developer->link_github || $developer->link_portfolio || $developer->link_email))
             <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Hubungi / Temukan</p>
             <div class="grid grid-cols-2 gap-2">
 
                 {{-- Instagram --}}
-                <a href="https://www.instagram.com/agoy_312/" target="_blank"
+                @if($developer->link_instagram)
+                <a href="{{ $developer->link_instagram }}" target="_blank"
                    class="flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold text-white transition-all hover:scale-[1.02] hover:brightness-110 shadow-md"
                    style="background: linear-gradient(135deg, #c2185b, #e91e8c, #f77737);">
                     <svg class="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 24 24">
@@ -180,9 +192,11 @@
                     </svg>
                     Instagram
                 </a>
+                @endif
 
                 {{-- GitHub --}}
-                <a href="https://github.com/yogaariyanto312" target="_blank"
+                @if($developer->link_github)
+                <a href="{{ $developer->link_github }}" target="_blank"
                    class="flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold text-white transition-all hover:scale-[1.02] hover:brightness-110 shadow-md"
                    style="background: linear-gradient(135deg, #374151, #1f2937);">
                     <svg class="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 24 24">
@@ -190,9 +204,11 @@
                     </svg>
                     GitHub
                 </a>
+                @endif
 
                 {{-- Portfolio --}}
-                <a href="https://yogaariyanto.com/" target="_blank"
+                @if($developer->link_portfolio)
+                <a href="{{ $developer->link_portfolio }}" target="_blank"
                    class="flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold text-white transition-all hover:scale-[1.02] hover:brightness-110 shadow-md"
                    style="background: linear-gradient(135deg, #7c3aed, #4f46e5);">
                     <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -201,9 +217,11 @@
                     </svg>
                     Portfolio
                 </a>
+                @endif
 
                 {{-- Email --}}
-                <a href="mailto:yogaariyanto972@gmail.com"
+                @if($developer->link_email)
+                <a href="mailto:{{ $developer->link_email }}"
                    class="flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold text-white transition-all hover:scale-[1.02] hover:brightness-110 shadow-md"
                    style="background: linear-gradient(135deg, #f59e0b, #ef4444);">
                     <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -212,8 +230,10 @@
                     </svg>
                     Email
                 </a>
+                @endif
 
             </div>
+            @endif
         </div>
     </div>
 
@@ -239,8 +259,17 @@
 
 @push('scripts')
 <script>
+@php
+    // Ambil username dari link_github (https://github.com/username → username)
+    $ghUsername = null;
+    if ($developer?->link_github) {
+        $parts = explode('/', rtrim($developer->link_github, '/'));
+        $ghUsername = end($parts);
+    }
+@endphp
+@if($ghUsername)
 // Fetch jumlah public repo dari GitHub API
-fetch('https://api.github.com/users/yogaariyanto312')
+fetch('https://api.github.com/users/{{ $ghUsername }}')
     .then(r => r.json())
     .then(data => {
         const el = document.getElementById('github-repos');
@@ -252,5 +281,9 @@ fetch('https://api.github.com/users/yogaariyanto312')
         const el = document.getElementById('github-repos');
         if (el) el.innerHTML = `<span class="text-2xl font-extrabold text-slate-800 dark:text-white">—</span>`;
     });
+@else
+document.getElementById('github-repos').innerHTML =
+    '<span class="text-2xl font-extrabold text-slate-800 dark:text-white">—</span>';
+@endif
 </script>
 @endpush

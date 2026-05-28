@@ -22,6 +22,12 @@ class ProductionLogRequest extends FormRequest
             'shift3_qty'      => ['nullable', 'integer', 'min:0', 'max:9999'],
             'total_qty'       => ['required', 'numeric', 'min:0', 'max:99999'],
             'notes'           => ['nullable', 'string', 'max:500'],
+            'manual_series'   => ['nullable', 'string', 'max:100'],
+            'manual_kva'      => ['nullable', 'string', 'max:50'],
+            'keterangan'      => ['nullable', 'string', 'max:500'],
+            'reject_qty'      => ['nullable', 'integer', 'min:0', 'max:9999'],
+            'reject_category' => ['nullable', 'in:material,mesin,human_error,desain,lainnya'],
+            'reject_notes'    => ['nullable', 'string', 'max:300'],
         ];
     }
 

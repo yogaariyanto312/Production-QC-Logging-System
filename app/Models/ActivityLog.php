@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\BotNotificationService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -40,5 +41,9 @@ class ActivityLog extends Model
             'ip_address' => request()->ip(),
             'created_at' => now(),
         ]);
+
+        try {
+            BotNotificationService::notify($action, $description, auth()->user());
+        } catch (\Throwable) {}
     }
 }

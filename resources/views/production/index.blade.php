@@ -72,38 +72,50 @@
     {{-- Summary Bar --}}
     @if($totalCount > 0)
     @php $summaryLabel = now()->translatedFormat('d F Y'); @endphp
-    <div class="grid grid-cols-4 gap-4">
-        <div class="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-4">
-            <p class="text-xs text-blue-500 mb-1 font-medium text-center">Total Channel</p>
-            <p class="text-[10px] text-blue-400 text-center mb-2">{{ $summaryLabel }}</p>
-            <div class="grid grid-cols-2 divide-x divide-blue-200 dark:divide-blue-800">
-                <div class="text-center pr-2">
-                    <p class="text-lg font-bold text-blue-700 dark:text-blue-300">{{ number_format($totalUp) }}</p>
-                    <p class="text-xs text-blue-400 mt-0.5">UP</p>
-                </div>
-                <div class="text-center pl-2">
-                    <p class="text-lg font-bold text-purple-700 dark:text-purple-300">{{ number_format($totalBt) }}</p>
-                    <p class="text-xs text-purple-600 mt-0.5">BT</p>
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-100 dark:border-slate-700 shadow-sm overflow-hidden">
+        <div class="px-4 py-1.5 border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/40">
+            <span class="text-[10px] font-medium text-slate-400 uppercase tracking-wide">Ringkasan · {{ $summaryLabel }}</span>
+        </div>
+        <div class="grid grid-cols-2 sm:grid-cols-4">
+            {{-- Channel --}}
+            <div class="px-3 py-2.5 text-center border-r border-b sm:border-b-0 border-slate-100 dark:border-slate-700">
+                <p class="text-[10px] font-medium text-slate-400 mb-1.5">Total Channel</p>
+                <div class="flex items-center justify-center gap-2">
+                    <div class="text-center">
+                        <span class="text-[10px] text-blue-400">UP</span>
+                        <p class="text-sm font-bold text-blue-600 dark:text-blue-400 leading-tight">{{ number_format($totalUp) }}</p>
+                    </div>
+                    <span class="text-slate-200 dark:text-slate-700 font-light">|</span>
+                    <div class="text-center">
+                        <span class="text-[10px] text-purple-400">BT</span>
+                        <p class="text-sm font-bold text-purple-600 dark:text-purple-400 leading-tight">{{ number_format($totalBt) }}</p>
+                    </div>
                 </div>
             </div>
-        </div>
-        <div class="bg-slate-800 rounded-xl p-4 text-center">
-            <p class="text-xs text-white mb-1 font-medium">Total Tanki</p>
-            <p class="text-[10px] text-slate-400 mb-2">{{ $summaryLabel }}</p>
-            <p class="text-xl font-bold text-white mt-1">{{ $fmtQty($totalTanki) }}</p>
-            <p class="text-xs text-slate-400 mt-1">unit</p>
-        </div>
-        <div class="bg-slate-800 rounded-xl p-4 text-center">
-            <p class="text-xs text-white mb-1 font-medium">Total Cover</p>
-            <p class="text-[10px] text-slate-400 mb-2">{{ $summaryLabel }}</p>
-            <p class="text-xl font-bold text-white mt-1">{{ $fmtQty($totalCover) }}</p>
-            <p class="text-xs text-slate-400 mt-1">unit</p>
-        </div>
-        <div class="bg-slate-800 rounded-xl p-4 text-center">
-            <p class="text-xs text-slate-400 mb-1 font-medium">Grand Total</p>
-            <p class="text-[10px] text-slate-500 mb-2">{{ $summaryLabel }}</p>
-            <p class="text-xl font-bold text-white mt-1">{{ $fmtQty($grandTotal) }}</p>
-            <p class="text-xs text-slate-500 mt-1">semua kategori</p>
+            {{-- Tanki --}}
+            <div class="px-3 py-2.5 text-center border-b sm:border-b-0 sm:border-r border-slate-100 dark:border-slate-700">
+                <p class="text-[10px] font-medium text-slate-400 mb-1.5">Total Tangki</p>
+                <div class="flex items-baseline justify-center gap-1">
+                    <p class="text-sm font-bold text-slate-700 dark:text-white">{{ $fmtQty($totalTanki) }}</p>
+                    <span class="text-[10px] text-slate-400">U</span>
+                </div>
+            </div>
+            {{-- Cover --}}
+            <div class="px-3 py-2.5 text-center border-r border-b sm:border-b-0 border-slate-100 dark:border-slate-700">
+                <p class="text-[10px] font-medium text-slate-400 mb-1.5">Total Cover</p>
+                <div class="flex items-baseline justify-center gap-1">
+                    <p class="text-sm font-bold text-slate-700 dark:text-white">{{ $fmtQty($totalCover) }}</p>
+                    <span class="text-[10px] text-slate-400">U</span>
+                </div>
+            </div>
+            {{-- Total Keseluruhan --}}
+            <div class="px-3 py-2.5 text-center border-b sm:border-b-0 border-slate-100 dark:border-slate-700">
+                <p class="text-[10px] font-medium text-slate-400 mb-1.5">Total Keseluruhan</p>
+                <div class="flex items-baseline justify-center gap-1">
+                    <p class="text-sm font-bold text-slate-700 dark:text-white">{{ $fmtQty($grandTotal) }}</p>
+                    <span class="text-[10px] text-slate-400">U</span>
+                </div>
+            </div>
         </div>
     </div>
     @endif
@@ -186,12 +198,20 @@
                                 @endif
                             </div>
                             <div class="flex items-center gap-2 flex-wrap mt-0.5">
+                                @if($log->reject_qty > 0)
+                                <span class="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400">
+                                    ✕ {{ $log->reject_qty }}
+                                </span>
+                                @endif
                                 @if($log->notes)
                                 <span class="text-xs text-slate-400 italic">{{ Str::limit($log->notes, 40) }}</span>
                                 <span class="text-slate-300 dark:text-slate-600 text-xs">·</span>
                                 @endif
                                 <span class="text-xs text-slate-400">{{ $log->user->name ?? '-' }}</span>
                             </div>
+                            @if($log->keterangan)
+                            <p class="text-xs text-amber-500 dark:text-amber-400 italic mt-0.5">{{ Str::limit($log->keterangan, 60) }}</p>
+                            @endif
                         </div>
 
                         {{-- Channel: UP/BT + Total ditumpuk vertikal --}}

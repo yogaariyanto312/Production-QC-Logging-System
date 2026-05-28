@@ -95,7 +95,7 @@
 
                     {{-- Badge: dari siapa / untuk siapa --}}
                     <div x-show="isAssigned(note) || note.target_user_id" class="mb-2">
-                        {{-- Operator melihat: catatan dari admin/supervisor --}}
+                        {{-- Catatan yang diterima dari orang lain --}}
                         <span x-show="isAssigned(note)"
                               class="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full
                                      bg-purple-900/40 text-purple-300">
@@ -103,9 +103,9 @@
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                       d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
                             </svg>
-                            <span x-text="'Dari ' + (note.user?.name ?? 'Admin')"></span>
+                            <span x-text="'Dari ' + roleLabel(note.user?.role) + ': ' + (note.user?.name ?? '?')"></span>
                         </span>
-                        {{-- Admin/supervisor melihat: catatan untuk operator --}}
+                        {{-- Catatan yang dikirim ke orang lain --}}
                         <span x-show="!isAssigned(note) && note.target_user_id"
                               class="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full
                                      bg-blue-900/40 text-blue-300">
@@ -121,7 +121,7 @@
                     <p x-show="note.content"
                        x-text="note.content"
                        :class="note.is_done ? 'text-slate-600' : 'text-slate-400'"
-                       class="text-xs leading-relaxed line-clamp-3 mb-3"
+                       class="text-xs leading-relaxed line-clamp-4 mb-3 whitespace-pre-wrap"
                        style="overflow-wrap: anywhere; word-break: break-word;"></p>
 
                     {{-- Due date badge --}}
@@ -176,7 +176,8 @@
                               d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
                     </svg>
                     <p class="text-xs text-purple-300">
-                        Catatan dari <span class="font-semibold" x-text="form.from_name"></span>.
+                        Catatan dari
+                        <span class="font-semibold" x-text="form.from_role + form.from_name"></span>.
                         Kamu hanya bisa menandai selesai.
                     </p>
                 </div>
@@ -200,16 +201,16 @@
                             <p x-show="errors.title" x-text="errors.title" class="mt-1 text-xs text-red-400"></p>
                         </div>
 
-                        {{-- Tujuan (admin/supervisor saja) --}}
-                        <div x-show="isPrivileged && !readOnly">
-                            <label class="block text-xs font-medium text-slate-400 mb-1.5">Tujuan</label>
+                        {{-- Tujuan (semua role bisa kirim ke role lain) --}}
+                        <div x-show="!readOnly">
+                            <label class="block text-xs font-medium text-slate-400 mb-1.5">Kirim Ke</label>
                             <select x-model="form.target_user_id"
                                     class="w-full px-3 py-2.5 bg-slate-800 border border-slate-700 text-slate-200 text-sm
                                            rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer">
-                                <option value="">Catatan pribadi</option>
-                                <template x-for="op in operators" :key="op.id">
-                                    <option :value="op.id"
-                                            x-text="op.name + (op.department ? ' (' + op.department + ')' : '')"></option>
+                                <option value="">— Catatan pribadi —</option>
+                                <template x-for="t in targets" :key="t.id">
+                                    <option :value="t.id"
+                                            x-text="roleLabel(t.role) + ': ' + t.name + (t.department ? ' (' + t.department + ')' : '')"></option>
                                 </template>
                             </select>
                         </div>
@@ -335,17 +336,20 @@ function notesApp() {
         saving:      false,
         editId:      null,
         errors:      {},
-        form: { title: '', content: '', due_date: '', color: 'blue', is_done: false, target_user_id: '', from_name: '' },
+        form: { title: '', content: '', due_date: '', color: 'blue', is_done: false, target_user_id: '', from_name: '', from_role: '' },
 
-        userId:      {{ auth()->id() }},
-        isPrivileged: {{ auth()->user()->isPrivileged() ? 'true' : 'false' }},
-        operators:   @json($operators),
+        userId:  {{ auth()->id() }},
+        targets: @json($targets),
 
         colors: ['blue', 'green', 'teal', 'purple', 'amber', 'red', 'yellow', 'slate'],
 
         colorHex(c) {
             return { blue: '#3b82f6', green: '#22c55e', teal: '#14b8a6', purple: '#a855f7',
                      amber: '#f59e0b', red: '#ef4444', yellow: '#eab308', slate: '#94a3b8' }[c] ?? '#3b82f6';
+        },
+
+        roleLabel(role) {
+            return { developer: 'Developer', admin: 'Admin', supervisor: 'Supervisor', operator: 'Operator' }[role] ?? (role ?? '');
         },
 
         get stats() {
@@ -459,10 +463,11 @@ function notesApp() {
                     is_done:        note.is_done,
                     target_user_id: note.target_user_id || '',
                     from_name:      note.user?.name || '',
+                    from_role:      note.user?.role ? this.roleLabel(note.user.role) + ' — ' : '',
                 };
             } else {
                 this.editId = null;
-                this.form   = { title: '', content: '', due_date: '', color: 'blue', is_done: false, target_user_id: '', from_name: '' };
+                this.form   = { title: '', content: '', due_date: '', color: 'blue', is_done: false, target_user_id: '', from_name: '', from_role: '' };
             }
             this.showModal = true;
             this.$nextTick(() => this.$refs.titleInput?.focus());

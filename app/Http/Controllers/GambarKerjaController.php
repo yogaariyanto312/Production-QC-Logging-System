@@ -17,7 +17,9 @@ class GambarKerjaController extends Controller
                  YEAR(MIN(created_at)) as upload_year,
                  COUNT(*) as total,
                  MIN(id) as first_id,
-                 MAX(thumbnail_path) as group_thumbnail'
+                 MAX(thumbnail_path) as group_thumbnail,
+                 MAX(kategori_seri) as kategori_seri,
+                 MAX(keterangan) as keterangan'
             )
             ->groupBy('judul', 'seri', 'kva', 'tahun');
 
@@ -57,8 +59,60 @@ class GambarKerjaController extends Controller
             ->get();
 
         $thumbnailPath = $gambarKerja->first()?->thumbnail_path;
+        $kategoriSeri  = $gambarKerja->first()?->kategori_seri ?? 'pln';
 
-        return view('gambar-kerja.by-group', compact('judul', 'seri', 'kva', 'tahun', 'gambarKerja', 'thumbnailPath'));
+        return view('gambar-kerja.by-group', compact('judul', 'seri', 'kva', 'tahun', 'gambarKerja', 'thumbnailPath', 'kategoriSeri'));
+    }
+
+    public function updateInfo(Request $request)
+    {
+        $request->validate([
+            'judul_baru'  => ['required', 'string', 'max:150'],
+            'keterangan'  => ['nullable', 'string', 'max:300'],
+        ]);
+
+        $judul = $request->judul;
+        $seri  = $request->seri ?: null;
+        $kva   = $request->kva ?: null;
+        $tahun = $request->tahun ? (int) $request->tahun : null;
+
+        GambarKerja::where('judul', $judul)
+            ->where('seri', $seri)
+            ->where('kva', $kva)
+            ->where('tahun', $tahun)
+            ->update([
+                'judul'      => $request->judul_baru,
+                'keterangan' => $request->keterangan,
+            ]);
+
+        ActivityLog::record('update', "Edit info gambar kerja: {$judul} → {$request->judul_baru}");
+
+        return redirect()->route('gambar-kerja.by-group', [
+            'judul' => $request->judul_baru,
+            'seri'  => $seri,
+            'kva'   => $kva,
+            'tahun' => $tahun,
+        ])->with('success', 'Judul dan keterangan berhasil diperbarui.');
+    }
+
+    public function updateKategori(Request $request)
+    {
+        $request->validate(['kategori_seri' => ['required', 'in:pln,swasta,typetest']]);
+
+        $judul = $request->judul;
+        $seri  = $request->seri ?: null;
+        $kva   = $request->kva ?: null;
+        $tahun = $request->tahun ? (int) $request->tahun : null;
+
+        GambarKerja::where('judul', $judul)
+            ->where('seri', $seri)
+            ->where('kva', $kva)
+            ->where('tahun', $tahun)
+            ->update(['kategori_seri' => $request->kategori_seri]);
+
+        ActivityLog::record('update', "Update kategori seri gambar kerja: {$judul} → {$request->kategori_seri}");
+
+        return back()->with('success', 'Kategori seri berhasil diperbarui.');
     }
 
     public function create()
@@ -75,7 +129,8 @@ class GambarKerjaController extends Controller
             'tahun'    => ['nullable', 'integer', 'min:2025', 'max:' . (now()->year + 5)],
             'files'    => ['required', 'array', 'min:1'],
             'files.*'  => ['file', 'mimes:jpg,jpeg,png,pdf', 'max:102400'],
-            'keterangan' => ['nullable', 'string', 'max:300'],
+            'kategori_seri' => ['nullable', 'in:pln,swasta,typetest'],
+            'keterangan'    => ['nullable', 'string', 'max:300'],
         ], [
             'judul.required' => 'Judul gambar kerja wajib diisi.',
             'files.required' => 'File gambar kerja wajib diupload.',
@@ -101,15 +156,16 @@ class GambarKerjaController extends Controller
             $urutan   = $nextUrutan + $index;
 
             GambarKerja::create([
-                'judul'       => $judul,
-                'seri'        => $seri,
-                'kva'         => $kva,
-                'tahun'       => $tahun,
-                'file_path'   => $filePath,
-                'file_type'   => $fileType,
-                'keterangan'  => $request->keterangan,
-                'uploaded_by' => auth()->user()?->id,
-                'urutan'      => $urutan,
+                'judul'         => $judul,
+                'seri'          => $seri,
+                'kva'           => $kva,
+                'kategori_seri' => $request->kategori_seri ?: 'pln',
+                'tahun'         => $tahun,
+                'file_path'     => $filePath,
+                'file_type'     => $fileType,
+                'keterangan'    => $request->keterangan,
+                'uploaded_by'   => auth()->user()?->id,
+                'urutan'        => $urutan,
             ]);
         }
 

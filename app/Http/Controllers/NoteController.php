@@ -10,15 +10,15 @@ class NoteController extends Controller
 {
     public function index()
     {
-        $operators = [];
-        if (auth()->user()->isPrivileged()) {
-            $operators = User::where('role', 'operator')
-                ->where('is_active', true)
-                ->orderBy('name')
-                ->get(['id', 'name', 'department']);
-        }
+        // Semua role aktif kecuali visitor dan diri sendiri, diurutkan berdasarkan role
+        $targets = User::where('id', '!=', auth()->id())
+            ->where('is_active', true)
+            ->whereIn('role', ['developer', 'admin', 'supervisor', 'operator'])
+            ->orderByRaw("FIELD(role, 'developer', 'admin', 'supervisor', 'operator')")
+            ->orderBy('name')
+            ->get(['id', 'name', 'role', 'department']);
 
-        return view('notes.index', compact('operators'));
+        return view('notes.index', compact('targets'));
     }
 
     public function list()
@@ -45,10 +45,6 @@ class NoteController extends Controller
             'color'          => ['nullable', 'string', 'in:blue,green,yellow,amber,red,purple,teal,slate'],
             'target_user_id' => ['nullable', 'integer', 'exists:users,id'],
         ]);
-
-        if (!auth()->user()->isPrivileged()) {
-            unset($data['target_user_id']);
-        }
 
         $note = Note::create(array_merge($data, [
             'user_id' => auth()->id(),
@@ -80,10 +76,6 @@ class NoteController extends Controller
             'is_done'        => ['boolean'],
             'target_user_id' => ['nullable', 'integer', 'exists:users,id'],
         ]);
-
-        if (!auth()->user()->isPrivileged()) {
-            unset($data['target_user_id']);
-        }
 
         $note->update($data);
 

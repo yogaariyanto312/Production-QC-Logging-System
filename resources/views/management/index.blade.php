@@ -179,7 +179,7 @@
                                 <div class="w-9 h-9 rounded-full overflow-hidden shrink-0 flex items-center justify-center"
                                      style="{{ $dev->avatar ? '' : 'background: linear-gradient(135deg,#1e3a8a,#1d4ed8);' }}">
                                     @if($dev->avatar)
-                                    <img src="{{ Storage::disk('public')->url($dev->avatar) }}" class="w-full h-full object-cover">
+                                    <img src="{{ route('storage.file', ['path' => $dev->avatar]) }}" class="w-full h-full object-cover">
                                     @else
                                     <span class="text-sm font-bold text-white">{{ strtoupper(substr($dev->name, 0, 1)) }}</span>
                                     @endif
@@ -253,7 +253,7 @@
                                 <div class="w-9 h-9 rounded-full overflow-hidden shrink-0 flex items-center justify-center
                                             {{ $adm->avatar ? '' : 'bg-purple-100 dark:bg-purple-900/30' }}">
                                     @if($adm->avatar)
-                                    <img src="{{ Storage::disk('public')->url($adm->avatar) }}" class="w-full h-full object-cover">
+                                    <img src="{{ route('storage.file', ['path' => $adm->avatar]) }}" class="w-full h-full object-cover">
                                     @else
                                     <span class="text-sm font-bold text-purple-700 dark:text-purple-400">{{ strtoupper(substr($adm->name, 0, 1)) }}</span>
                                     @endif
@@ -315,7 +315,7 @@
                                 <div class="w-9 h-9 rounded-full overflow-hidden shrink-0 flex items-center justify-center
                                             {{ $spv->avatar ? '' : 'bg-teal-100 dark:bg-teal-900/30' }}">
                                     @if($spv->avatar)
-                                    <img src="{{ Storage::disk('public')->url($spv->avatar) }}" class="w-full h-full object-cover">
+                                    <img src="{{ route('storage.file', ['path' => $spv->avatar]) }}" class="w-full h-full object-cover">
                                     @else
                                     <span class="text-sm font-bold text-teal-700 dark:text-teal-400">{{ strtoupper(substr($spv->name, 0, 1)) }}</span>
                                     @endif
@@ -379,7 +379,7 @@
                                 <div class="w-9 h-9 rounded-full overflow-hidden shrink-0 flex items-center justify-center
                                             {{ $op->avatar ? '' : 'bg-blue-100 dark:bg-blue-900/30' }}">
                                     @if($op->avatar)
-                                    <img src="{{ Storage::disk('public')->url($op->avatar) }}" class="w-full h-full object-cover">
+                                    <img src="{{ route('storage.file', ['path' => $op->avatar]) }}" class="w-full h-full object-cover">
                                     @else
                                     <span class="text-sm font-bold text-blue-700 dark:text-blue-400">{{ strtoupper(substr($op->name, 0, 1)) }}</span>
                                     @endif
@@ -448,7 +448,7 @@
                                 <div class="w-9 h-9 rounded-full overflow-hidden shrink-0 flex items-center justify-center"
                                      style="{{ $vis->avatar ? '' : 'background: linear-gradient(135deg,#0f766e,#0d9488);' }}">
                                     @if($vis->avatar)
-                                    <img src="{{ Storage::disk('public')->url($vis->avatar) }}" class="w-full h-full object-cover">
+                                    <img src="{{ route('storage.file', ['path' => $vis->avatar]) }}" class="w-full h-full object-cover">
                                     @else
                                     <span class="text-sm font-bold text-white">{{ strtoupper(substr($vis->name, 0, 1)) }}</span>
                                     @endif

@@ -323,7 +323,7 @@ function chatApp() {
         typingTimeout: null,
 
         get isPrivileged() {
-            return this.userRole === 'admin' || this.userRole === 'supervisor';
+            return this.userRole === 'developer' || this.userRole === 'admin' || this.userRole === 'supervisor';
         },
 
         get filteredConversations() {
@@ -415,9 +415,9 @@ function chatApp() {
 
         async loadAll() {
             try {
-                if (this.userRole === 'admin')           await this.loadInbox();
-                else if (this.userRole === 'supervisor') await this.loadSupervisor();
-                else                                      await this.loadOwn();
+                if (this.userRole === 'developer' || this.userRole === 'admin') await this.loadInbox();
+                else if (this.userRole === 'supervisor')                        await this.loadSupervisor();
+                else                                                            await this.loadOwn();
             } catch (e) {}
             this.loading = false;
         },

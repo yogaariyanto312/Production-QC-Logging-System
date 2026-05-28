@@ -14,6 +14,7 @@ class GambarKerja extends Model
         'judul',
         'seri',
         'kva',
+        'kategori_seri',
         'tahun',
         'file_path',
         'file_type',

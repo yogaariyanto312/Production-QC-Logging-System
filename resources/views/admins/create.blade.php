@@ -8,7 +8,7 @@
 <div class="max-w-xl mx-auto">
     <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 overflow-hidden">
 
-        <div class="bg-linear-to-r from-purple-600 to-violet-600 px-6 py-5">
+        <div class="bg-gradient-to-r from-purple-600 to-violet-600 px-6 py-5">
             <h2 class="text-lg font-bold text-white">Form Tambah Admin</h2>
             <p class="text-purple-100 text-sm mt-1">Admin memiliki akses penuh ke seluruh dashboard</p>
         </div>

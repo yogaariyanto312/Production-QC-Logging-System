@@ -39,16 +39,15 @@ class ProductionReportExport implements FromCollection, WithHeadings, WithTitle,
                 'Produk'      => $item->product->name ?? '-',
                 'Seri'        => $item->product->series ?? '-',
                 'Satuan'      => $item->product->unit ?? 'unit',
-                'Shift 1'     => $item->total_shift1,
-                'Shift 2'     => $item->total_shift2,
-                'Shift 3'     => $item->total_shift3,
+                'UP'          => $item->total_shift1,
+                'BT'          => $item->total_shift2,
                 'Grand Total' => $item->grand_total,
             ]);
     }
 
     public function headings(): array
     {
-        return ['Kategori', 'Produk', 'Seri', 'Satuan', 'Shift 1', 'Shift 2', 'Shift 3', 'Grand Total'];
+        return ['Kategori', 'Produk', 'Seri', 'Satuan', 'UP', 'BT', 'Grand Total'];
     }
 
     public function title(): string

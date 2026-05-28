@@ -8,7 +8,7 @@
 <div class="max-w-2xl mx-auto">
     <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 overflow-hidden">
 
-        <div class="bg-linear-to-r from-blue-600 to-blue-700 px-6 py-5">
+        <div class="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-5">
             <h2 class="text-lg font-bold text-white">Form Input Produksi Harian</h2>
             <p class="text-blue-100 text-sm mt-1">Isi data produksi dengan lengkap</p>
         </div>
@@ -47,8 +47,9 @@
                         @foreach($groupItems as $product)
                         <option value="{{ $product->id }}"
                                 data-type="{{ $product->type }}"
+                                data-manual="{{ $product->category && $product->category->has_manual_serial ? '1' : '0' }}"
                                 {{ old('product_id') == $product->id ? 'selected' : '' }}>
-                            {{ ($product->series ?: '—') . ($product->kva ? ' · ' . $product->kva . ' KVA' : '') }}
+                            {{ $product->category && $product->category->has_manual_serial ? 'Input Seri & KVA Manual' : (($product->series ?: '—') . ($product->kva ? ' · ' . $product->kva . ' KVA' : '')) }}
                         </option>
                         @endforeach
                     </optgroup>
@@ -59,21 +60,6 @@
                 @enderror
             </div>
 
-            {{-- Nama Operator --}}
-            <div>
-                <label for="operator_name" class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                    Nama Operator
-                </label>
-                <input type="text" id="operator_name" name="operator_name"
-                       value="{{ old('operator_name') }}"
-                       placeholder="Nama operator yang bertugas..."
-                       class="w-full px-4 py-3 rounded-xl bg-white dark:bg-slate-900 text-slate-800 dark:text-white
-                              border {{ $errors->has('operator_name') ? 'border-red-500' : 'border-slate-300 dark:border-slate-600' }}
-                              focus:outline-none focus:ring-2 focus:ring-blue-500">
-                @error('operator_name')
-                <p class="mt-1 text-xs text-red-500">{{ $message }}</p>
-                @enderror
-            </div>
 
             {{-- Channel UP + BT (tampil hanya jika produk = channel) --}}
             <div id="section-channel" class="hidden space-y-4">
@@ -132,6 +118,27 @@
             {{-- Nomor Urut - Regular --}}
             <div id="section-notes-regular">
                 <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Nomor Urut</label>
+
+                {{-- Hint: nomor urut terakhir --}}
+                <div id="hint-regular" class="mb-3 items-start gap-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-xl px-3 py-2.5" style="display:none">
+                    <svg class="w-4 h-4 text-amber-500 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                    <div class="flex-1 min-w-0 text-xs">
+                        <p class="text-slate-500 dark:text-slate-400">
+                            Entri terakhir
+                            <span id="hint-regular-date" class="font-semibold text-amber-600 dark:text-amber-400"></span>:
+                        </p>
+                        <p id="hint-regular-text"
+                           class="mt-0.5 font-mono font-bold text-sm text-slate-800 dark:text-white truncate"></p>
+                        <button type="button" id="hint-regular-btn"
+                                class="hidden mt-1 text-blue-600 dark:text-blue-400 hover:underline font-medium">
+                            ↳ Lanjutkan dari nomor ini
+                        </button>
+                    </div>
+                </div>
+
                 <div class="flex items-center gap-3">
                     <div class="flex-1">
                         <label class="block text-xs text-slate-400 mb-1">Nomor Awal</label>
@@ -152,6 +159,33 @@
             {{-- Nomor Urut - Channel --}}
             <div id="section-notes-channel" class="hidden">
                 <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Nomor Urut</label>
+
+                {{-- Hint: nomor urut terakhir (channel) --}}
+                <div id="hint-channel" class="mb-3 items-start gap-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-xl px-3 py-2.5" style="display:none">
+                    <svg class="w-4 h-4 text-amber-500 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                    <div class="flex-1 min-w-0 text-xs">
+                        <p class="text-slate-500 dark:text-slate-400">
+                            Entri terakhir
+                            <span id="hint-channel-date" class="font-semibold text-amber-600 dark:text-amber-400"></span>:
+                        </p>
+                        <p id="hint-channel-text"
+                           class="mt-0.5 font-mono font-bold text-sm text-slate-800 dark:text-white"></p>
+                        <div class="flex gap-3 mt-1">
+                            <button type="button" id="hint-channel-btn-up"
+                                    class="hidden text-blue-600 dark:text-blue-400 hover:underline font-medium">
+                                ↳ Lanjut UP
+                            </button>
+                            <button type="button" id="hint-channel-btn-bt"
+                                    class="hidden text-purple-600 dark:text-purple-400 hover:underline font-medium">
+                                ↳ Lanjut BT
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="grid grid-cols-2 gap-4">
                     <div>
                         <label class="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-2 text-center">Nomor Awal UP</label>
@@ -174,6 +208,108 @@
 
             <input type="hidden" id="notes" name="notes" value="{{ old('notes') }}">
 
+            {{-- Manual Seri & KVA (Swasta / Typetest) --}}
+            <div id="section-manual-serial" class="hidden">
+                <div class="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-4 space-y-3">
+                    <p class="text-sm font-semibold text-amber-700 dark:text-amber-400 flex items-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                  d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/>
+                        </svg>
+                        Identitas Produk <span class="text-red-500 font-normal text-xs">(wajib diisi)</span>
+                    </p>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
+                                Nomor Seri <span class="text-red-500">*</span>
+                            </label>
+                            <input type="text" name="manual_series" id="manual_series"
+                                   value="{{ old('manual_series') }}" maxlength="100"
+                                   placeholder="Contoh: A-1234 / 2026.001"
+                                   class="w-full px-4 py-3 rounded-xl bg-white dark:bg-slate-900 text-slate-800 dark:text-white
+                                          border {{ $errors->has('manual_series') ? 'border-red-500' : 'border-amber-300 dark:border-amber-700' }}
+                                          focus:outline-none focus:ring-2 focus:ring-amber-400 font-mono text-sm">
+                            @error('manual_series')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
+                                KVA <span class="text-red-500">*</span>
+                            </label>
+                            <input type="text" name="manual_kva" id="manual_kva"
+                                   value="{{ old('manual_kva') }}" maxlength="50"
+                                   placeholder="Contoh: 100 / 2x50 / 250"
+                                   class="w-full px-4 py-3 rounded-xl bg-white dark:bg-slate-900 text-slate-800 dark:text-white
+                                          border {{ $errors->has('manual_kva') ? 'border-red-500' : 'border-amber-300 dark:border-amber-700' }}
+                                          focus:outline-none focus:ring-2 focus:ring-amber-400 font-mono text-sm">
+                            @error('manual_kva')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {{-- Reject / Defect --}}
+            <div x-data="{ open: {{ old('reject_qty') > 0 ? 'true' : 'false' }} }">
+                <button type="button" @click="open = !open"
+                        class="flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2 hover:text-red-500 transition-colors">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                    </svg>
+                    <span x-text="open ? 'Sembunyikan Reject' : 'Ada Reject / Defect?'"></span>
+                    <svg class="w-4 h-4 ml-auto transition-transform" :class="open ? 'rotate-180' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                    </svg>
+                </button>
+
+                <div x-show="open" x-transition class="bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-800 rounded-xl p-4 space-y-4">
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Jumlah Reject</label>
+                            <input type="number" name="reject_qty" min="0" max="9999"
+                                   value="{{ old('reject_qty', 0) }}"
+                                   class="w-full px-4 py-3 text-center text-xl font-bold rounded-xl
+                                          bg-white dark:bg-slate-900 text-red-600 dark:text-red-400
+                                          border border-red-300 dark:border-red-700 focus:outline-none focus:ring-2 focus:ring-red-400">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Kategori Penyebab</label>
+                            <select name="reject_category"
+                                    class="w-full px-3 py-3 rounded-xl bg-white dark:bg-slate-900 text-slate-800 dark:text-white
+                                           border border-red-300 dark:border-red-700 focus:outline-none focus:ring-2 focus:ring-red-400 text-sm">
+                                <option value="">-- Pilih Kategori --</option>
+                                @foreach(\App\Models\ProductionLog::$rejectCategories as $key => $label)
+                                <option value="{{ $key }}" {{ old('reject_category') == $key ? 'selected' : '' }}>{{ $label }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Keterangan Reject</label>
+                        <input type="text" name="reject_notes" maxlength="300"
+                               value="{{ old('reject_notes') }}"
+                               placeholder="Deskripsi singkat penyebab reject..."
+                               class="w-full px-4 py-2.5 rounded-xl bg-white dark:bg-slate-900 text-slate-800 dark:text-white
+                                      border border-red-300 dark:border-red-700 focus:outline-none focus:ring-2 focus:ring-red-400 text-sm">
+                    </div>
+                </div>
+            </div>
+
+            {{-- Keterangan --}}
+            <div>
+                <label for="keterangan" class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                    Keterangan
+                    <span class="ml-1 text-xs font-normal text-slate-400">(opsional)</span>
+                </label>
+                <textarea id="keterangan" name="keterangan" rows="2"
+                          placeholder="Catatan tambahan, misal: Barang dari supplier, Lupa input, dll..."
+                          class="w-full px-4 py-3 rounded-xl bg-white dark:bg-slate-900 text-slate-800 dark:text-white
+                                 border {{ $errors->has('keterangan') ? 'border-red-500' : 'border-slate-300 dark:border-slate-600' }}
+                                 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none">{{ old('keterangan') }}</textarea>
+                @error('keterangan')
+                <p class="mt-1 text-xs text-red-500">{{ $message }}</p>
+                @enderror
+            </div>
+
             {{-- Action Buttons --}}
             <div class="flex gap-3 pt-2">
                 <a href="{{ route('production.index') }}"
@@ -193,23 +329,37 @@
 
 <script>
 (function () {
-    const productSelect       = document.getElementById('product_id');
-    const sectionChannel      = document.getElementById('section-channel');
-    const sectionRegular      = document.getElementById('section-regular');
-    const sectionNotesChannel = document.getElementById('section-notes-channel');
-    const sectionNotesRegular = document.getElementById('section-notes-regular');
-    const channelUp           = document.getElementById('channel_up');
-    const channelBt           = document.getElementById('channel_bt');
-    const channelDisplay      = document.getElementById('channel-total-display');
-    const totalHidden         = document.getElementById('total_qty_channel');
-    const totalRegular        = document.getElementById('total_qty_regular');
-    const noAwalRegular       = document.getElementById('no_awal_regular');
-    const noAwalUp            = document.getElementById('no_awal_up');
-    const noAwalBt            = document.getElementById('no_awal_bt');
-    const previewRegular      = document.getElementById('preview-regular');
-    const previewUp           = document.getElementById('preview-up');
-    const previewBt           = document.getElementById('preview-bt');
-    const notesHidden         = document.getElementById('notes');
+    const productSelect        = document.getElementById('product_id');
+    const sectionChannel       = document.getElementById('section-channel');
+    const sectionRegular       = document.getElementById('section-regular');
+    const sectionNotesChannel  = document.getElementById('section-notes-channel');
+    const sectionNotesRegular  = document.getElementById('section-notes-regular');
+    const sectionManualSerial  = document.getElementById('section-manual-serial');
+    const manualSeriesInput    = document.getElementById('manual_series');
+    const manualKvaInput       = document.getElementById('manual_kva');
+    const channelUp            = document.getElementById('channel_up');
+    const channelBt            = document.getElementById('channel_bt');
+    const channelDisplay       = document.getElementById('channel-total-display');
+    const totalHidden          = document.getElementById('total_qty_channel');
+    const totalRegular         = document.getElementById('total_qty_regular');
+    const noAwalRegular        = document.getElementById('no_awal_regular');
+    const noAwalUp             = document.getElementById('no_awal_up');
+    const noAwalBt             = document.getElementById('no_awal_bt');
+    const previewRegular       = document.getElementById('preview-regular');
+    const previewUp            = document.getElementById('preview-up');
+    const previewBt            = document.getElementById('preview-bt');
+    const notesHidden          = document.getElementById('notes');
+
+    // Hint elements
+    const hintRegular        = document.getElementById('hint-regular');
+    const hintRegularDate    = document.getElementById('hint-regular-date');
+    const hintRegularText    = document.getElementById('hint-regular-text');
+    const hintRegularBtn     = document.getElementById('hint-regular-btn');
+    const hintChannel        = document.getElementById('hint-channel');
+    const hintChannelDate    = document.getElementById('hint-channel-date');
+    const hintChannelText    = document.getElementById('hint-channel-text');
+    const hintChannelBtnUp   = document.getElementById('hint-channel-btn-up');
+    const hintChannelBtnBt   = document.getElementById('hint-channel-btn-bt');
 
     function pad(n) {
         const s = String(Math.round(n));
@@ -220,11 +370,11 @@
         const start = parseInt(noAwalRegular.value);
         const qty   = Math.ceil(parseFloat(totalRegular.value) || 0);
         if (!start || qty <= 0) {
-            previewRegular.textContent = '—';
+            previewRegular.textContent = start ? 'Isi total unit →' : '—';
             notesHidden.value = '';
             return;
         }
-        const text = `NO.${pad(start)}-${pad(start + qty)}`;
+        const text = `NO.${pad(start)}-${pad(start + qty - 1)}`;
         previewRegular.textContent = text;
         notesHidden.value = text;
     }
@@ -232,14 +382,13 @@
     function generateChannel() {
         const up    = parseInt(channelUp.value) || 0;
         const bt    = parseInt(channelBt.value) || 0;
-        const total = up + bt;
         const startUp = parseInt(noAwalUp.value);
         const startBt = parseInt(noAwalBt.value);
 
         previewUp.textContent = (startUp && up > 0)
-            ? `UP NO.${pad(startUp)}-${pad(startUp + up)}` : '—';
+            ? `UP NO.${pad(startUp)}-${pad(startUp + up - 1)}` : '—';
         previewBt.textContent = (startBt && bt > 0)
-            ? `BT NO.${pad(startBt)}-${pad(startBt + bt)}` : '—';
+            ? `BT NO.${pad(startBt)}-${pad(startBt + bt - 1)}` : '—';
 
         const lines = [previewUp.textContent, previewBt.textContent].filter(t => t !== '—');
         notesHidden.value = lines.join('\n');
@@ -254,27 +403,158 @@
         generateChannel();
     }
 
-    function switchMode(type) {
+    function getSelected() {
+        const opt = productSelect.options[productSelect.selectedIndex];
+        return {
+            type:   opt ? (opt.dataset.type   || 'regular') : 'regular',
+            manual: opt ? (opt.dataset.manual  === '1')     : false,
+        };
+    }
+
+    function switchMode({ type, manual }) {
         const isChannel = type === 'channel';
         sectionChannel.classList.toggle('hidden', !isChannel);
         sectionRegular.classList.toggle('hidden', isChannel);
-        sectionNotesChannel.classList.toggle('hidden', !isChannel);
-        sectionNotesRegular.classList.toggle('hidden', isChannel);
+        // Nomor urut disembunyikan untuk produk manual (seri diisi di section-manual-serial)
+        sectionNotesChannel.classList.toggle('hidden', !isChannel || manual);
+        sectionNotesRegular.classList.toggle('hidden', isChannel  || manual);
+        sectionManualSerial.classList.toggle('hidden', !manual);
 
         totalRegular.disabled = isChannel;
         totalHidden.disabled  = !isChannel;
         channelUp.disabled    = !isChannel;
         channelBt.disabled    = !isChannel;
+        if (manualSeriesInput) manualSeriesInput.required = manual;
+        if (manualKvaInput)    manualKvaInput.required    = manual;
 
         if (isChannel) calcChannel(); else generateRegular();
     }
 
-    function getSelectedType() {
-        const opt = productSelect.options[productSelect.selectedIndex];
-        return opt ? (opt.dataset.type || 'regular') : 'regular';
+    // ── Hint: nomor urut terakhir ─────────────────────────────────────────────
+
+    function hideHints() {
+        hintRegular.style.display = 'none';
+        hintChannel.style.display = 'none';
     }
 
-    productSelect.addEventListener('change', () => switchMode(getSelectedType()));
+    /**
+     * Parse nomor akhir dari string "NO.098-100" → 100
+     * Atau "UP NO.435-437" → 437
+     */
+    function parseEndNum(str) {
+        const m = str.match(/(\d+)\s*$/);
+        return m ? parseInt(m[1]) : null;
+    }
+
+    function showHintRegular(notes, date) {
+        hintRegularDate.textContent = date;
+        hintRegularText.textContent = notes;
+
+        const endNum = parseEndNum(notes);
+        if (endNum !== null) {
+            const nextNum = endNum + 1;
+            hintRegularBtn.textContent = `↳ Lanjutkan dari ${nextNum}`;
+            hintRegularBtn.classList.remove('hidden');
+            hintRegularBtn.onclick = () => {
+                noAwalRegular.value = nextNum;
+                noAwalRegular.dispatchEvent(new Event('input'));
+                noAwalRegular.focus();
+            };
+            // Auto-fill nomor awal jika field masih kosong
+            if (!noAwalRegular.value) {
+                noAwalRegular.value = nextNum;
+                noAwalRegular.dispatchEvent(new Event('input'));
+            }
+        } else {
+            hintRegularBtn.classList.add('hidden');
+        }
+
+        hintRegular.style.display = 'flex';
+    }
+
+    function showHintChannel(notes, date) {
+        hintChannelDate.textContent = date;
+
+        // Pisah baris UP dan BT
+        const lines = notes.split('\n').map(l => l.trim()).filter(Boolean);
+        hintChannelText.textContent = lines.join('  |  ');
+
+        // Tombol UP
+        const upLine = lines.find(l => /UP/i.test(l));
+        const btLine = lines.find(l => /BT/i.test(l));
+
+        if (upLine) {
+            const endUp = parseEndNum(upLine);
+            if (endUp !== null) {
+                const nextUp = endUp + 1;
+                hintChannelBtnUp.textContent = `↳ Lanjut UP dari ${nextUp}`;
+                hintChannelBtnUp.classList.remove('hidden');
+                hintChannelBtnUp.onclick = () => {
+                    noAwalUp.value = nextUp;
+                    noAwalUp.dispatchEvent(new Event('input'));
+                    noAwalUp.focus();
+                };
+                if (!noAwalUp.value) {
+                    noAwalUp.value = nextUp;
+                    noAwalUp.dispatchEvent(new Event('input'));
+                }
+            }
+        } else {
+            hintChannelBtnUp.classList.add('hidden');
+        }
+
+        if (btLine) {
+            const endBt = parseEndNum(btLine);
+            if (endBt !== null) {
+                const nextBt = endBt + 1;
+                hintChannelBtnBt.textContent = `↳ Lanjut BT dari ${nextBt}`;
+                hintChannelBtnBt.classList.remove('hidden');
+                hintChannelBtnBt.onclick = () => {
+                    noAwalBt.value = nextBt;
+                    noAwalBt.dispatchEvent(new Event('input'));
+                    noAwalBt.focus();
+                };
+                if (!noAwalBt.value) {
+                    noAwalBt.value = nextBt;
+                    noAwalBt.dispatchEvent(new Event('input'));
+                }
+            }
+        } else {
+            hintChannelBtnBt.classList.add('hidden');
+        }
+
+        hintChannel.style.display = 'flex';
+    }
+
+    const LAST_SERIAL_URL = '{{ route("api.production.last-serial") }}';
+
+    async function fetchLastSerial(productId, type, isManual) {
+        hideHints();
+        if (!productId || isManual) return;
+
+        try {
+            const res  = await fetch(`${LAST_SERIAL_URL}?product_id=${productId}`);
+            const data = await res.json();
+            if (!data.notes) return;
+
+            if (type === 'channel') {
+                showHintChannel(data.notes, data.date);
+            } else {
+                showHintRegular(data.notes, data.date);
+            }
+        } catch (e) {
+            // Gagal fetch — tidak tampilkan hint
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+
+    productSelect.addEventListener('change', () => {
+        const sel = getSelected();
+        switchMode(sel);
+        fetchLastSerial(productSelect.value, sel.type, sel.manual);
+    });
+
     channelUp.addEventListener('input', calcChannel);
     channelBt.addEventListener('input', calcChannel);
     totalRegular.addEventListener('input', generateRegular);
@@ -282,7 +562,13 @@
     noAwalUp.addEventListener('input', generateChannel);
     noAwalBt.addEventListener('input', generateChannel);
 
-    switchMode(getSelectedType());
+    // Init (termasuk fetch jika ada old value dari form validation error)
+    const initSel = getSelected();
+    switchMode(initSel);
+    if (productSelect.value) {
+        fetchLastSerial(productSelect.value, initSel.type, initSel.manual);
+    }
+
 }());
 </script>
 @endsection

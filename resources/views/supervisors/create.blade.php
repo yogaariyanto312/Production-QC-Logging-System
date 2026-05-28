@@ -8,7 +8,7 @@
 <div class="max-w-xl mx-auto">
     <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 overflow-hidden">
 
-        <div class="bg-linear-to-r from-teal-600 to-emerald-600 px-6 py-5">
+        <div class="bg-gradient-to-r from-teal-600 to-emerald-600 px-6 py-5">
             <h2 class="text-lg font-bold text-white">Form Tambah Supervisor</h2>
             <p class="text-teal-100 text-sm mt-1">Supervisor dapat mengakses laporan, produk, kategori, dan departemen</p>
         </div>

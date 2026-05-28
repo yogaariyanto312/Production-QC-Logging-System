@@ -8,7 +8,7 @@
 <div class="max-w-md mx-auto">
     <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 overflow-hidden">
 
-        <div class="bg-linear-to-r from-amber-500 to-orange-500 px-6 py-5">
+        <div class="bg-gradient-to-r from-amber-500 to-orange-500 px-6 py-5">
             <h2 class="text-lg font-bold text-white">Edit Departemen</h2>
             <p class="text-amber-100 text-sm mt-1">{{ $department->name }}</p>
         </div>
