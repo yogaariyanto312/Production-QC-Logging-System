@@ -28,7 +28,7 @@ class ProductionLogController extends Controller
         };
 
         // Totals khusus hari ini untuk summary bar
-        $todayLogs  = ProductionLog::with('product.category')
+        $todayLogs  = ProductionLog::with(['product:id,category_id,type', 'product.category:id,name'])
             ->where('production_date', today()->toDateString())
             ->get(['id', 'product_id', 'shift1_qty', 'shift2_qty', 'total_qty']);
 
@@ -39,27 +39,46 @@ class ProductionLogController extends Controller
         $grandTotal = $todayLogs->sum('total_qty');
         $totalCount = $todayLogs->count();
 
-        // Paginated untuk tabel
+        // Paginate by date (7 hari per halaman) agar satu tanggal tidak terpotong
+        $dates = ProductionLog::tap($applyFilters)
+            ->selectRaw('DISTINCT production_date')
+            ->orderByDesc('production_date')
+            ->paginate(16, ['production_date'])
+            ->withQueryString();
+
         $logs = ProductionLog::with(['product.category', 'user'])
             ->tap($applyFilters)
+            ->whereIn('production_date', $dates->pluck('production_date'))
             ->orderByDesc('production_date')
             ->orderByDesc('created_at')
-            ->paginate(20)
-            ->withQueryString();
+            ->get();
 
         $products   = Product::where('is_active', true)->distinct()->orderBy('name')->pluck('name');
         $categories = Category::where('is_active', true)->orderBy('name')->get();
+        $years      = ProductionLog::selectRaw('YEAR(production_date) as yr')
+            ->distinct()->orderByDesc('yr')->pluck('yr');
+
+        // Precompute nomor urut terakhir UP/BT — satu query untuk semua channel product
+        $channelProductIds = $logs
+            ->filter(fn($l) => ($l->product->type ?? '') === 'channel')
+            ->pluck('product_id')->unique()->values();
+
+        $lastChannelNums = [];
+        if ($channelProductIds->isNotEmpty()) {
+            $lastChannelNums = $this->lastChannelSerialsForMany($channelProductIds->all());
+        }
 
         return view('production.index', compact(
-            'logs', 'products', 'categories',
+            'logs', 'dates', 'products', 'categories', 'years',
             'dateFrom', 'dateTo',
-            'totalUp', 'totalBt', 'totalTanki', 'totalCover', 'grandTotal', 'totalCount'
+            'totalUp', 'totalBt', 'totalTanki', 'totalCover', 'grandTotal', 'totalCount',
+            'lastChannelNums'
         ));
     }
 
     public function create()
     {
-        $products = Product::where('is_active', true)->with('category')->orderBy('name')->get();
+        $products = $this->dropdownProducts();
         return view('production.create', compact('products'));
     }
 
@@ -70,9 +89,44 @@ class ProductionLogController extends Controller
         $data['operator_name'] = auth()->user()->name;
         $data['reject_qty']    = (int) ($data['reject_qty'] ?? 0);
 
+        // Backstop double-submit (klik ganda): abaikan kiriman identik dalam 10 detik terakhir.
+        // Penting untuk produk channel yang akan di-MERGE (jika tidak, qty bisa berlipat).
+        $dupeKey = 'prodlog_dupe_' . md5(implode('|', [
+            $data['user_id'], $data['product_id'], $data['production_date'],
+            $data['total_qty'] ?? '', $data['shift1_qty'] ?? '', $data['shift2_qty'] ?? '',
+            $data['manual_series'] ?? '', $data['notes'] ?? '',
+        ]));
+        if (\Illuminate\Support\Facades\Cache::get($dupeKey)) {
+            return redirect()->route('production.index')
+                ->with('success', 'Data produksi berhasil disimpan.');
+        }
+        \Illuminate\Support\Facades\Cache::put($dupeKey, true, now()->addSeconds(10));
+
         $product    = Product::with('category')->find($data['product_id']);
         $isChannel  = $product && $product->isChannel();
         $isManual   = $product && $product->category && $product->category->has_manual_serial;
+
+        // Auto find-or-create specific product record for manual series+KVA entries
+        if ($isManual && !empty($data['manual_series'])) {
+            preg_match('/^(\d{2})/', $data['manual_series'], $ym);
+            $tahun = isset($ym[1]) ? (2000 + (int)$ym[1]) : now()->year;
+
+            $specificProduct = Product::firstOrCreate(
+                [
+                    'category_id' => $product->category_id,
+                    'series'      => $data['manual_series'],
+                    'kva'         => $data['manual_kva'] ?: null,
+                ],
+                [
+                    'name'      => $product->name,
+                    'type'      => $product->type,
+                    'tahun'     => $tahun,
+                    'is_active' => true,
+                ]
+            );
+            $data['product_id'] = $specificProduct->id;
+            $isManual = false; // product_id is now specific; no need for manual_series merge filter
+        }
 
         if ($isChannel) {
             $up = (int) ($data['shift1_qty'] ?? 0);
@@ -85,19 +139,13 @@ class ProductionLogController extends Controller
             $data['shift3_qty'] = $data['shift3_qty'] ?? 0;
         }
 
-        // Cek apakah sudah ada entri untuk produk + tanggal yang sama
-        // Produk manual (Swasta/Typetest): seri berbeda = entri terpisah (tidak di-merge)
-        $existingQuery = ProductionLog::where('product_id', $data['product_id'])
-            ->where('production_date', $data['production_date']);
-
-        if ($isManual) {
-            $series = $data['manual_series'] ?? null;
-            $existingQuery = $series
-                ? $existingQuery->where('manual_series', $series)
-                : $existingQuery->whereNull('manual_series');
-        }
-
-        $existing = $existingQuery->first();
+        // Cek merge hanya untuk channel: UP dan BT diinput terpisah oleh operator berbeda.
+        // Non-channel (Cover, Tangki, dll.) selalu buat entri baru per batch.
+        $existing = $isChannel
+            ? ProductionLog::where('product_id', $data['product_id'])
+                ->where('production_date', $data['production_date'])
+                ->first()
+            : null;
 
         if ($existing) {
             // Merge: tambah ke entri yang ada
@@ -146,25 +194,67 @@ class ProductionLogController extends Controller
     public function show(ProductionLog $productionLog)
     {
         $productionLog->load(['product.category', 'user']);
-        return view('production.show', compact('productionLog'));
+
+        $lastChannelSerials = ($productionLog->product->isChannel())
+            ? $this->lastChannelSerials($productionLog->product_id)
+            : ['up' => null, 'bt' => null];
+
+        return view('production.show', compact('productionLog', 'lastChannelSerials'));
     }
 
     public function edit(ProductionLog $productionLog)
     {
-        // Hanya admin yang bisa edit
-        if (!auth()->user()->isPrivileged()) {
-            abort(403, 'Hanya admin yang bisa mengedit data produksi.');
-        }
-        $products = Product::where('is_active', true)->with('category')->orderBy('name')->get();
+        $products = $this->dropdownProducts();
         return view('production.edit', compact('productionLog', 'products'));
+    }
+
+    private function dropdownProducts()
+    {
+        return Product::where('is_active', true)
+            ->with('category')
+            ->orderBy('name')
+            ->orderByRaw('CAST(kva AS UNSIGNED)')
+            ->orderBy('series')
+            ->get();
+    }
+
+    /**
+     * Satu query untuk semua channel products — jauh lebih efisien dari N calls.
+     */
+    private function lastChannelSerialsForMany(array $productIds): array
+    {
+        $result = array_fill_keys($productIds, ['up' => null, 'bt' => null]);
+
+        ProductionLog::whereIn('product_id', $productIds)
+            ->whereNotNull('notes')->where('notes', '!=', '')
+            ->orderByDesc('production_date')->orderByDesc('created_at')
+            ->select(['product_id', 'notes'])
+            ->each(function ($log) use (&$result) {
+                $pid = $log->product_id;
+                if (!isset($result[$pid])) return;
+                if ($result[$pid]['up'] && $result[$pid]['bt']) return;
+                $lines = collect(explode("\n", $log->notes))->map(fn($l) => trim($l))->filter();
+                if (!$result[$pid]['up']) {
+                    $ul = $lines->first(fn($l) => preg_match('/\bUP\b/i', $l));
+                    if ($ul) $result[$pid]['up'] = $ul;
+                }
+                if (!$result[$pid]['bt']) {
+                    $bl = $lines->first(fn($l) => preg_match('/\bBT\b/i', $l));
+                    if ($bl) $result[$pid]['bt'] = $bl;
+                }
+            });
+
+        return $result;
+    }
+
+    /** Single-product version — dipakai di show() */
+    private function lastChannelSerials(int $productId): array
+    {
+        return $this->lastChannelSerialsForMany([$productId])[$productId] ?? ['up' => null, 'bt' => null];
     }
 
     public function update(ProductionLogRequest $request, ProductionLog $productionLog)
     {
-        if (!auth()->user()->isPrivileged()) {
-            abort(403);
-        }
-
         $data = $request->validated();
         $data['reject_qty'] = (int) ($data['reject_qty'] ?? 0);
         $product = Product::find($data['product_id']);
@@ -216,13 +306,18 @@ class ProductionLogController extends Controller
 
     public function destroy(ProductionLog $productionLog)
     {
-        if (!auth()->user()->isPrivileged()) {
-            abort(403);
-        }
         $info = "{$productionLog->product->name} tgl {$productionLog->production_date->format('d/m/Y')}";
         $productionLog->delete();
         ActivityLog::record('delete', "Hapus produksi: {$info}");
         return redirect()->route('production.index')
             ->with('success', 'Data produksi berhasil dihapus.');
+    }
+
+    public function poll()
+    {
+        return response()->json([
+            'ts'    => ProductionLog::max('updated_at'),
+            'count' => ProductionLog::count(),
+        ]);
     }
 }

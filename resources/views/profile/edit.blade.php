@@ -18,7 +18,9 @@
 
                 @php
                     $avatarUrl = $user->avatar
-                        ? route('storage.file', ['path' => $user->avatar])
+                        ? (str_starts_with($user->avatar, 'http')
+                            ? $user->avatar
+                            : route('storage.file', ['path' => $user->avatar]))
                         : null;
                 @endphp
 
@@ -49,15 +51,14 @@
                          class="w-16 h-16 rounded-2xl object-cover border-2 border-white/20 relative z-10"
                          style="{{ $avatarUrl ? '' : 'display:none' }}"
                          onerror="this.style.display='none'; document.getElementById('avatar-initials').style.display='flex';">
-                    <label for="avatar-input"
-                           class="absolute inset-0 rounded-2xl bg-black/50 flex items-center justify-center
-                                  opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
+                    <div onclick="document.getElementById('avatar-url-section').scrollIntoView({behavior:'smooth'})"
+                         class="absolute inset-0 rounded-2xl bg-black/50 flex items-center justify-center
+                                opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
                         <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                  d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/>
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/>
+                                  d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/>
                         </svg>
-                    </label>
+                    </div>
                 </div>
                 @endif
 
@@ -68,21 +69,65 @@
                     </p>
                     <p class="text-slate-500 text-xs mt-1">Bergabung {{ $user->created_at->format('d M Y') }}</p>
                     @unless(auth()->user()->isVisitor())
-                    <p class="text-slate-500 text-xs mt-0.5">Klik foto untuk mengubah · Maks. 5 MB</p>
+                    <p class="text-slate-500 text-xs mt-0.5">Klik foto untuk scroll ke field link foto</p>
                     @endunless
                 </div>
             </div>
         </div>
 
-        {{-- ── MAIN PROFILE FORM (tidak ada form lain di dalamnya) ── --}}
-        <form method="POST" action="{{ route('profile.update') }}" enctype="multipart/form-data" class="p-6 space-y-5">
+        {{-- ── MAIN PROFILE FORM ── --}}
+        <form method="POST" action="{{ route('profile.update') }}" class="p-6 space-y-5">
             @csrf @method('PUT')
 
-            {{-- Hidden file input untuk avatar (di-trigger dari label di header) --}}
+            {{-- URL Foto Profil --}}
             @unless(auth()->user()->isVisitor())
-            <input type="file" id="avatar-input" name="avatar"
-                   accept="image/jpeg,image/png,image/webp,image/gif" class="hidden">
-            @error('avatar')<p class="text-xs text-red-500 -mt-2">{{ $message }}</p>@enderror
+            <div id="avatar-url-section">
+                <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                    Link Foto Profil
+                    <span class="ml-1 text-xs font-normal text-slate-400">(URL gambar / Google Drive)</span>
+                </label>
+                <div class="flex gap-2">
+                    <input type="url" id="avatar-url-input" name="avatar"
+                           value="{{ old('avatar', str_starts_with($user->avatar ?? '', 'http') ? $user->avatar : '') }}"
+                           placeholder="https://... link langsung ke gambar"
+                           class="flex-1 px-4 py-3 rounded-xl bg-white dark:bg-slate-900 text-slate-800 dark:text-white
+                                  border {{ $errors->has('avatar') ? 'border-red-500' : 'border-slate-300 dark:border-slate-600' }}
+                                  focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
+                    <button type="button" onclick="previewAvatarUrl()"
+                            class="shrink-0 px-3 py-2 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600
+                                   text-slate-600 dark:text-slate-300 rounded-xl transition-colors text-sm font-medium">
+                        Preview
+                    </button>
+                </div>
+                @error('avatar')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+                <div class="mt-2 bg-slate-50 dark:bg-slate-700/50 rounded-xl p-3 space-y-2">
+                    <p class="text-xs font-semibold text-slate-600 dark:text-slate-300">Cara upload foto:</p>
+                    <ol class="text-xs text-slate-500 dark:text-slate-400 space-y-1 list-none">
+                        <li>1. Buka <a href="https://imgbb.com" target="_blank" class="text-blue-500 hover:underline font-medium">imgbb.com</a> → upload foto</li>
+                        <li>2. Setelah upload, di bawah foto ada pilihan link:</li>
+                    </ol>
+                    <div class="bg-white dark:bg-slate-800 rounded-lg p-2.5 text-xs space-y-1 border border-slate-200 dark:border-slate-600">
+                        <p class="text-red-500">❌ <span class="line-through">https://ibb.co/SwhYCW43</span> <span class="text-slate-400">(Viewer — jangan ini)</span></p>
+                        <p class="text-green-500">✓ <span class="font-mono">https://i.ibb.co/xxx/foto.jpg</span> <span class="text-slate-400">(Direct link — ini yang benar)</span></p>
+                    </div>
+                    <p id="avatar-url-hint" class="hidden text-xs text-amber-500 font-medium">
+                        ⚠ Saat upload selesai, pilih dropdown di bawah gambar → pilih <strong>Direct link</strong>
+                    </p>
+                    <p class="text-xs text-slate-400 dark:text-slate-500 italic">
+                        Google Drive juga bisa — link share akan otomatis dikonversi.
+                    </p>
+                </div>
+                <div id="avatar-url-preview" class="mt-2 hidden items-center gap-3">
+                    <img id="avatar-url-preview-img" src="" alt="Preview"
+                         class="w-14 h-14 rounded-xl object-cover border border-slate-200 dark:border-slate-700"
+                         onerror="document.getElementById('avatar-url-preview').classList.add('hidden');
+                                  document.getElementById('avatar-url-error').classList.remove('hidden');">
+                    <p class="text-xs text-green-500">Preview berhasil dimuat</p>
+                </div>
+                <p id="avatar-url-error" class="mt-1 text-xs text-red-500 hidden">
+                    Gambar tidak bisa dimuat — pastikan link langsung ke file gambar.
+                </p>
+            </div>
             @endunless
 
             {{-- Informasi Akun --}}
@@ -105,10 +150,10 @@
 
                     <div>
                         <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                            Email <span class="ml-1 text-xs font-normal text-slate-400">(opsional)</span>
+                            Email <span class="text-red-500">*</span>
                         </label>
                         <input type="email" name="email" value="{{ old('email', $user->email) }}"
-                               placeholder="email@perusahaan.com"
+                               placeholder="email@perusahaan.com" required
                                class="w-full px-4 py-3 rounded-xl bg-white dark:bg-slate-900 text-slate-800 dark:text-white
                                       border {{ $errors->has('email') ? 'border-red-500' : 'border-slate-300 dark:border-slate-600' }}
                                       focus:outline-none focus:ring-2 focus:ring-blue-500">
@@ -190,132 +235,6 @@
                 </div>
             </div>
 
-            {{-- ── DEVELOPER: Handle, Bio, Social Links (dalam main form) ── --}}
-            @if(auth()->user()->isDeveloper())
-            <hr class="border-slate-100 dark:border-slate-700">
-            <div>
-                <div class="flex items-center gap-2 mb-1">
-                    <span class="px-2 py-0.5 text-[10px] font-bold bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 rounded-full uppercase tracking-wide">Developer</span>
-                    <h3 class="text-sm font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wide">
-                        Social Links
-                    </h3>
-                </div>
-                <p class="text-xs text-slate-400 mb-4">Ditampilkan di halaman <em>Tentang Aplikasi</em></p>
-
-                <div class="space-y-4">
-
-                    {{-- Handle --}}
-                    <div>
-                        <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                            Handle <span class="ml-1 text-xs font-normal text-slate-400">(contoh: @qc.yoga)</span>
-                        </label>
-                        <div class="relative">
-                            <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-semibold">@</span>
-                            <input type="text" name="handle"
-                                   value="{{ old('handle', ltrim($user->handle ?? '', '@')) }}"
-                                   placeholder="qc.yoga"
-                                   class="w-full pl-8 pr-4 py-3 rounded-xl bg-white dark:bg-slate-900 text-slate-800 dark:text-white
-                                          border {{ $errors->has('handle') ? 'border-red-500' : 'border-slate-300 dark:border-slate-600' }}
-                                          focus:outline-none focus:ring-2 focus:ring-blue-500">
-                        </div>
-                        @error('handle')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
-                    </div>
-
-                    {{-- Bio --}}
-                    <div>
-                        <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                            Bio <span class="ml-1 text-xs font-normal text-slate-400">(maks 500 karakter)</span>
-                        </label>
-                        <textarea name="bio" rows="3"
-                                  placeholder="Tuliskan bio singkat tentang kamu..."
-                                  class="w-full px-4 py-3 rounded-xl bg-white dark:bg-slate-900 text-slate-800 dark:text-white
-                                         border {{ $errors->has('bio') ? 'border-red-500' : 'border-slate-300 dark:border-slate-600' }}
-                                         focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none">{{ old('bio', $user->bio) }}</textarea>
-                        @error('bio')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
-                    </div>
-
-                    {{-- Social Links Grid --}}
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-
-                        <div>
-                            <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                                <span class="inline-flex items-center gap-1.5">
-                                    <svg class="w-4 h-4 text-pink-500" fill="currentColor" viewBox="0 0 24 24">
-                                        <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
-                                    </svg>
-                                    Instagram
-                                </span>
-                            </label>
-                            <input type="url" name="link_instagram"
-                                   value="{{ old('link_instagram', $user->link_instagram) }}"
-                                   placeholder="https://instagram.com/username"
-                                   class="w-full px-4 py-3 rounded-xl bg-white dark:bg-slate-900 text-slate-800 dark:text-white
-                                          border {{ $errors->has('link_instagram') ? 'border-red-500' : 'border-slate-300 dark:border-slate-600' }}
-                                          focus:outline-none focus:ring-2 focus:ring-blue-500">
-                            @error('link_instagram')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
-                        </div>
-
-                        <div>
-                            <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                                <span class="inline-flex items-center gap-1.5">
-                                    <svg class="w-4 h-4 text-slate-600 dark:text-slate-300" fill="currentColor" viewBox="0 0 24 24">
-                                        <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
-                                    </svg>
-                                    GitHub
-                                </span>
-                            </label>
-                            <input type="url" name="link_github"
-                                   value="{{ old('link_github', $user->link_github) }}"
-                                   placeholder="https://github.com/username"
-                                   class="w-full px-4 py-3 rounded-xl bg-white dark:bg-slate-900 text-slate-800 dark:text-white
-                                          border {{ $errors->has('link_github') ? 'border-red-500' : 'border-slate-300 dark:border-slate-600' }}
-                                          focus:outline-none focus:ring-2 focus:ring-blue-500">
-                            @error('link_github')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
-                        </div>
-
-                        <div>
-                            <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                                <span class="inline-flex items-center gap-1.5">
-                                    <svg class="w-4 h-4 text-violet-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                              d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
-                                    </svg>
-                                    Portfolio
-                                </span>
-                            </label>
-                            <input type="url" name="link_portfolio"
-                                   value="{{ old('link_portfolio', $user->link_portfolio) }}"
-                                   placeholder="https://namakamu.com"
-                                   class="w-full px-4 py-3 rounded-xl bg-white dark:bg-slate-900 text-slate-800 dark:text-white
-                                          border {{ $errors->has('link_portfolio') ? 'border-red-500' : 'border-slate-300 dark:border-slate-600' }}
-                                          focus:outline-none focus:ring-2 focus:ring-blue-500">
-                            @error('link_portfolio')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
-                        </div>
-
-                        <div>
-                            <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                                <span class="inline-flex items-center gap-1.5">
-                                    <svg class="w-4 h-4 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                              d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
-                                    </svg>
-                                    Email Publik
-                                </span>
-                            </label>
-                            <input type="email" name="link_email"
-                                   value="{{ old('link_email', $user->link_email) }}"
-                                   placeholder="email@domain.com"
-                                   class="w-full px-4 py-3 rounded-xl bg-white dark:bg-slate-900 text-slate-800 dark:text-white
-                                          border {{ $errors->has('link_email') ? 'border-red-500' : 'border-slate-300 dark:border-slate-600' }}
-                                          focus:outline-none focus:ring-2 focus:ring-blue-500">
-                            @error('link_email')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
-                        </div>
-
-                    </div>
-                </div>
-            </div>
-            @endif
-            {{-- ── END DEVELOPER ── --}}
 
             {{-- Submit --}}
             <div class="flex gap-3 pt-2">
@@ -337,138 +256,60 @@
     {{-- END CARD 1 --}}
 
 
-    {{-- ═══════════════════════════════════════════════════════════════════ --}}
-    {{-- CARD 2: Foto Halaman About (Developer only) — form TERPISAH        --}}
-    {{-- ═══════════════════════════════════════════════════════════════════ --}}
-    @if(auth()->user()->isDeveloper())
-    <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 overflow-hidden">
-
-        <div class="px-6 py-4 border-b border-slate-100 dark:border-slate-700 flex items-center gap-2">
-            <span class="px-2 py-0.5 text-[10px] font-bold bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 rounded-full uppercase tracking-wide">Developer</span>
-            <div>
-                <h3 class="text-sm font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wide">
-                    Foto Halaman About
-                </h3>
-                <p class="text-xs text-slate-400">Berbeda dari foto profil akun · Ditampilkan di halaman <em>Tentang Aplikasi</em></p>
-            </div>
-        </div>
-
-        <form method="POST"
-              action="{{ route('profile.about-avatar') }}"
-              enctype="multipart/form-data"
-              id="about-avatar-form"
-              class="p-6">
-            @csrf
-
-            <div style="display:flex; align-items:center; gap:16px;">
-
-                {{-- Preview foto --}}
-                <div class="shrink-0 rounded-2xl overflow-hidden border-2 border-slate-200 dark:border-slate-600"
-                     style="width:80px; height:80px; background: linear-gradient(145deg, #93c5fd, #1d4ed8);">
-                    {{-- Initials fallback --}}
-                    <div id="about-avatar-placeholder"
-                         style="width:100%; height:100%; display:{{ $user->about_avatar ? 'none' : 'flex' }}; align-items:center; justify-content:center;">
-                        <span style="font-size:1.5rem; font-weight:900; color:white;">
-                            {{ strtoupper(substr($user->name, 0, 1)) }}
-                        </span>
-                    </div>
-                    {{-- About avatar image --}}
-                    <img id="about-avatar-preview"
-                         src="{{ $user->about_avatar ? route('storage.file', ['path' => $user->about_avatar]) : '' }}"
-                         alt="Foto About"
-                         style="width:100%; height:100%; object-fit:cover; display:{{ $user->about_avatar ? 'block' : 'none' }};"
-                         onerror="this.style.display='none'; document.getElementById('about-avatar-placeholder').style.display='flex';">
-                </div>
-
-                {{-- Kontrol --}}
-                <div>
-                    <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-                        <label for="about-avatar-input"
-                               class="inline-flex items-center gap-2 px-4 py-2 bg-slate-100 dark:bg-slate-700
-                                      hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300
-                                      text-sm font-semibold rounded-xl cursor-pointer transition-colors">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                      d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
-                            </svg>
-                            Pilih Foto
-                        </label>
-                        <input type="file" id="about-avatar-input" name="about_avatar"
-                               accept="image/jpeg,image/png,image/webp,image/gif" class="hidden">
-                        <button type="submit" id="about-avatar-submit"
-                                style="display:none;"
-                                class="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700
-                                       text-white text-sm font-semibold rounded-xl transition-colors">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
-                            </svg>
-                            Simpan Foto
-                        </button>
-                    </div>
-                    <p class="text-xs text-slate-400 mt-1.5">JPG, PNG, WebP · Maks 5 MB</p>
-                    @error('about_avatar')<p class="text-xs text-red-500 mt-1">{{ $message }}</p>@enderror
-                    @if(session('success') && request()->routeIs('profile.edit'))
-                    {{-- success flash sudah di-handle layout, tidak perlu ulang --}}
-                    @endif
-                </div>
-
-            </div>
-        </form>
-
-    </div>
-    @endif
-    {{-- END CARD 2 --}}
 
 </div>
 
 <script>
-// ── Avatar profil: auto-submit saat foto dipilih ──
-const avatarInput = document.getElementById('avatar-input');
-if (avatarInput) {
-    avatarInput.addEventListener('change', function () {
-        const file = this.files[0];
-        if (!file) return;
-        if (file.size > 5 * 1024 * 1024) {
-            alert('Ukuran foto maksimal 5 MB.');
-            this.value = '';
-            return;
-        }
-        const preview  = document.getElementById('avatar-preview');
-        const initials = document.getElementById('avatar-initials');
-        const reader   = new FileReader();
-        reader.onload = e => {
-            if (preview) { preview.src = e.target.result; preview.style.display = ''; }
-            if (initials) initials.style.display = 'none';
-            this.closest('form')?.submit();
-        };
-        reader.readAsDataURL(file);
-    });
+// ── Avatar profil: preview dari URL ──
+function convertToDirectImageUrl(url) {
+    // Google Drive: /file/d/FILE_ID/view  atau  /file/d/FILE_ID/
+    const gdFile = url.match(/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/);
+    if (gdFile) return `https://drive.google.com/uc?export=view&id=${gdFile[1]}`;
+
+    // Google Drive: open?id=FILE_ID  atau  uc?id=FILE_ID
+    const gdOpen = url.match(/drive\.google\.com\/(?:open|uc)\?(?:.*&)?id=([a-zA-Z0-9_-]+)/);
+    if (gdOpen) return `https://drive.google.com/uc?export=view&id=${gdOpen[1]}`;
+
+    // Google Drive thumbnail: thumbnail?id=FILE_ID
+    const gdThumb = url.match(/drive\.google\.com\/thumbnail\?(?:.*&)?id=([a-zA-Z0-9_-]+)/);
+    if (gdThumb) return `https://drive.google.com/uc?export=view&id=${gdThumb[1]}`;
+
+    return url; // URL lain dikembalikan apa adanya
 }
 
-// ── About avatar: preview + tampilkan tombol simpan ──
-const aboutInput  = document.getElementById('about-avatar-input');
-const aboutSubmit = document.getElementById('about-avatar-submit');
-if (aboutInput) {
-    aboutInput.addEventListener('change', function () {
-        const file = this.files[0];
-        if (!file) return;
-        if (file.size > 5 * 1024 * 1024) {
-            alert('Ukuran foto maksimal 5 MB.');
-            this.value = '';
-            return;
-        }
-        const preview     = document.getElementById('about-avatar-preview');
-        const placeholder = document.getElementById('about-avatar-placeholder');
-        const reader      = new FileReader();
-        reader.onload = e => {
-            preview.src = e.target.result;
-            preview.style.display = 'block';
-            if (placeholder) placeholder.style.display = 'none';
-        };
-        reader.readAsDataURL(file);
-        if (aboutSubmit) aboutSubmit.style.display = 'inline-flex';
-    });
+function previewAvatarUrl() {
+    const input      = document.getElementById('avatar-url-input');
+    const preview    = document.getElementById('avatar-url-preview');
+    const previewImg = document.getElementById('avatar-url-preview-img');
+    const error      = document.getElementById('avatar-url-error');
+    const hint       = document.getElementById('avatar-url-hint');
+    const raw        = input?.value?.trim();
+    if (!raw) return;
+
+    // Deteksi link viewer imgbb (ibb.co/xxxx) bukan direct (i.ibb.co/xxxx/...)
+    if (/^https?:\/\/ibb\.co\//i.test(raw) && !/^https?:\/\/i\.ibb\.co\//i.test(raw)) {
+        preview.classList.add('hidden');
+        error.classList.remove('hidden');
+        error.textContent = 'Ini adalah link halaman viewer imgbb. Salin "Direct link" yang dimulai dengan https://i.ibb.co/...';
+        if (hint) hint.classList.remove('hidden');
+        return;
+    }
+
+    const url = convertToDirectImageUrl(raw);
+    input.value = url;
+
+    error.classList.add('hidden');
+    if (hint) hint.classList.add('hidden');
+    preview.classList.remove('hidden');
+    preview.classList.add('flex');
+    previewImg.src = url;
+
+    const headerImg = document.getElementById('avatar-preview');
+    const initials  = document.getElementById('avatar-initials');
+    if (headerImg) { headerImg.src = url; headerImg.style.display = ''; }
+    if (initials)  initials.style.display = 'none';
 }
+
 
 // ── Toggle password visibility ──
 function togglePwd(id, btn) {

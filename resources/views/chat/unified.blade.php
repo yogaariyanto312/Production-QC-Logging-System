@@ -55,7 +55,8 @@
                             <div :class="conv.sender.avatar ? '' : avatarBg(conv.sender.role)"
                                  class="w-11 h-11 rounded-full flex items-center justify-center text-white font-bold text-sm overflow-hidden shrink-0">
                                 <template x-if="conv.sender.avatar">
-                                    <img :src="avatarUrl(conv.sender.avatar)" class="w-full h-full object-cover">
+                                    <img :src="avatarUrl(conv.sender.avatar)" class="w-full h-full object-cover"
+                                         x-on:error="conv.sender.avatar = null">
                                 </template>
                                 <template x-if="!conv.sender.avatar">
                                     <span x-text="initial(conv.sender.name)"></span>
@@ -124,7 +125,8 @@
                      :class="(activeConv && activeConv.sender.avatar) ? '' : (activeConv ? avatarBg(activeConv.sender.role) : 'bg-slate-600')"
                      class="w-9 h-9 rounded-full flex items-center justify-center text-white font-bold text-sm shrink-0 overflow-hidden">
                     <template x-if="activeConv && activeConv.sender.avatar">
-                        <img :src="avatarUrl(activeConv.sender.avatar)" class="w-full h-full object-cover">
+                        <img :src="avatarUrl(activeConv.sender.avatar)" class="w-full h-full object-cover"
+                             x-on:error="activeConv.sender.avatar = null">
                     </template>
                     <template x-if="!(activeConv && activeConv.sender.avatar)">
                         <span x-text="activeConv ? initial(activeConv.sender.name) : ''"></span>
@@ -141,8 +143,8 @@
                        x-text="lastSeen(activeConv?.sender)"></p>
                 </div>
 
-                {{-- Tombol opsi (admin/spv, inbox only) --}}
-                <div x-show="activeConv && isPrivileged && activeConv.type === 'inbox'"
+                {{-- Tombol opsi (semua user) --}}
+                <div x-show="activeConv"
                      x-data="{ dopen: false }" class="relative shrink-0">
                     <button @click="dopen = !dopen" type="button"
                             class="p-2 text-slate-400 hover:text-white rounded-lg hover:bg-slate-700 transition-colors">
@@ -194,10 +196,12 @@
                             <div :class="(item.isReply ? userAvatar : (activeConv.sender.avatar)) ? '' : (item.isReply ? avatarBg(userRole) : avatarBg(activeConv.type === 'own' ? 'admin' : activeConv.sender.role))"
                                  class="w-7 h-7 rounded-full flex items-center justify-center shrink-0 text-white text-[11px] font-bold mb-1 overflow-hidden">
                                 <template x-if="item.isReply && userAvatar">
-                                    <img :src="avatarUrl(userAvatar)" class="w-full h-full object-cover">
+                                    <img :src="avatarUrl(userAvatar)" class="w-full h-full object-cover"
+                                         x-on:error="userAvatar = ''">
                                 </template>
                                 <template x-if="!item.isReply && activeConv.sender.avatar">
-                                    <img :src="avatarUrl(activeConv.sender.avatar)" class="w-full h-full object-cover">
+                                    <img :src="avatarUrl(activeConv.sender.avatar)" class="w-full h-full object-cover"
+                                         x-on:error="activeConv.sender.avatar = null">
                                 </template>
                                 <template x-if="(item.isReply && !userAvatar) || (!item.isReply && !activeConv.sender.avatar)">
                                     <span x-text="item.isReply ? userInitial : initial(activeConv.type === 'own' ? 'Admin' : activeConv.sender.name)"></span>
@@ -237,7 +241,8 @@
                             <div :class="userAvatar ? '' : 'bg-blue-700'"
                                  class="w-7 h-7 rounded-full flex items-center justify-center shrink-0 text-white text-[11px] font-bold mb-1 overflow-hidden">
                                 <template x-if="userAvatar">
-                                    <img :src="avatarUrl(userAvatar)" class="w-full h-full object-cover">
+                                    <img :src="avatarUrl(userAvatar)" class="w-full h-full object-cover"
+                                         x-on:error="userAvatar = ''">
                                 </template>
                                 <template x-if="!userAvatar">
                                     <span x-text="userInitial"></span>
@@ -253,7 +258,8 @@
                         <div :class="activeConv.sender.avatar ? '' : avatarBg(activeConv.sender.role)"
                              class="w-7 h-7 rounded-full flex items-center justify-center shrink-0 text-white text-[11px] font-bold mb-1 overflow-hidden">
                             <template x-if="activeConv.sender.avatar">
-                                <img :src="avatarUrl(activeConv.sender.avatar)" class="w-full h-full object-cover">
+                                <img :src="avatarUrl(activeConv.sender.avatar)" class="w-full h-full object-cover"
+                                     x-on:error="activeConv.sender.avatar = null">
                             </template>
                             <template x-if="!activeConv.sender.avatar">
                                 <span x-text="initial(activeConv.sender.name)"></span>
@@ -298,7 +304,9 @@
             </div>
         </div>
     </div>
+
 </div>
+
 @endsection
 
 @push('scripts')
@@ -310,7 +318,7 @@ function chatApp() {
         userRole: '{{ auth()->user()->role }}',
         userId: {{ auth()->id() }},
         userInitial: '{{ strtoupper(substr(auth()->user()->name, 0, 1)) }}',
-        userAvatar: '{{ auth()->user()->avatar ?? '' }}',
+        userAvatar: '{{ auth()->user()->avatarUrl() ?? '' }}',
         storageBase: '{{ rtrim(config('app.url'), '/') }}/storage',
 
         conversations: [],
@@ -321,6 +329,9 @@ function chatApp() {
         sending: false,
         isMobile: window.innerWidth < 1024,
         typingTimeout: null,
+        lastMessageId: 0,
+        sinceTimer: null,
+        fullTimer: null,
 
         get isPrivileged() {
             return this.userRole === 'developer' || this.userRole === 'admin' || this.userRole === 'supervisor';
@@ -386,9 +397,58 @@ function chatApp() {
         async init() {
             window.addEventListener('resize', () => { this.isMobile = window.innerWidth < 1024; });
             await this.loadAll();
-            setInterval(() => this.loadAll(), 5000);
+            this.sinceTimer = setInterval(() => this.pollSince(), 2000);
+            this.fullTimer  = setInterval(() => this.loadAll(), 30000);
             this.pingServer();
             setInterval(() => this.pingServer(), 30000);
+        },
+
+        // Smart polling: hanya ambil pesan baru
+        async pollSince() {
+            try {
+                const res  = await fetch(`${BASE}/api/messages/since?last_id=${this.lastMessageId}`, {
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                });
+                const data = await res.json();
+                if (!data.has_new) return; // tidak ada pesan baru — skip
+
+                // Ada pesan baru → merge ke conversations yang sudah ada
+                data.messages.forEach(msg => {
+                    if (msg.id > this.lastMessageId) this.lastMessageId = msg.id;
+                    this.mergeMessage(msg);
+                });
+
+                // Sort conversations by latest message
+                this.conversations.sort((a, b) => this.latestMs(b) - this.latestMs(a));
+
+                // Auto-scroll jika active conversation dapat pesan baru
+                if (this.activeConv) this.$nextTick(() => this.scrollToBottom());
+            } catch (e) {}
+        },
+
+        // Merge satu pesan baru ke dalam conversations yang sudah ada
+        mergeMessage(msg) {
+            const partnerId = msg.sender_id === this.userId ? msg.recipient_id : msg.sender_id;
+            if (!partnerId && msg.sender_id !== this.userId) return;
+
+            const conv = this.conversations.find(c =>
+                (c.sender.id === partnerId) ||
+                (partnerId === null && c.sender.id === msg.sender_id)
+            );
+
+            if (conv) {
+                const exists = conv.messages.find(m => m.id === msg.id);
+                if (!exists) {
+                    conv.messages.push(msg);
+                    if (!msg.is_read && msg.sender_id !== this.userId) conv.unread++;
+                } else {
+                    // Update existing message (e.g., reply added)
+                    Object.assign(exists, msg);
+                }
+            } else {
+                // Conversation baru — trigger full load
+                this.loadAll();
+            }
         },
 
         notifyTyping() {
@@ -418,6 +478,13 @@ function chatApp() {
                 if (this.userRole === 'developer' || this.userRole === 'admin') await this.loadInbox();
                 else if (this.userRole === 'supervisor')                        await this.loadSupervisor();
                 else                                                            await this.loadOwn();
+
+                // Update lastMessageId dari semua pesan yang sudah ada
+                this.conversations.forEach(c => {
+                    c.messages.forEach(m => {
+                        if (m.id > this.lastMessageId) this.lastMessageId = m.id;
+                    });
+                });
             } catch (e) {}
             this.loading = false;
         },
@@ -632,7 +699,11 @@ function chatApp() {
             return this.fmt(m.created_at);
         },
 
-        avatarUrl(path) { return path ? this.storageBase + '/' + path : ''; },
+        avatarUrl(path) {
+            if (!path) return '';
+            if (path.startsWith('http')) return path;
+            return this.storageBase + '/' + path;
+        },
 
         initial(name) { return (name || '?').charAt(0).toUpperCase(); },
 

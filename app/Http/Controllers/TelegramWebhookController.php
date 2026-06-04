@@ -27,9 +27,10 @@ class TelegramWebhookController extends Controller
             return response()->json(['ok' => true]);
         }
 
-        $chatId = $message['chat']['id'];
-        $text   = $message['text'] ?? null;
-        $photos = $message['photo'] ?? null;
+        $chatId   = $message['chat']['id'];
+        $text     = $message['text']     ?? null;
+        $photos   = $message['photo']    ?? null;
+        $document = $message['document'] ?? null;
 
         if ($text && str_starts_with($text, '/jadwal')) {
             $this->handleJadwal($token, $chatId, $text);
@@ -37,6 +38,8 @@ class TelegramWebhookController extends Controller
             $this->handleBatal($token, $chatId);
         } elseif ($photos) {
             $this->handlePhoto($token, $chatId, $photos);
+        } elseif ($document) {
+            $this->handleDocument($token, $chatId, $document);
         }
 
         return response()->json(['ok' => true]);
@@ -66,9 +69,9 @@ class TelegramWebhookController extends Controller
 
         $formatted = Carbon::parse($date)->locale('id')->isoFormat('dddd, D MMMM YYYY');
         $this->send($token, $chatId,
-            "📅 *Upload Foto Jadwal*\n\n" .
+            "📅 *Upload Jadwal*\n\n" .
             "Tanggal: *{$formatted}*\n\n" .
-            "Silakan kirim foto jadwalnya sekarang.\n" .
+            "Silakan kirim *foto* atau *file PDF* jadwalnya sekarang.\n" .
             "Ketik /batal untuk membatalkan.\n\n" .
             "_Sesi berlaku 10 menit._",
             ['parse_mode' => 'Markdown']
@@ -133,6 +136,76 @@ class TelegramWebhookController extends Controller
             "✅ *Foto jadwal berhasil disimpan!*\n\n" .
             "Tanggal: *{$formatted}*\n\n" .
             "Foto dapat dilihat di halaman _Target Produksi_ pada tanggal tersebut.",
+            ['parse_mode' => 'Markdown']
+        );
+    }
+
+    private function handleDocument(string $token, int|string $chatId, array $document): void
+    {
+        $date = Cache::get("tg_jadwal_{$chatId}");
+        if (!$date) {
+            return; // no active session — ignore
+        }
+
+        $mimeType = $document['mime_type'] ?? '';
+        if ($mimeType !== 'application/pdf') {
+            $this->send($token, $chatId,
+                "❌ File tidak didukung.\n\nHanya *foto* atau *file PDF* yang diterima.",
+                ['parse_mode' => 'Markdown']
+            );
+            return;
+        }
+
+        // Cek ukuran file — Telegram Bot API max 20 MB
+        $fileSize = $document['file_size'] ?? 0;
+        if ($fileSize > 20 * 1024 * 1024) {
+            $this->send($token, $chatId, "❌ File terlalu besar. Maksimal 20 MB.");
+            return;
+        }
+
+        $fileId = $document['file_id'];
+
+        $fileInfo = Http::withoutVerifying()
+            ->get("https://api.telegram.org/bot{$token}/getFile", ['file_id' => $fileId])
+            ->json();
+
+        if (!($fileInfo['ok'] ?? false)) {
+            $this->send($token, $chatId, "❌ Gagal mengambil file. Coba lagi.");
+            return;
+        }
+
+        $tgFilePath = $fileInfo['result']['file_path'];
+        $contents   = Http::withoutVerifying()
+            ->get("https://api.telegram.org/file/bot{$token}/{$tgFilePath}")
+            ->body();
+
+        if (!$contents) {
+            $this->send($token, $chatId, "❌ Gagal mengunduh file.");
+            return;
+        }
+
+        $savePath = "schedule-photos/{$date}/tg_" . time() . ".pdf";
+
+        // Hapus file lama untuk tanggal ini jika ada
+        $old = SchedulePhoto::where('target_date', $date)->first();
+        if ($old) {
+            Storage::disk('public')->delete($old->file_path);
+        }
+
+        Storage::disk('public')->put($savePath, $contents);
+
+        SchedulePhoto::updateOrCreate(
+            ['target_date' => $date],
+            ['file_path' => $savePath, 'uploaded_by' => null]
+        );
+
+        Cache::forget("tg_jadwal_{$chatId}");
+
+        $formatted = Carbon::parse($date)->locale('id')->isoFormat('dddd, D MMMM YYYY');
+        $this->send($token, $chatId,
+            "✅ *File PDF jadwal berhasil disimpan!*\n\n" .
+            "Tanggal: *{$formatted}*\n\n" .
+            "Dapat dilihat di halaman _Target Produksi_ pada tanggal tersebut.",
             ['parse_mode' => 'Markdown']
         );
     }

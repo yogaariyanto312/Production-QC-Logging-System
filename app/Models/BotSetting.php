@@ -14,13 +14,21 @@ class BotSetting extends Model
         'discord_enabled',
         'reject_threshold',
         'report_enabled',
+        'tutorial_iframe_url',
+        'disable_devtools',
+        'maintenance_mode',
+        'maintenance_message',
+        'maintenance_until',
     ];
 
     protected $casts = [
-        'telegram_enabled' => 'boolean',
-        'discord_enabled'  => 'boolean',
-        'report_enabled'   => 'boolean',
-        'reject_threshold' => 'decimal:2',
+        'telegram_enabled'  => 'boolean',
+        'discord_enabled'   => 'boolean',
+        'report_enabled'    => 'boolean',
+        'reject_threshold'  => 'decimal:2',
+        'disable_devtools'  => 'boolean',
+        'maintenance_mode'  => 'boolean',
+        'maintenance_until' => 'datetime',
     ];
 
     public static function instance(): static

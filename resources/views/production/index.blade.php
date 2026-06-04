@@ -10,7 +10,7 @@
     {{-- Filter Panel --}}
     <div class="bg-white dark:bg-slate-800 rounded-2xl p-5 shadow-sm border border-slate-100 dark:border-slate-700">
         <form method="GET" action="{{ route('production.index') }}" class="space-y-4">
-            <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div class="grid grid-cols-2 lg:grid-cols-5 gap-3">
                 <div class="col-span-2 lg:col-span-1">
                     <label class="block text-xs font-medium text-slate-500 mb-1">Cari Produk</label>
                     <input type="text" name="search" id="search-realtime"
@@ -31,6 +31,17 @@
                     </select>
                 </div>
                 <div>
+                    <label class="block text-xs font-medium text-slate-500 mb-1">Tahun</label>
+                    <select name="year"
+                            class="w-full px-3 py-2.5 text-sm border border-slate-300 dark:border-slate-600 rounded-xl
+                                   bg-white dark:bg-slate-900 text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="">Semua Tahun</option>
+                        @foreach($years as $yr)
+                        <option value="{{ $yr }}" {{ request('year') == $yr ? 'selected' : '' }}>{{ $yr }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div>
                     <label class="block text-xs font-medium text-slate-500 mb-1">Dari Tanggal</label>
                     <input type="date" name="date_from" value="{{ $dateFrom }}"
                            class="w-full px-3 py-2.5 text-sm border border-slate-300 dark:border-slate-600 rounded-xl
@@ -43,21 +54,21 @@
                                   bg-white dark:bg-slate-900 text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
                 </div>
             </div>
-            <div class="flex gap-3">
+            <div class="flex items-center gap-2">
                 <button type="submit"
-                        class="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl transition-colors">
+                        class="px-3 sm:px-5 py-2 sm:py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl transition-colors whitespace-nowrap">
                     Filter
                 </button>
                 <a href="{{ route('production.index') }}"
-                   class="px-5 py-2.5 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600
-                          text-slate-700 dark:text-slate-300 text-sm font-semibold rounded-xl transition-colors">
+                   class="px-3 sm:px-5 py-2 sm:py-2.5 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600
+                          text-slate-700 dark:text-slate-300 text-sm font-semibold rounded-xl transition-colors whitespace-nowrap">
                     Reset
                 </a>
                 <div class="flex-1"></div>
                 @unless(auth()->user()->isVisitor())
                 <a href="{{ route('production.create') }}"
-                   class="px-5 py-2.5 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold rounded-xl transition-colors flex items-center gap-2">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                   class="px-3 sm:px-5 py-2 sm:py-2.5 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold rounded-xl transition-colors flex items-center gap-1.5 whitespace-nowrap">
+                    <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
                     </svg>
                     Input Baru
@@ -121,22 +132,22 @@
     @endif
 
     {{-- Info pagination --}}
-    @if($logs->total() > 0)
-    <div class="flex items-center justify-between">
-        <p class="text-sm text-slate-500 dark:text-slate-400">
-            Menampilkan <strong class="text-slate-700 dark:text-slate-300">{{ $logs->firstItem() }}–{{ $logs->lastItem() }}</strong>
-            dari <strong class="text-slate-700 dark:text-slate-300">{{ $logs->total() }}</strong> entri
+    @if($dates->total() > 0)
+    <div class="flex flex-col sm:flex-row sm:items-center gap-2">
+        <p class="text-xs text-slate-500 dark:text-slate-400">
+            Hal. <strong class="text-slate-700 dark:text-slate-300">{{ $dates->currentPage() }}</strong>
+            · <strong class="text-slate-700 dark:text-slate-300">{{ $dates->count() }}</strong> hari
+            dari <strong class="text-slate-700 dark:text-slate-300">{{ $dates->total() }}</strong> hari total
         </p>
-        @if($logs->hasPages())
-        <div>{{ $logs->links() }}</div>
+        @if($dates->hasPages())
+        <div class="sm:ml-auto">{{ $dates->onEachSide(0)->links() }}</div>
         @endif
     </div>
     @endif
 
     {{-- Grouped by date then category --}}
     @php
-        $dateGroups = $logs->getCollection()
-            ->groupBy(fn($l) => $l->production_date->format('Y-m-d'));
+        $dateGroups = $logs->groupBy(fn($l) => $l->production_date->format('Y-m-d'));
     @endphp
 
     @forelse($dateGroups as $dateStr => $dayLogs)
@@ -144,7 +155,16 @@
         $carbon    = \Illuminate\Support\Carbon::parse($dateStr);
         $dayName   = $carbon->translatedFormat('l');
         $dateFmt   = $carbon->translatedFormat('d F Y');
-        $catGroups = $dayLogs->groupBy(fn($l) => $l->product->category->name ?? 'Lainnya');
+        $catOrder  = ['Channel' => 0, 'Cover' => 1, 'Tangki' => 2];
+        $catGroups = $dayLogs->groupBy(function($l) {
+            $name = strtolower($l->product->category->name ?? '');
+            if (str_contains($name, 'channel')) return 'Channel';
+            if (str_contains($name, 'cover'))   return 'Cover';
+            if (str_contains($name, 'tangki'))  return 'Tangki';
+            return $l->product->category->name ?? 'Lainnya';
+        })
+        ->sortBy(fn($logs, $key) => $catOrder[$key] ?? 99)
+        ->map(fn($logs) => $logs->sortBy(fn($l) => (float)($l->product->kva ?? 0)));
         $dayTotal  = $dayLogs->sum('total_qty');
     @endphp
     <div class="space-y-3">
@@ -168,17 +188,41 @@
         {{-- Category cards per day --}}
         <div class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
             @foreach($catGroups as $catName => $catLogs)
-            @php $catTotal = $catLogs->sum('total_qty'); @endphp
+            @php
+                $catTotal     = $catLogs->sum('total_qty');
+                $catNameLower = strtolower($catName);
+                if (str_contains($catNameLower, 'channel')) {
+                    $cardIcon  = 'M13 10V3L4 14h7v7l9-11h-7z';
+                    $cardColor = 'text-blue-600 dark:text-blue-400';
+                    $cardBg    = 'bg-blue-100 dark:bg-blue-900/40';
+                } elseif (str_contains($catNameLower, 'cover')) {
+                    $cardIcon  = 'M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4';
+                    $cardColor = 'text-emerald-600 dark:text-emerald-400';
+                    $cardBg    = 'bg-emerald-100 dark:bg-emerald-900/40';
+                } elseif (str_contains($catNameLower, 'tangki')) {
+                    $cardIcon  = 'M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4';
+                    $cardColor = 'text-amber-600 dark:text-amber-400';
+                    $cardBg    = 'bg-amber-100 dark:bg-amber-900/40';
+                } else {
+                    $cardIcon  = 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2';
+                    $cardColor = 'text-slate-600 dark:text-slate-400';
+                    $cardBg    = 'bg-slate-100 dark:bg-slate-700';
+                }
+            @endphp
             <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 overflow-hidden">
 
                 {{-- Card header --}}
                 <div class="flex items-center justify-between px-4 py-3 border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/40">
                     <div class="flex items-center gap-2">
-                        <span class="w-2 h-2 rounded-full bg-blue-500"></span>
+                        <div class="w-6 h-6 rounded-lg {{ $cardBg }} flex items-center justify-center shrink-0">
+                            <svg class="w-3.5 h-3.5 {{ $cardColor }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="{{ $cardIcon }}"/>
+                            </svg>
+                        </div>
                         <span class="text-sm font-bold text-slate-700 dark:text-white">{{ $catName }}</span>
                         <span class="text-xs text-slate-400">· {{ $catLogs->count() }} entri</span>
                     </div>
-                    <span class="text-sm font-bold text-blue-600 dark:text-blue-400">
+                    <span class="text-sm font-bold {{ $cardColor }}">
                         {{ $fmtQty($catTotal) }} <span class="text-xs font-normal text-slate-400">unit</span>
                     </span>
                 </div>
@@ -186,31 +230,58 @@
                 {{-- Rows --}}
                 <div class="divide-y divide-slate-100 dark:divide-slate-700">
                     @foreach($catLogs as $log)
-                    @php $isChannel = ($log->product->type ?? 'regular') === 'channel'; @endphp
-                    <div class="px-4 py-2 flex items-center gap-3 hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
+                    @php
+                        $isChannel = ($log->product->type ?? 'regular') === 'channel';
+                        $catRaw    = strtolower($log->product->category->name ?? '');
+                        $isSwasta  = str_contains($catRaw, 'swasta');
+                        $isType    = str_contains($catRaw, 'type');
+                        $isPln     = !$isSwasta && !$isType && (str_contains($catRaw, 'pln') || str_contains($catRaw, 'channel') || str_contains($catRaw, 'cover') || str_contains($catRaw, 'tangki'));
+                        $seriesColor = $isSwasta ? 'text-red-500 dark:text-red-400'
+                                     : ($isType  ? 'text-blue-500 dark:text-blue-400'
+                                     :             'text-slate-200 dark:text-white');
+                        $typeBadge   = $isSwasta ? ['l' => 'Swasta',   'c' => 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300']
+                                     : ($isType  ? ['l' => 'Typetest', 'c' => 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300']
+                                     : ($isPln   ? ['l' => 'PLN',      'c' => 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300']
+                                     : null));
+                    @endphp
+                    <div class="px-3 py-1.5 sm:px-4 sm:py-2 flex items-center gap-2 sm:gap-3 hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
 
                         {{-- Info kiri --}}
                         <div class="min-w-0 flex-1">
-                            <div class="flex items-baseline gap-2 flex-wrap">
-                                <p class="text-sm font-semibold text-slate-800 dark:text-white">{{ $log->product->name ?? '-' }}</p>
+                            <div class="flex items-center gap-1.5 flex-wrap">
+                                <p class="text-xs sm:text-sm font-semibold text-slate-800 dark:text-white uppercase leading-tight">{{ preg_replace('/\s+(typetest|swasta|pln)\b/i', '', $log->product->name ?? '-') }}</p>
                                 @if($log->product->series_with_kva)
-                                <span class="text-xs text-slate-400 font-mono">{{ $log->product->series_with_kva }}</span>
+                                <span class="text-[10px] sm:text-xs {{ $seriesColor }} font-mono font-semibold">{{ $log->product->series_with_kva }}</span>
+                                @endif
+                                @if($typeBadge)
+                                <span class="text-[10px] px-1 py-0.5 rounded-full font-semibold {{ $typeBadge['c'] }}">{{ $typeBadge['l'] }}</span>
                                 @endif
                             </div>
-                            <div class="flex items-center gap-2 flex-wrap mt-0.5">
+                            <div class="flex items-center gap-1.5 mt-0.5 overflow-hidden">
                                 @if($log->reject_qty > 0)
-                                <span class="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400">
+                                <span class="shrink-0 text-[10px] font-semibold px-1 py-0.5 rounded-full bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400">
                                     ✕ {{ $log->reject_qty }}
                                 </span>
                                 @endif
-                                @if($log->notes)
-                                <span class="text-xs text-slate-400 italic">{{ Str::limit($log->notes, 40) }}</span>
-                                <span class="text-slate-300 dark:text-slate-600 text-xs">·</span>
+                                @php
+                                    $fallback = $isChannel ? ($lastChannelNums[$log->product_id] ?? []) : [];
+                                    $chLines2 = collect(explode("\n", $log->notes ?? ''))->map(fn($l) => trim($l))->filter();
+                                    $upLine2  = $chLines2->first(fn($l) => preg_match('/\bUP\b/i', $l));
+                                    $btLine2  = $chLines2->first(fn($l) => preg_match('/\bBT\b/i', $l));
+                                    $upDisp2  = $upLine2 ?: ($fallback['up'] ?? null);
+                                    $btDisp2  = $btLine2 ?: ($fallback['bt'] ?? null);
+                                @endphp
+                                @if($isChannel && ($upDisp2 || $btDisp2))
+                                <span class="text-[10px] sm:text-xs font-mono text-slate-400 truncate min-w-0">{{ trim(($upDisp2 ?? '') . ' ' . ($btDisp2 ?? '')) }}</span>
+                                <span class="shrink-0 text-slate-300 dark:text-slate-600 text-[10px]">·</span>
+                                @elseif(!$isChannel && $log->notes)
+                                <span class="text-[10px] sm:text-xs text-slate-400 font-mono truncate min-w-0">{{ Str::limit($log->notes, 40) }}</span>
+                                <span class="shrink-0 text-slate-300 dark:text-slate-600 text-[10px]">·</span>
                                 @endif
-                                <span class="text-xs text-slate-400">{{ $log->user->name ?? '-' }}</span>
+                                <span class="shrink-0 text-[10px] sm:text-xs text-slate-400">{{ $log->user->name ?? '-' }}</span>
                             </div>
                             @if($log->keterangan)
-                            <p class="text-xs text-amber-500 dark:text-amber-400 italic mt-0.5">{{ Str::limit($log->keterangan, 60) }}</p>
+                            <p class="text-[10px] sm:text-xs text-amber-500 dark:text-amber-400 italic mt-0.5 truncate">{{ Str::limit($log->keterangan, 40) }}</p>
                             @endif
                         </div>
 
@@ -224,11 +295,11 @@
                                 <span class="text-slate-400">BT</span>
                                 <span class="font-bold text-purple-500">{{ number_format($log->shift2_qty) }}</span>
                             </div>
-                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-sm font-bold
+                            <span class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-xs font-bold
                                          bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400">
-                                <span class="text-xs font-normal opacity-70">Total:</span>
+                                <span class="text-[10px] font-normal opacity-70">Total:</span>
                                 {{ $fmtQty($log->total_qty) }}
-                                <span class="text-xs font-normal opacity-70">Unit</span>
+                                <span class="text-[10px] font-normal opacity-70">Unit</span>
                             </span>
                         </div>
                         @else
@@ -253,7 +324,7 @@
                                           d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
                                 </svg>
                             </a>
-                            @if(auth()->user()->isPrivileged())
+                            @unless(auth()->user()->isVisitor())
                             <a href="{{ route('production.edit', $log) }}"
                                class="p-1 text-slate-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-lg transition-colors"
                                title="Edit">
@@ -274,7 +345,7 @@
                                     </svg>
                                 </button>
                             </form>
-                            @endif
+                            @endunless
                         </div>
 
                     </div>
@@ -301,12 +372,6 @@
     </div>
     @endforelse
 
-    {{-- Pagination bottom --}}
-    @if($logs->hasPages())
-    <div class="flex justify-center">
-        {{ $logs->links() }}
-    </div>
-    @endif
 
     {{-- Chat Admin (Operator only) --}}
     @if(auth()->user()->role === 'operator')
@@ -469,9 +534,71 @@ function prodChatPanel() {
 
         init() {
             this.load();
-            setInterval(() => this.load(), 15000);
+            setInterval(() => this.load(), 30000);
         }
     };
 }
 </script>
+
+<script>
+(function () {
+    const POLL_URL = '{{ route("api.production.poll") }}';
+    const INTERVAL = 15000;
+
+    let lastTs    = null;
+    let lastCount = null;
+    let banner    = null;
+
+    function showBanner() {
+        if (banner) return;
+        banner = document.createElement('div');
+        banner.id = 'prod-realtime-banner';
+        banner.style.cssText = 'position:fixed;bottom:1.25rem;left:50%;transform:translateX(-50%);z-index:9999;animation:slideUp .3s ease';
+        banner.innerHTML = `
+            <button onclick="window.location.reload()"
+                    class="flex items-center gap-2.5 px-5 py-3 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold
+                           rounded-2xl shadow-xl transition-colors whitespace-nowrap">
+                <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                </svg>
+                Data produksi diperbarui — klik untuk muat ulang
+            </button>`;
+        document.body.appendChild(banner);
+    }
+
+    async function poll() {
+        try {
+            const res  = await fetch(POLL_URL, { credentials: 'same-origin' });
+            if (!res.ok) return;
+            const data = await res.json();
+
+            if (lastTs === null) {
+                lastTs    = data.ts;
+                lastCount = data.count;
+                return;
+            }
+
+            if (data.ts !== lastTs || data.count !== lastCount) {
+                showBanner();
+            }
+
+            lastTs    = data.ts;
+            lastCount = data.count;
+        } catch (_) {}
+    }
+
+    // Inisialisasi setelah 2 detik, lalu poll tiap 15 detik
+    setTimeout(function () {
+        poll();
+        setInterval(poll, INTERVAL);
+    }, 2000);
+}());
+</script>
+<style>
+@keyframes slideUp {
+    from { opacity: 0; transform: translateX(-50%) translateY(12px); }
+    to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+</style>
 @endpush

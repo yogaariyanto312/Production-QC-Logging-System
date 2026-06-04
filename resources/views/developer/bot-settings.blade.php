@@ -1,8 +1,8 @@
 @extends('layouts.app')
 
-@section('title', 'Bot Notifikasi')
-@section('page-title', 'Bot Notifikasi')
-@section('page-subtitle', 'Pengaturan notifikasi otomatis aktivitas user ke Telegram & Discord')
+@section('title', 'Control Panel')
+@section('page-title', 'Control Panel Aplikasi')
+@section('page-subtitle', 'Pengaturan sistem, notifikasi bot, dan keamanan aplikasi')
 
 @section('content')
 <div class="max-w-3xl mx-auto space-y-6">
@@ -257,11 +257,11 @@
                 <div class="bg-slate-50 dark:bg-slate-900 rounded-xl p-4 space-y-2 font-mono text-xs border border-slate-200 dark:border-slate-700">
                     <div class="flex items-start gap-3">
                         <span class="text-green-600 dark:text-green-400 shrink-0">/jadwal</span>
-                        <span class="text-slate-500">— Upload foto jadwal untuk hari ini</span>
+                        <span class="text-slate-500">— Upload foto/PDF jadwal untuk hari ini</span>
                     </div>
                     <div class="flex items-start gap-3">
                         <span class="text-green-600 dark:text-green-400 shrink-0">/jadwal 2026-06-01</span>
-                        <span class="text-slate-500">— Upload foto jadwal untuk tanggal tertentu</span>
+                        <span class="text-slate-500">— Upload foto/PDF jadwal untuk tanggal tertentu</span>
                     </div>
                     <div class="flex items-start gap-3">
                         <span class="text-green-600 dark:text-green-400 shrink-0">/jadwal 01/06/2026</span>
@@ -333,18 +333,22 @@
                     </div>
                 </div>
                 {{-- Hidden fields agar form ini tidak overwrite field lain --}}
-                <input type="hidden" name="telegram_token"   value="{{ $setting->telegram_token }}">
-                <input type="hidden" name="telegram_chat_id" value="{{ $setting->telegram_chat_id }}">
-                <input type="hidden" name="telegram_enabled" value="{{ $setting->telegram_enabled ? '1' : '0' }}">
-                <input type="hidden" name="discord_webhook"  value="{{ $setting->discord_webhook }}">
-                <input type="hidden" name="discord_enabled"  value="{{ $setting->discord_enabled ? '1' : '0' }}">
-                <input type="hidden" name="report_enabled"   value="{{ $setting->report_enabled ? '1' : '0' }}">
+                <input type="hidden" name="telegram_token"    value="{{ $setting->telegram_token }}">
+                <input type="hidden" name="telegram_chat_id"  value="{{ $setting->telegram_chat_id }}">
+                <input type="hidden" name="telegram_enabled"  value="{{ $setting->telegram_enabled ? '1' : '0' }}">
+                <input type="hidden" name="discord_webhook"   value="{{ $setting->discord_webhook }}">
+                <input type="hidden" name="discord_enabled"   value="{{ $setting->discord_enabled ? '1' : '0' }}">
+                <input type="hidden" name="report_enabled"    value="{{ $setting->report_enabled ? '1' : '0' }}">
+                <input type="hidden" name="disable_devtools"  value="{{ $setting->disable_devtools ? '1' : '0' }}">
+                <input type="hidden" name="maintenance_mode"  value="{{ $setting->maintenance_mode ? '1' : '0' }}">
+                <input type="hidden" name="maintenance_message" value="{{ $setting->maintenance_message }}">
+                <input type="hidden" name="maintenance_until" value="{{ $setting->maintenance_until?->format('Y-m-d\TH:i') }}">
             </div>
         </div>
 
         <div class="p-6 space-y-4">
-            <div class="flex items-start gap-4">
-                <div class="flex-1">
+            <div class="flex flex-col sm:flex-row items-start gap-4">
+                <div class="flex-1 w-full">
                     <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">
                         Batas Reject Rate (%)
                     </label>
@@ -363,7 +367,7 @@
                     </div>
                     @error('reject_threshold')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
                 </div>
-                <div class="shrink-0 p-4 bg-rose-50 dark:bg-rose-900/20 rounded-xl border border-rose-100 dark:border-rose-800 text-xs text-slate-600 dark:text-slate-400 space-y-1">
+                <div class="w-full sm:w-auto sm:shrink-0 p-4 bg-rose-50 dark:bg-rose-900/20 rounded-xl border border-rose-100 dark:border-rose-800 text-xs text-slate-600 dark:text-slate-400 space-y-1">
                     <p class="font-semibold text-rose-700 dark:text-rose-400 mb-1.5">Contoh pesan alert:</p>
                     <p>⚠️ <strong>ALERT: Reject Rate Tinggi!</strong></p>
                     <p>📦 Produk: <strong>Trafo 50KVA</strong></p>
@@ -399,7 +403,7 @@
                     </div>
                     <div>
                         <h2 class="text-base font-bold text-white">Laporan Harian Terjadwal</h2>
-                        <p class="text-amber-100 text-xs mt-0.5">Ringkasan produksi dikirim otomatis setiap jam 18:00 WIB</p>
+                        <p class="text-amber-100 text-xs mt-0.5">Ringkasan produksi dikirim otomatis setiap jam 22:00 WIB</p>
                     </div>
                 </div>
                 {{-- Toggle --}}
@@ -420,22 +424,26 @@
                 <input type="hidden" name="discord_webhook"   value="{{ $setting->discord_webhook }}">
                 <input type="hidden" name="discord_enabled"   value="{{ $setting->discord_enabled ? '1' : '0' }}">
                 <input type="hidden" name="reject_threshold"  value="{{ $setting->reject_threshold ?? 5 }}">
+                <input type="hidden" name="disable_devtools"  value="{{ $setting->disable_devtools ? '1' : '0' }}">
+                <input type="hidden" name="maintenance_mode"  value="{{ $setting->maintenance_mode ? '1' : '0' }}">
+                <input type="hidden" name="maintenance_message" value="{{ $setting->maintenance_message }}">
+                <input type="hidden" name="maintenance_until" value="{{ $setting->maintenance_until?->format('Y-m-d\TH:i') }}">
             </div>
         </div>
 
         <div class="p-6 space-y-4">
-            <div class="flex items-start gap-4">
-                <div class="flex-1 text-sm text-slate-600 dark:text-slate-400 space-y-1.5">
+            <div class="flex flex-col sm:flex-row items-start gap-4">
+                <div class="flex-1 w-full text-sm text-slate-600 dark:text-slate-400 space-y-1.5">
                     <p>Laporan berisi ringkasan produksi per kategori, total qty, total reject, dan reject rate hari itu.</p>
                     <p class="text-xs text-slate-400">Dikirim ke semua bot yang aktif (Telegram + Discord).</p>
                     <p class="text-xs text-amber-600 dark:text-amber-400">⚠️ Pastikan Laravel Scheduler sudah aktif di server:
                         <code class="bg-slate-100 dark:bg-slate-900 px-1.5 py-0.5 rounded font-mono text-[10px]">* * * * * php artisan schedule:run</code>
                     </p>
                 </div>
-                <div class="shrink-0 p-4 bg-amber-50 dark:bg-amber-900/20 rounded-xl border border-amber-100 dark:border-amber-800 text-xs text-slate-600 dark:text-slate-400 space-y-0.5">
+                <div class="w-full sm:w-auto sm:shrink-0 p-4 bg-amber-50 dark:bg-amber-900/20 rounded-xl border border-amber-100 dark:border-amber-800 text-xs text-slate-600 dark:text-slate-400 space-y-0.5">
                     <p class="font-semibold text-amber-700 dark:text-amber-400 mb-1.5">Contoh isi laporan:</p>
                     <p>📊 <strong>Laporan Harian Produksi</strong></p>
-                    <p>📅 28 Mei 2026 · 🕕 18:00 WIB</p>
+                    <p>📅 28 Mei 2026 · 🕙 22:00 WIB</p>
                     <p>━━━━━━━━━━━━━━━━━━</p>
                     <p>📦 <strong>Channel</strong>: 120 unit · ✕ 4 reject</p>
                     <p>📦 <strong>Tangki</strong>: 55 unit</p>
@@ -467,6 +475,179 @@
                         Kirim Sekarang
                     </button>
                 </form>
+            </div>
+        </div>
+    </div>
+    </form>
+
+    {{-- ══════════════════════ MAINTENANCE ══════════════════════ --}}
+    <form method="POST" action="{{ route('developer.bot-settings.update') }}">
+        @csrf
+        <input type="hidden" name="telegram_token"    value="{{ $setting->telegram_token }}">
+        <input type="hidden" name="telegram_chat_id"  value="{{ $setting->telegram_chat_id }}">
+        <input type="hidden" name="telegram_enabled"  value="{{ $setting->telegram_enabled ? '1' : '0' }}">
+        <input type="hidden" name="discord_webhook"   value="{{ $setting->discord_webhook }}">
+        <input type="hidden" name="discord_enabled"   value="{{ $setting->discord_enabled ? '1' : '0' }}">
+        <input type="hidden" name="reject_threshold"  value="{{ $setting->reject_threshold ?? 5 }}">
+        <input type="hidden" name="report_enabled"    value="{{ $setting->report_enabled ? '1' : '0' }}">
+        <input type="hidden" name="disable_devtools"  value="{{ $setting->disable_devtools ? '1' : '0' }}">
+
+    <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 overflow-hidden">
+        <div class="bg-linear-to-r from-orange-500 to-amber-600 px-6 py-4">
+            <div class="flex items-center justify-between gap-4">
+                <div class="flex items-center gap-3">
+                    <div class="w-9 h-9 bg-white/20 rounded-xl flex items-center justify-center shrink-0">
+                        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                  d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <h2 class="text-base font-bold text-white">Mode Maintenance</h2>
+                        <p class="text-amber-100 text-xs mt-0.5">Tampilkan banner peringatan ke semua user selain developer</p>
+                    </div>
+                </div>
+                <div x-data="{ enabled: {{ $setting->maintenance_mode ? 'true' : 'false' }} }">
+                    <button type="button" @click="enabled = !enabled"
+                            :class="enabled ? 'bg-white/90' : 'bg-white/30'"
+                            class="relative inline-flex h-7 w-12 items-center rounded-full transition-colors shrink-0">
+                        <span :class="enabled ? 'translate-x-6 bg-orange-600' : 'translate-x-1 bg-white/70'"
+                              class="inline-block h-5 w-5 transform rounded-full transition-transform shadow"></span>
+                    </button>
+                    <input type="hidden" name="maintenance_mode" :value="enabled ? '1' : '0'">
+                    <p class="text-[10px] text-amber-100 mt-1 text-right" x-text="enabled ? 'Aktif' : 'Nonaktif'"></p>
+                </div>
+            </div>
+        </div>
+
+        <div class="p-6 space-y-4">
+            <p class="text-sm text-slate-600 dark:text-slate-400">
+                Ketika aktif, semua user <strong>(admin, supervisor, operator, visitor)</strong> akan melihat layar peringatan penuh dan tidak bisa mengakses aplikasi.
+                Developer tetap bisa mengakses semua fitur seperti biasa.
+            </p>
+
+            {{-- Pesan --}}
+            <div>
+                <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                    Pesan Maintenance <span class="font-normal text-slate-400">(opsional)</span>
+                </label>
+                <input type="text" name="maintenance_message"
+                       value="{{ old('maintenance_message', $setting->maintenance_message) }}"
+                       placeholder="Sistem sedang dalam pemeliharaan. Mohon maaf atas ketidaknyamanannya."
+                       class="w-full px-4 py-2.5 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900
+                              text-slate-800 dark:text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500
+                              text-sm">
+                <p class="text-[10px] text-slate-400 mt-1">Kosongkan untuk menggunakan pesan default.</p>
+            </div>
+
+            {{-- Jadwal Selesai --}}
+            <div x-data="{ hasTimer: {{ $setting->maintenance_until ? 'true' : 'false' }} }">
+                <div class="flex items-center gap-2 mb-2">
+                    <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                        Jadwal Selesai Otomatis <span class="font-normal text-slate-400">(opsional)</span>
+                    </label>
+                    <button type="button" @click="hasTimer = !hasTimer; if (!hasTimer) $refs.until.value = ''"
+                            :class="hasTimer ? 'bg-orange-500 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-400'"
+                            class="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide transition-colors">
+                        <span x-text="hasTimer ? 'Aktif' : 'Nonaktif'"></span>
+                    </button>
+                </div>
+
+                <div x-show="hasTimer" x-collapse>
+                    <input type="datetime-local" name="maintenance_until" x-ref="until"
+                           value="{{ old('maintenance_until', $setting->maintenance_until?->format('Y-m-d\TH:i')) }}"
+                           class="w-full sm:w-auto px-4 py-2.5 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900
+                                  text-slate-800 dark:text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500
+                                  text-sm">
+                    <p class="text-[10px] text-slate-400 mt-1">
+                        Maintenance akan otomatis berakhir pada waktu yang dipilih (zona waktu server).
+                        @if($setting->maintenance_until)
+                        <span class="text-orange-500 font-semibold">
+                            Saat ini: {{ $setting->maintenance_until->timezone('Asia/Jakarta')->format('d M Y, H:i') }} WIB
+                        </span>
+                        @endif
+                    </p>
+                </div>
+                <input x-show="!hasTimer" type="hidden" name="maintenance_until" value="">
+            </div>
+
+            <div class="flex gap-3 pt-1">
+                <button type="submit"
+                        class="flex items-center gap-2 px-5 py-2.5 bg-orange-500 hover:bg-orange-600 text-white text-sm font-semibold rounded-xl transition-colors">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                    </svg>
+                    Simpan
+                </button>
+            </div>
+        </div>
+    </div>
+    </form>
+
+    {{-- ══════════════════════ KEAMANAN ══════════════════════ --}}
+    <form method="POST" action="{{ route('developer.bot-settings.update') }}">
+        @csrf
+        <input type="hidden" name="telegram_token"       value="{{ $setting->telegram_token }}">
+        <input type="hidden" name="telegram_chat_id"     value="{{ $setting->telegram_chat_id }}">
+        <input type="hidden" name="telegram_enabled"     value="{{ $setting->telegram_enabled ? '1' : '0' }}">
+        <input type="hidden" name="discord_webhook"      value="{{ $setting->discord_webhook }}">
+        <input type="hidden" name="discord_enabled"      value="{{ $setting->discord_enabled ? '1' : '0' }}">
+        <input type="hidden" name="reject_threshold"     value="{{ $setting->reject_threshold ?? 5 }}">
+        <input type="hidden" name="report_enabled"       value="{{ $setting->report_enabled ? '1' : '0' }}">
+        <input type="hidden" name="maintenance_mode"     value="{{ $setting->maintenance_mode ? '1' : '0' }}">
+        <input type="hidden" name="maintenance_message"  value="{{ $setting->maintenance_message }}">
+        <input type="hidden" name="maintenance_until"    value="{{ $setting->maintenance_until?->format('Y-m-d\TH:i') }}">
+
+    <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 overflow-hidden">
+        <div class="bg-linear-to-r from-slate-600 to-slate-800 px-6 py-4">
+            <div class="flex items-center justify-between gap-4">
+                <div class="flex items-center gap-3">
+                    <div class="w-9 h-9 bg-white/20 rounded-xl flex items-center justify-center shrink-0">
+                        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                  d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <h2 class="text-base font-bold text-white">Keamanan</h2>
+                        <p class="text-slate-300 text-xs mt-0.5">Proteksi akses developer tools di browser</p>
+                    </div>
+                </div>
+                {{-- Toggle --}}
+                <div x-data="{ enabled: {{ $setting->disable_devtools ? 'true' : 'false' }} }">
+                    <button type="button" @click="enabled = !enabled"
+                            :class="enabled ? 'bg-white/90' : 'bg-white/30'"
+                            class="relative inline-flex h-7 w-12 items-center rounded-full transition-colors shrink-0">
+                        <span :class="enabled ? 'translate-x-6 bg-slate-700' : 'translate-x-1 bg-white/70'"
+                              class="inline-block h-5 w-5 transform rounded-full transition-transform shadow"></span>
+                    </button>
+                    <input type="hidden" name="disable_devtools" :value="enabled ? '1' : '0'">
+                    <p class="text-[10px] text-slate-300 mt-1 text-right" x-text="enabled ? 'Aktif' : 'Nonaktif'"></p>
+                </div>
+            </div>
+        </div>
+
+        <div class="p-6 space-y-4">
+            <div class="flex items-start gap-4">
+                <div class="flex-1 text-sm text-slate-600 dark:text-slate-400 space-y-2">
+                    <p>Ketika diaktifkan, semua user <strong>kecuali developer</strong> tidak dapat membuka:</p>
+                    <ul class="list-disc list-inside text-xs space-y-1 text-slate-500 dark:text-slate-400 pl-1">
+                        <li>F12 (DevTools)</li>
+                        <li>Ctrl+Shift+I / Ctrl+Shift+J / Ctrl+Shift+C (Inspect Element)</li>
+                        <li>Ctrl+U (View Page Source)</li>
+                        <li>Klik kanan (Context Menu)</li>
+                    </ul>
+                    <p class="text-xs text-amber-600 dark:text-amber-400">⚠️ Ini adalah pencegahan dasar — bukan perlindungan mutlak.</p>
+                </div>
+            </div>
+            <div class="flex gap-3 pt-2">
+                <button type="submit"
+                        class="flex items-center gap-2 px-5 py-2.5 bg-slate-700 hover:bg-slate-800 text-white text-sm font-semibold rounded-xl transition-colors">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                    </svg>
+                    Simpan
+                </button>
             </div>
         </div>
     </div>
@@ -586,5 +767,206 @@
         </div>
     </div>
 
+    {{-- ══════════════════════ SOCIAL LINKS DEVELOPER ══════════════════════ --}}
+    <form method="POST" action="{{ route('profile.about-info') }}">
+        @csrf
+    <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 overflow-hidden">
+        <div class="px-6 py-4 border-b border-slate-100 dark:border-slate-700">
+            <div class="flex items-center gap-2">
+                <span class="px-2 py-0.5 text-[10px] font-bold bg-blue-600 text-white rounded-full uppercase tracking-wide">Developer</span>
+                <div>
+                    <h3 class="text-sm font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wide">Social Links</h3>
+                    <p class="text-xs text-slate-400">Ditampilkan di halaman <em>Tentang Aplikasi</em></p>
+                </div>
+            </div>
+        </div>
+        <div class="p-6 space-y-4">
+
+            {{-- Handle --}}
+            <div>
+                <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                    Handle <span class="ml-1 text-xs font-normal text-slate-400">(contoh: @qc.yoga)</span>
+                </label>
+                <div class="relative">
+                    <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-semibold">@</span>
+                    <input type="text" name="handle"
+                           value="{{ old('handle', ltrim(auth()->user()->handle ?? '', '@')) }}"
+                           placeholder="qc.yoga"
+                           class="w-full pl-8 pr-4 py-2.5 rounded-xl bg-white dark:bg-slate-900 text-slate-800 dark:text-white
+                                  border border-slate-300 dark:border-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
+                </div>
+            </div>
+
+            {{-- Bio --}}
+            <div>
+                <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                    Bio <span class="ml-1 text-xs font-normal text-slate-400">(maks 500 karakter)</span>
+                </label>
+                <textarea name="bio" rows="3" placeholder="Tuliskan bio singkat..."
+                          class="w-full px-4 py-2.5 rounded-xl bg-white dark:bg-slate-900 text-slate-800 dark:text-white
+                                 border border-slate-300 dark:border-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none text-sm">{{ old('bio', auth()->user()->bio) }}</textarea>
+            </div>
+
+            {{-- Links grid --}}
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                        <span class="inline-flex items-center gap-1.5">
+                            <svg class="w-4 h-4 text-pink-500" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
+                            </svg>
+                            Instagram
+                        </span>
+                    </label>
+                    <input type="url" name="link_instagram" value="{{ old('link_instagram', auth()->user()->link_instagram) }}"
+                           placeholder="https://instagram.com/username"
+                           class="w-full px-4 py-2.5 rounded-xl bg-white dark:bg-slate-900 text-slate-800 dark:text-white
+                                  border border-slate-300 dark:border-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                        <span class="inline-flex items-center gap-1.5">
+                            <svg class="w-4 h-4 text-slate-600 dark:text-slate-300" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+                            </svg>
+                            GitHub
+                        </span>
+                    </label>
+                    <input type="url" name="link_github" value="{{ old('link_github', auth()->user()->link_github) }}"
+                           placeholder="https://github.com/username"
+                           class="w-full px-4 py-2.5 rounded-xl bg-white dark:bg-slate-900 text-slate-800 dark:text-white
+                                  border border-slate-300 dark:border-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                        <span class="inline-flex items-center gap-1.5">
+                            <svg class="w-4 h-4 text-violet-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                      d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+                            </svg>
+                            Portfolio
+                        </span>
+                    </label>
+                    <input type="url" name="link_portfolio" value="{{ old('link_portfolio', auth()->user()->link_portfolio) }}"
+                           placeholder="https://namakamu.com"
+                           class="w-full px-4 py-2.5 rounded-xl bg-white dark:bg-slate-900 text-slate-800 dark:text-white
+                                  border border-slate-300 dark:border-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                        <span class="inline-flex items-center gap-1.5">
+                            <svg class="w-4 h-4 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                      d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+                            </svg>
+                            Email Publik
+                        </span>
+                    </label>
+                    <input type="email" name="link_email" value="{{ old('link_email', auth()->user()->link_email) }}"
+                           placeholder="email@domain.com"
+                           class="w-full px-4 py-2.5 rounded-xl bg-white dark:bg-slate-900 text-slate-800 dark:text-white
+                                  border border-slate-300 dark:border-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
+                </div>
+            </div>
+
+            <div class="pt-1">
+                <button type="submit"
+                        class="flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl transition-colors">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                    </svg>
+                    Simpan
+                </button>
+            </div>
+        </div>
+    </div>
+    </form>
+
+    {{-- ══════════════════════ FOTO HALAMAN ABOUT ══════════════════════ --}}
+    <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 overflow-hidden">
+        <div class="px-6 py-4 border-b border-slate-100 dark:border-slate-700">
+            <div class="flex items-center gap-2">
+                <span class="px-2 py-0.5 text-[10px] font-bold bg-blue-600 text-white rounded-full uppercase tracking-wide">Developer</span>
+                <div>
+                    <h3 class="text-sm font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wide">Foto Halaman About</h3>
+                    <p class="text-xs text-slate-400">Berbeda dari foto profil akun · Ditampilkan di halaman <em>Tentang Aplikasi</em></p>
+                </div>
+            </div>
+        </div>
+        <form method="POST" action="{{ route('profile.about-avatar') }}" enctype="multipart/form-data"
+              id="about-avatar-form" class="p-6">
+            @csrf
+            <div class="flex items-center gap-4 flex-wrap">
+                {{-- Preview --}}
+                <div class="shrink-0 rounded-2xl overflow-hidden border-2 border-slate-200 dark:border-slate-600"
+                     style="width:80px; height:80px; background: linear-gradient(145deg, #93c5fd, #1d4ed8);">
+                    <div id="about-avatar-placeholder"
+                         style="width:100%; height:100%; display:{{ auth()->user()->about_avatar ? 'none' : 'flex' }}; align-items:center; justify-content:center;">
+                        <span style="font-size:1.5rem; font-weight:900; color:white;">
+                            {{ strtoupper(substr(auth()->user()->name, 0, 1)) }}
+                        </span>
+                    </div>
+                    <img id="about-avatar-preview"
+                         src="{{ auth()->user()->about_avatar ? route('storage.file', ['path' => auth()->user()->about_avatar]) : '' }}"
+                         alt="Foto About"
+                         style="width:100%; height:100%; object-fit:cover; display:{{ auth()->user()->about_avatar ? 'block' : 'none' }};"
+                         onerror="this.style.display='none'; document.getElementById('about-avatar-placeholder').style.display='flex';">
+                </div>
+                {{-- Controls --}}
+                <div>
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <label for="about-avatar-input"
+                               class="inline-flex items-center gap-2 px-4 py-2 bg-slate-100 dark:bg-slate-700
+                                      hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300
+                                      text-sm font-semibold rounded-xl cursor-pointer transition-colors">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                      d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                            </svg>
+                            Pilih Foto
+                        </label>
+                        <input type="file" id="about-avatar-input" name="about_avatar"
+                               accept="image/jpeg,image/png,image/webp,image/gif" class="hidden">
+                        <button type="submit" id="about-avatar-submit" style="display:none;"
+                                class="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700
+                                       text-white text-sm font-semibold rounded-xl transition-colors">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                            </svg>
+                            Simpan Foto
+                        </button>
+                    </div>
+                    <p class="text-xs text-slate-400 mt-1.5">JPG, PNG, WebP · Maks 5 MB</p>
+                    @error('about_avatar')<p class="text-xs text-red-500 mt-1">{{ $message }}</p>@enderror
+                </div>
+            </div>
+        </form>
+    </div>
+
 </div>
+
+@push('scripts')
+<script>
+const aboutInput  = document.getElementById('about-avatar-input');
+const aboutSubmit = document.getElementById('about-avatar-submit');
+if (aboutInput) {
+    aboutInput.addEventListener('change', function () {
+        const file = this.files[0];
+        if (!file) return;
+        if (file.size > 5 * 1024 * 1024) { alert('Ukuran foto maksimal 5 MB.'); this.value = ''; return; }
+        const preview     = document.getElementById('about-avatar-preview');
+        const placeholder = document.getElementById('about-avatar-placeholder');
+        const reader      = new FileReader();
+        reader.onload = e => {
+            preview.src = e.target.result;
+            preview.style.display = 'block';
+            if (placeholder) placeholder.style.display = 'none';
+        };
+        reader.readAsDataURL(file);
+        if (aboutSubmit) aboutSubmit.style.display = 'inline-flex';
+    });
+}
+</script>
+@endpush
+
 @endsection

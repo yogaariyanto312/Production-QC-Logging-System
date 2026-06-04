@@ -11,8 +11,9 @@ class ReportController extends Controller
 {
     public function index(Request $request)
     {
-        $month = $request->month ?? now()->month;
-        $year  = $request->year  ?? now()->year;
+        // Cast ke int — nilai ini diinterpolasi langsung ke raw SQL subquery di bawah
+        $month = (int) ($request->month ?? now()->month);
+        $year  = (int) ($request->year  ?? now()->year);
 
         // Rekap per produk per bulan
         $report = ProductionLog::select(
@@ -56,8 +57,9 @@ class ReportController extends Controller
     // Export PDF menggunakan DomPDF
     public function exportPdf(Request $request)
     {
-        $month = $request->month ?? now()->month;
-        $year  = $request->year  ?? now()->year;
+        // Cast ke int — nilai ini diinterpolasi langsung ke raw SQL subquery di bawah
+        $month = (int) ($request->month ?? now()->month);
+        $year  = (int) ($request->year  ?? now()->year);
 
         $report = ProductionLog::select(
                 'product_id',
@@ -89,8 +91,8 @@ class ReportController extends Controller
     // Export Excel
     public function exportExcel(Request $request)
     {
-        $month = $request->month ?? now()->month;
-        $year  = $request->year  ?? now()->year;
+        $month = (int) ($request->month ?? now()->month);
+        $year  = (int) ($request->year  ?? now()->year);
         $monthName = \Carbon\Carbon::create(null, $month)->translatedFormat('F');
 
         return \Maatwebsite\Excel\Facades\Excel::download(

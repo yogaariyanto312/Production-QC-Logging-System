@@ -20,9 +20,10 @@
     </div>
     @endif
 
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
+    <div class="grid grid-cols-1 {{ auth()->user()->isOperator() ? '' : 'lg:grid-cols-3' }} gap-5">
 
         {{-- ── Kolom kiri: Form tambah target ── --}}
+        @unless(auth()->user()->isOperator())
         <div class="lg:col-span-1">
             <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 overflow-hidden sticky top-4">
                 <div class="bg-gradient-to-r from-green-600 to-emerald-600 px-5 py-4">
@@ -43,7 +44,7 @@
 
                     <div>
                         <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">Produk</label>
-                        <select name="product_id"
+                        <select id="tgt-product-select" name="product_id"
                                 class="w-full px-3 py-2.5 text-sm rounded-xl border border-slate-300 dark:border-slate-600
                                        bg-white dark:bg-slate-900 text-slate-800 dark:text-white
                                        focus:outline-none focus:ring-2 focus:ring-green-500">
@@ -51,14 +52,65 @@
                             @foreach($products->groupBy('name') as $groupName => $groupItems)
                             <optgroup label="{{ $groupName }}">
                                 @foreach($groupItems as $product)
-                                <option value="{{ $product->id }}" {{ old('product_id') == $product->id ? 'selected' : '' }}>
-                                    {{ $product->series_with_kva ?: $product->name }}
+                                @php
+                                    $isPlaceholder = $product->category && $product->category->has_manual_serial && !$product->series;
+                                    if ($isPlaceholder) {
+                                        $nl = strtolower($product->name);
+                                        $typeTag = str_contains($nl, 'swasta') ? 'Swasta' : (str_contains($nl, 'type') ? 'TypeTest' : 'PLN');
+                                    }
+                                @endphp
+                                <option value="{{ $product->id }}"
+                                        data-manual="{{ $isPlaceholder ? '1' : '0' }}"
+                                        {{ old('product_id') == $product->id ? 'selected' : '' }}>
+                                    {{ $isPlaceholder ? 'Seri & KVA Manual → ' . $typeTag : (($product->series ?: '—') . ($product->kva ? ' · ' . $product->kva . ' KVA' : '')) }}
                                 </option>
                                 @endforeach
                             </optgroup>
                             @endforeach
                         </select>
                         @error('product_id')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+
+                        {{-- Manual Seri & KVA --}}
+                        <div id="tgt-manual-section" class="hidden mt-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-3 space-y-3">
+                            <p class="text-xs font-semibold text-amber-700 dark:text-amber-400">Identitas Produk <span class="text-red-500 font-normal">(wajib diisi)</span></p>
+                            <div class="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label class="block text-xs text-slate-500 mb-1">Nomor Seri</label>
+                                    <input type="text" name="manual_series" id="tgt-manual-series"
+                                           value="{{ old('manual_series') }}" maxlength="100"
+                                           placeholder="Contoh: A-1234"
+                                           class="w-full px-3 py-2 text-sm rounded-xl border border-amber-300 dark:border-amber-700
+                                                  bg-white dark:bg-slate-900 text-slate-800 dark:text-white
+                                                  focus:outline-none focus:ring-2 focus:ring-amber-400 font-mono">
+                                </div>
+                                <div>
+                                    <label class="block text-xs text-slate-500 mb-1">KVA</label>
+                                    <input type="text" name="manual_kva" id="tgt-manual-kva"
+                                           value="{{ old('manual_kva') }}" maxlength="50"
+                                           placeholder="Contoh: 100"
+                                           class="w-full px-3 py-2 text-sm rounded-xl border border-amber-300 dark:border-amber-700
+                                                  bg-white dark:bg-slate-900 text-slate-800 dark:text-white
+                                                  focus:outline-none focus:ring-2 focus:ring-amber-400 font-mono">
+                                </div>
+                            </div>
+                        </div>
+                        <script>
+                        (function(){
+                            const sel = document.getElementById('tgt-product-select');
+                            const sec = document.getElementById('tgt-manual-section');
+                            const ser = document.getElementById('tgt-manual-series');
+                            const kva = document.getElementById('tgt-manual-kva');
+                            function toggle() {
+                                const opt = sel.options[sel.selectedIndex];
+                                const isM = opt && opt.dataset.manual === '1';
+                                sec.classList.toggle('hidden', !isM);
+                                if (ser) ser.required = isM;
+                                if (kva) kva.required = isM;
+                            }
+                            sel.addEventListener('change', toggle);
+                            toggle();
+                        }());
+                        </script>
                     </div>
 
                     <div>
@@ -66,7 +118,7 @@
                         <input type="number" name="target_qty" min="1" max="999999"
                                value="{{ old('target_qty') }}"
                                placeholder="Contoh: 500"
-                               class="w-full px-3 py-2.5 text-sm rounded-xl border border-slate-300 dark:border-slate-600
+                               class="w-full px-3 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600
                                       bg-white dark:bg-slate-900 text-slate-800 dark:text-white
                                       focus:outline-none focus:ring-2 focus:ring-green-500 text-center font-bold text-lg">
                         @error('target_qty')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
@@ -88,9 +140,10 @@
                 </form>
             </div>
         </div>
+        @endunless
 
         {{-- ── Kolom kanan: Tabel target & progres ── --}}
-        <div class="lg:col-span-2 space-y-4">
+        <div class="{{ auth()->user()->isOperator() ? '' : 'lg:col-span-2' }} space-y-4">
 
             {{-- Foto Jadwal --}}
             <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 overflow-hidden">
@@ -99,7 +152,7 @@
                         <h3 class="text-sm font-semibold text-slate-800 dark:text-white">Foto Jadwal</h3>
                         <p class="text-xs text-slate-400">{{ \Carbon\Carbon::parse($date)->translatedFormat('d F Y') }}</p>
                     </div>
-                    @if($schedulePhoto)
+                    @if($schedulePhoto && !auth()->user()->isOperator())
                     <div class="flex items-center gap-3">
                         {{-- Ganti --}}
                         <form method="POST" action="{{ route('production.targets.schedule-photo.store') }}"
@@ -167,7 +220,7 @@
                         Diupload oleh {{ $schedulePhoto->uploader->name ?? '-' }} · {{ $schedulePhoto->updated_at->diffForHumans() }}
                     </p>
                 </div>
-                @else
+                @elseif(!auth()->user()->isOperator())
                 {{-- Upload area --}}
                 <div class="p-4">
                     <form method="POST" action="{{ route('production.targets.schedule-photo.store') }}"
@@ -195,6 +248,8 @@
                     </form>
                     @error('photo')<p class="mt-2 text-xs text-red-500 text-center">{{ $message }}</p>@enderror
                 </div>
+                @else
+                <div class="p-6 text-center text-sm text-slate-400">Belum ada foto jadwal untuk tanggal ini.</div>
                 @endif
             </div>
 
@@ -271,6 +326,7 @@
                                       class="text-sm font-black {{ $done ? 'text-green-600' : ($pct >= 70 ? 'text-amber-500' : 'text-blue-600') }} dark:opacity-90 w-12 text-right">
                                     {{ $pct }}%
                                 </span>
+                                @unless(auth()->user()->isOperator())
                                 <form method="POST" action="{{ route('production.targets.destroy', $target) }}">
                                     @csrf @method('DELETE')
                                     <button type="submit"
@@ -282,6 +338,7 @@
                                         </svg>
                                     </button>
                                 </form>
+                                @endunless
                             </div>
                         </div>
                         {{-- Progress bar --}}
@@ -317,10 +374,64 @@
 
 @endsection
 
+@push('styles')
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/css/tom-select.min.css">
+<style>
+.ts-wrapper.full.focus .ts-control,
+.ts-wrapper.full .ts-control { box-shadow: none; }
+.ts-control {
+    background: #1e293b !important;
+    border-color: #475569 !important;
+    border-radius: 0.75rem !important;
+    padding: 0.625rem 0.75rem !important;
+    color: #f1f5f9 !important;
+    font-size: 0.875rem !important;
+    min-height: unset !important;
+}
+.ts-dropdown {
+    background: #1e293b !important;
+    border-color: #475569 !important;
+    border-radius: 0.75rem !important;
+    margin-top: 4px !important;
+    color: #f1f5f9 !important;
+    font-size: 0.875rem !important;
+}
+.ts-dropdown .option { padding: 8px 12px !important; }
+.ts-dropdown .option:hover,
+.ts-dropdown .option.active { background: #16a34a !important; color: #fff !important; }
+.ts-dropdown .optgroup-header {
+    font-weight: 700 !important;
+    font-size: 0.7rem !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.05em !important;
+    padding: 8px 12px 4px !important;
+    color: #94a3b8 !important;
+    background: #0f172a !important;
+}
+.ts-dropdown-content { max-height: 300px !important; }
+.ts-wrapper .ts-control input { color: #f1f5f9 !important; }
+.ts-wrapper .ts-control input::placeholder { color: #64748b !important; }
+</style>
+@endpush
+
 @push('scripts')
+<script src="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/js/tom-select.complete.min.js"></script>
+<script>
+(function () {
+    const el = document.getElementById('tgt-product-select');
+    if (!el || typeof TomSelect === 'undefined') return;
+    new TomSelect(el, {
+        placeholder: '-- Pilih Produk --',
+        searchField: ['text'],
+        maxOptions: null,
+        // Teruskan event change asli supaya toggle Seri & KVA Manual tetap jalan
+        onChange() { el.dispatchEvent(new Event('change')); }
+    });
+}());
+</script>
 <script>
 const TGT_DATE     = '{{ $date }}';
-const TGT_INTERVAL = 30;
+const TGT_INTERVAL = 60;
 let tgtEnabled  = localStorage.getItem('tgtAutoRefresh') !== 'false';
 let tgtTimer    = null;
 let tgtCdTimer  = null;

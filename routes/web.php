@@ -52,18 +52,30 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::get('/api/dashboard-live', [DashboardController::class, 'liveStats'])->name('api.dashboard.live');
 
-    // About — load developer pertama yang aktif
+    // Tutorial
+    Route::get('/tutorial', function () {
+        $iframeUrl = \App\Models\BotSetting::instance()->tutorial_iframe_url;
+        return view('tutorial', compact('iframeUrl'));
+    })->name('tutorial');
+    Route::post('/tutorial/embed', function (\Illuminate\Http\Request $request) {
+        abort_unless(auth()->user()->isDeveloper(), 403);
+        $request->validate(['iframe_url' => ['nullable', 'string', 'max:1000']]);
+        \App\Models\BotSetting::instance()->update(['tutorial_iframe_url' => $request->iframe_url ?: null]);
+        return back()->with('success', 'URL embed berhasil diperbarui.');
+    })->name('tutorial.embed.update')->middleware('role:developer');
+
+    // About — load developer pertama yang aktif + changelog
     Route::get('/about', function () {
-        $developer = \App\Models\User::where('role', 'developer')
-            ->where('is_active', true)
-            ->first();
-        return view('about', compact('developer'));
+        $developer  = \App\Models\User::where('role', 'developer')->where('is_active', true)->first();
+        $changelogs = \App\Models\Changelog::latest()->get();
+        return view('about', compact('developer', 'changelogs'));
     })->name('about');
 
     // Profil
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::put('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::post('/profile/about-avatar', [ProfileController::class, 'updateAboutAvatar'])->name('profile.about-avatar');
+    Route::post('/profile/about-info',   [ProfileController::class, 'updateAboutInfo'])->name('profile.about-info');
 
     // Riwayat Produksi — semua role bisa lihat
     Route::get('/production', [ProductionLogController::class, 'index'])->name('production.index');
@@ -77,9 +89,11 @@ Route::middleware(['auth'])->group(function () {
         Route::delete('/production/{productionLog}', [ProductionLogController::class, 'destroy'])->name('production.destroy');
     });
 
-    // Target Produksi — literal, HARUS sebelum wildcard {productionLog}
+    // Target Produksi — operator hanya bisa lihat
+    Route::get('/production/targets', [ProductionTargetController::class, 'index'])->name('production.targets.index')->middleware('role:developer,admin,supervisor,operator');
+
+    // Target Produksi — set/hapus: developer, admin, supervisor saja
     Route::middleware('role:developer,admin,supervisor')->group(function () {
-        Route::get('/production/targets',                       [ProductionTargetController::class, 'index'])->name('production.targets.index');
         Route::post('/production/targets',                      [ProductionTargetController::class, 'store'])->name('production.targets.store');
         // Literal routes HARUS sebelum wildcard {productionTarget}
         Route::post('/production/targets/schedule-photo',       [ProductionTargetController::class, 'uploadSchedulePhoto'])->name('production.targets.schedule-photo.store');
@@ -95,6 +109,8 @@ Route::middleware(['auth'])->group(function () {
 
     // API — nomor urut terakhir per produk (untuk hint di form input)
     Route::get('/api/production/last-serial', [ProductionLogController::class, 'lastSerial'])->name('api.production.last-serial');
+    // API — polling realtime: deteksi perubahan data produksi
+    Route::get('/api/production/poll', [ProductionLogController::class, 'poll'])->name('api.production.poll');
     // API — live data target produksi (untuk auto-refresh)
     Route::get('/api/production/targets-live', [ProductionTargetController::class, 'liveData'])->name('api.targets.live');
 
@@ -123,11 +139,15 @@ Route::middleware(['auth'])->group(function () {
     // Chat / Pesan
     Route::post('/messages', [MessageController::class, 'store'])->name('messages.store');
     Route::get('/messages/my', [MessageController::class, 'myMessages'])->name('messages.my');
+    Route::get('/api/messages/since', [MessageController::class, 'since'])->name('messages.since');
+    Route::get('/api/notifications', [MessageController::class, 'notifications'])->name('api.notifications');
     Route::get('/chatting', [MessageController::class, 'chatUnified'])->name('chatting');
     Route::get('/api/chat-contacts', [MessageController::class, 'contacts'])->name('chat.contacts');
     Route::patch('/api/ping', [MessageController::class, 'ping'])->name('api.ping');
     Route::patch('/api/typing', [MessageController::class, 'typing'])->name('api.typing');
     Route::get('/chat', [MessageController::class, 'chat'])->name('chat'); // legacy
+    // Semua user bisa hapus percakapan mereka sendiri
+    Route::delete('/messages/conversation/{partnerId}', [MessageController::class, 'destroyConversation'])->name('messages.destroy-conversation');
 
     // Admin + Supervisor routes (developer juga bisa akses)
     Route::middleware('role:developer,admin,supervisor')->group(function () {
@@ -137,6 +157,7 @@ Route::middleware(['auth'])->group(function () {
 
         // Produk
         Route::resource('products', ProductController::class);
+        Route::patch('products/{product}/toggle-active', [ProductController::class, 'toggleActive'])->name('products.toggle-active');
 
         // Laporan
         Route::prefix('reports')->name('reports.')->group(function () {
@@ -153,14 +174,13 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/messages', [MessageController::class, 'adminMessages'])->name('messages.index');
         Route::post('/messages/{message}/reply', [MessageController::class, 'reply'])->name('messages.reply');
         Route::patch('/messages/{message}/read', [MessageController::class, 'markRead'])->name('messages.read');
-        Route::delete('/messages/conversation/{senderId}', [MessageController::class, 'destroyConversation'])->name('messages.destroy-conversation');
         Route::delete('/messages/{message}', [MessageController::class, 'destroy'])->name('messages.destroy');
     });
 
-    // Halaman Manajemen (developer + admin bisa lihat)
-    Route::middleware('role:developer,admin')->group(function () {
-        Route::get('/management', [ManagementController::class, 'index'])->name('management.index');
+    // Halaman Manajemen — operator hanya lihat
+    Route::get('/management', [ManagementController::class, 'index'])->name('management.index')->middleware('role:developer,admin,operator');
 
+    Route::middleware('role:developer,admin')->group(function () {
         // Manajemen Operator (admin boleh kelola operator)
         Route::resource('operators', OperatorController::class)->except(['show']);
         Route::patch('/operators/{operator}/toggle-active', [OperatorController::class, 'toggleActive'])->name('operators.toggle-active');
@@ -177,6 +197,23 @@ Route::middleware(['auth'])->group(function () {
         Route::resource('departments', DepartmentController::class)->except(['show']);
         Route::post('/departments/quick-store', [DepartmentController::class, 'quickStore'])->name('departments.quick-store');
         Route::resource('categories', CategoryController::class)->except(['show']);
+
+        // Changelog (riwayat update aplikasi)
+        Route::post('/about/changelog', function (\Illuminate\Http\Request $request) {
+            $request->validate([
+                'type'        => ['required', 'in:feature,fix,improvement,security'],
+                'version'     => ['nullable', 'string', 'max:20'],
+                'title'       => ['required', 'string', 'max:255'],
+                'description' => ['nullable', 'string', 'max:2000'],
+            ]);
+            \App\Models\Changelog::create($request->only('type', 'version', 'title', 'description'));
+            return back()->with('success', 'Entry changelog berhasil ditambahkan.');
+        })->name('about.changelog.store');
+
+        Route::delete('/about/changelog/{changelog}', function (\App\Models\Changelog $changelog) {
+            $changelog->delete();
+            return back()->with('success', 'Entry changelog berhasil dihapus.');
+        })->name('about.changelog.destroy');
 
         // Developer Tools — Bot Notifikasi
         Route::get('/developer/bot-settings',                  [BotSettingController::class, 'index'])->name('developer.bot-settings');

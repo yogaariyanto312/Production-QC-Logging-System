@@ -59,6 +59,88 @@ class MessageController extends Controller
         return back()->with('success', 'Balasan terkirim.');
     }
 
+    // Notifikasi global: pesan baru + catatan jatuh tempo
+    public function notifications(Request $request)
+    {
+        $userId   = auth()->id();
+        $lastId   = (int) $request->input('last_msg_id', 0);
+
+        // Pesan baru
+        $newMessages = \App\Models\Message::with('sender:id,name,role,avatar')
+            ->where('id', '>', $lastId)
+            ->where('sender_id', '!=', $userId)
+            ->where(function ($q) use ($userId) {
+                $q->where('recipient_id', $userId)
+                  ->orWhereNull('recipient_id');
+            })
+            ->orderBy('id')
+            ->get(['id', 'sender_id', 'message', 'created_at'])
+            ->map(fn($m) => [
+                'id'          => $m->id,
+                'sender_name' => $m->sender->name ?? 'Seseorang',
+                'preview'     => \Illuminate\Support\Str::limit($m->message, 60),
+            ]);
+
+        // Catatan jatuh tempo hari ini (belum selesai) milik atau ditujukan ke user ini
+        $noteReminders = \App\Models\Note::where('is_done', false)
+            ->whereDate('due_date', today())
+            ->where(function ($q) use ($userId) {
+                $q->where('user_id', $userId)
+                  ->orWhere('target_user_id', $userId);
+            })
+            ->get(['id', 'title', 'due_date'])
+            ->map(fn($n) => [
+                'id'    => $n->id,
+                'title' => \Illuminate\Support\Str::limit($n->title, 60),
+            ]);
+
+        // Hitung total pesan belum dibaca milik user ini
+        $unreadCount = \App\Models\Message::where('sender_id', '!=', $userId)
+            ->where('is_read', false)
+            ->where(function ($q) use ($userId) {
+                $q->where('recipient_id', $userId)
+                  ->orWhereNull('recipient_id');
+            })
+            ->count();
+
+        return response()->json([
+            'messages'       => $newMessages,
+            'note_reminders' => $noteReminders,
+            'last_msg_id'    => $newMessages->max('id') ?? $lastId,
+            'unread_count'   => $unreadCount,
+        ]);
+    }
+
+    // Fetch pesan baru saja (id > last_id) — smart polling
+    public function since(Request $request)
+    {
+        $lastId = (int) $request->input('last_id', 0);
+        $userId = auth()->id();
+
+        $messages = \App\Models\Message::with([
+                'sender:id,name,role,avatar',
+                'recipient:id,name,role,avatar',
+            ])
+            ->where('id', '>', $lastId)
+            ->where(function ($q) use ($userId) {
+                $q->where('sender_id', $userId)
+                  ->orWhere('recipient_id', $userId)
+                  ->orWhereNull('recipient_id');
+            })
+            ->orderBy('id')
+            ->get(['id','sender_id','recipient_id','message','reply','replied_at','is_read','created_at']);
+
+        $messages->each(function ($m) {
+            if ($m->sender)    $m->sender->avatar    = $m->sender->avatarUrl();
+            if ($m->recipient) $m->recipient->avatar = $m->recipient->avatarUrl();
+        });
+
+        return response()->json([
+            'messages' => $messages,
+            'has_new'  => $messages->isNotEmpty(),
+        ]);
+    }
+
     // Admin: tandai sudah dibaca
     public function markRead(\App\Models\Message $message)
     {
@@ -73,14 +155,17 @@ class MessageController extends Controller
         return response()->json(['ok' => true]);
     }
 
-    // Hapus seluruh percakapan antara user saat ini dan kontak tertentu
-    public function destroyConversation($senderId)
+    // Hapus seluruh percakapan antara user saat ini dan kontak tertentu (semua role)
+    public function destroyConversation($partnerId)
     {
         $myId = auth()->id();
-        \App\Models\Message::where(function ($q) use ($senderId, $myId) {
-            $q->where(fn($q) => $q->where('sender_id', $senderId)->where('recipient_id', $myId))
-              ->orWhere(fn($q) => $q->where('sender_id', $myId)->where('recipient_id', $senderId));
+
+        // Pastikan user hanya bisa hapus percakapan yang melibatkan dirinya
+        \App\Models\Message::where(function ($q) use ($partnerId, $myId) {
+            $q->where(fn($q) => $q->where('sender_id', $partnerId)->where('recipient_id', $myId))
+              ->orWhere(fn($q) => $q->where('sender_id', $myId)->where('recipient_id', $partnerId));
         })->delete();
+
         return response()->json(['ok' => true]);
     }
 
@@ -128,31 +213,29 @@ class MessageController extends Controller
                 ->orderBy('name')
                 ->get(['id', 'name', 'role', 'department', 'avatar', 'last_seen_at']);
         } elseif ($user->role === 'admin') {
-            // Admin melihat operator & supervisor (untuk inbox)
-            $users = \App\Models\User::whereIn('role', ['operator', 'supervisor', 'visitor'])
+            $users = \App\Models\User::whereIn('role', ['developer', 'supervisor', 'operator', 'visitor'])
                 ->where('is_active', true)
+                ->orderByRaw("FIELD(role, 'developer', 'supervisor', 'operator', 'visitor')")
                 ->orderBy('name')
                 ->get(['id', 'name', 'role', 'department', 'avatar', 'last_seen_at']);
         } elseif ($user->role === 'supervisor') {
-            // Supervisor melihat admin + operator & supervisor lain
-            $users = \App\Models\User::whereIn('role', ['admin', 'operator', 'supervisor'])
+            $users = \App\Models\User::whereIn('role', ['developer', 'admin', 'operator', 'supervisor'])
                 ->where('id', '!=', $user->id)
                 ->where('is_active', true)
-                ->orderByRaw("FIELD(role, 'admin', 'supervisor', 'operator')")
+                ->orderByRaw("FIELD(role, 'developer', 'admin', 'supervisor', 'operator')")
                 ->orderBy('name')
                 ->get(['id', 'name', 'role', 'department', 'avatar', 'last_seen_at']);
         } elseif ($user->role === 'visitor') {
-            // Visitor hanya bisa chat dengan developer & admin
             $users = \App\Models\User::whereIn('role', ['developer', 'admin'])
                 ->where('is_active', true)
                 ->orderByRaw("FIELD(role, 'developer', 'admin')")
                 ->orderBy('name')
                 ->get(['id', 'name', 'role', 'department', 'avatar', 'last_seen_at']);
         } else {
-            // Operator melihat admin & supervisor
-            $users = \App\Models\User::whereIn('role', ['admin', 'supervisor'])
+            // Operator
+            $users = \App\Models\User::whereIn('role', ['developer', 'admin', 'supervisor'])
                 ->where('is_active', true)
-                ->orderByRaw("FIELD(role, 'admin', 'supervisor')")
+                ->orderByRaw("FIELD(role, 'developer', 'admin', 'supervisor')")
                 ->orderBy('name')
                 ->get(['id', 'name', 'role', 'department', 'avatar', 'last_seen_at']);
         }
@@ -167,7 +250,7 @@ class MessageController extends Controller
             'name'         => $u->name,
             'role'         => $u->role,
             'department'   => $u->department,
-            'avatar'       => $u->avatar,
+            'avatar'       => $u->avatarUrl(),
             'last_seen_at' => $u->last_seen_at,
             'is_typing'    => in_array($u->id, $typingIds),
         ]);

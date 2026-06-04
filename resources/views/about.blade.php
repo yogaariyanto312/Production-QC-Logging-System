@@ -5,7 +5,7 @@
 @section('page-subtitle', 'Informasi sistem & pengembang')
 
 @section('content')
-<div class="max-w-2xl mx-auto space-y-6">
+<div class="max-w-2xl lg:max-w-5xl mx-auto space-y-6">
 
     {{-- Hero Card --}}
     <div class="relative bg-gradient-to-br from-blue-600 to-blue-800 rounded-2xl p-8 overflow-hidden shadow-xl">
@@ -76,9 +76,10 @@
 
     {{-- Developer Card --}}
     <div class="bg-white dark:bg-slate-800 rounded-2xl overflow-hidden shadow-sm border border-slate-100 dark:border-slate-700">
+      <div class="lg:flex">
 
-        {{-- Banner murni — tidak ada elemen yang overlap ke luar --}}
-        <div class="relative px-6 py-5"
+        {{-- Banner / kolom foto --}}
+        <div class="relative px-6 py-5 lg:w-64 lg:shrink-0 lg:flex lg:items-center lg:justify-center"
              style="background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 55%, #0284c7 100%);">
             {{-- dot pattern --}}
             <div class="absolute inset-0"
@@ -89,16 +90,19 @@
             <div class="absolute rounded-full pointer-events-none"
                  style="width:90px;height:90px;bottom:-20px;left:45%;background:rgba(255,255,255,0.05);"></div>
 
-            {{-- Isi banner: avatar kiri + badge kanan, semua dalam satu baris --}}
-            <div class="relative flex items-center justify-between">
+            {{-- Isi banner --}}
+            <div class="relative flex lg:flex-col items-center justify-between lg:justify-center lg:gap-4 w-full">
                 {{-- Avatar --}}
-                <div class="w-24 h-24 rounded-2xl shadow-xl shrink-0 overflow-hidden"
+                <div class="w-36 h-36 lg:w-44 lg:h-44 rounded-2xl shadow-xl shrink-0 overflow-hidden"
                      style="background: linear-gradient(145deg, #93c5fd, #1d4ed8);">
                     @php
                         $aboutPhoto = $developer?->about_avatar ?? $developer?->avatar ?? null;
+                        if ($aboutPhoto && !str_starts_with($aboutPhoto, 'http')) {
+                            $aboutPhoto = route('storage.file', ['path' => $aboutPhoto]);
+                        }
                     @endphp
                     @if($aboutPhoto)
-                        <img src="{{ route('storage.file', ['path' => $aboutPhoto]) }}"
+                        <img src="{{ $aboutPhoto }}"
                              alt="{{ $developer->name }}"
                              class="w-full h-full object-cover">
                     @else
@@ -110,8 +114,8 @@
                     @endif
                 </div>
 
-                {{-- Kanan: badge + active --}}
-                <div class="flex flex-col items-end gap-2">
+                {{-- Badge + active --}}
+                <div class="flex flex-col items-end lg:items-center gap-2">
                     <span class="px-3 py-1 text-xs font-bold text-white rounded-full"
                           style="background:rgba(255,255,255,0.18); border:1px solid rgba(255,255,255,0.3);">
                         ✦ Developer
@@ -125,8 +129,8 @@
             </div>
         </div>
 
-        {{-- Konten --}}
-        <div class="px-6 py-5">
+        {{-- Konten / kolom teks --}}
+        <div class="px-6 py-5 lg:flex-1 lg:border-l border-slate-100 dark:border-slate-700">
 
             {{-- Handle --}}
             @if($developer && $developer->handle)
@@ -235,7 +239,43 @@
             </div>
             @endif
         </div>
+      </div>{{-- /lg:flex --}}
     </div>
+
+    {{-- Portfolio iframe --}}
+    @if($developer && $developer->link_portfolio)
+    <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 overflow-hidden">
+        {{-- Header --}}
+        <div class="flex items-center gap-2 px-5 py-3 border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/40">
+            <div class="w-6 h-6 rounded-lg bg-purple-100 dark:bg-purple-900/40 flex items-center justify-center shrink-0">
+                <svg class="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+                </svg>
+            </div>
+            <span class="text-sm font-bold text-slate-700 dark:text-white flex-1">Portfolio</span>
+            <a href="{{ $developer->link_portfolio }}" target="_blank"
+               class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg
+                      bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300
+                      hover:bg-purple-50 dark:hover:bg-purple-900/30 hover:text-purple-600 dark:hover:text-purple-400 transition-colors">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+                </svg>
+                Buka
+            </a>
+        </div>
+        {{-- iframe --}}
+        <div class="relative w-full" style="padding-bottom: 56.25%;">
+            <iframe src="{{ $developer->link_portfolio }}"
+                    class="absolute inset-0 w-full h-full"
+                    frameborder="0"
+                    loading="lazy"
+                    allowfullscreen>
+            </iframe>
+        </div>
+    </div>
+    @endif
 
     {{-- Tech Stack --}}
     <div class="bg-white dark:bg-slate-800 rounded-2xl p-6 shadow-sm border border-slate-100 dark:border-slate-700">
@@ -249,10 +289,157 @@
         </div>
     </div>
 
-    {{-- Footer note --}}
-    <p class="text-center text-xs text-slate-400 pb-2">
-        &copy; {{ now()->year }} QC Production System — All rights reserved
-    </p>
+    {{-- Changelog --}}
+    <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 overflow-hidden">
+
+        {{-- Header --}}
+        <div class="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-slate-700">
+            <div class="flex items-center gap-2">
+                <div class="w-7 h-7 rounded-lg bg-violet-100 dark:bg-violet-900/40 flex items-center justify-center shrink-0">
+                    <svg class="w-4 h-4 text-violet-600 dark:text-violet-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
+                    </svg>
+                </div>
+                <h2 class="text-sm font-bold text-slate-700 dark:text-white">Riwayat Update</h2>
+                @if($changelogs->count())
+                <span class="px-2 py-0.5 bg-violet-100 dark:bg-violet-900/40 text-violet-600 dark:text-violet-400 text-xs font-bold rounded-full">
+                    {{ $changelogs->count() }}
+                </span>
+                @endif
+            </div>
+
+            {{-- Tombol tambah — developer only --}}
+            @if(auth()->user()->isDeveloper())
+            <button onclick="document.getElementById('changelog-form').classList.toggle('hidden')"
+                    class="flex items-center gap-1.5 px-3 py-1.5 bg-violet-600 hover:bg-violet-700 text-white text-xs font-semibold rounded-lg transition-colors">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                </svg>
+                Tambah
+            </button>
+            @endif
+        </div>
+
+        {{-- Form tambah entry — developer only --}}
+        @if(auth()->user()->isDeveloper())
+        <div id="changelog-form" class="hidden border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/40 px-6 py-5">
+            <form method="POST" action="{{ route('about.changelog.store') }}" class="space-y-3">
+                @csrf
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Tipe</label>
+                        <select name="type" required
+                                class="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-800 dark:text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500">
+                            <option value="feature">Feature</option>
+                            <option value="fix">Fix</option>
+                            <option value="improvement">Improvement</option>
+                            <option value="security">Security</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Versi <span class="font-normal text-slate-400">(opsional)</span></label>
+                        <input type="text" name="version" placeholder="v1.2"
+                               class="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-800 dark:text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500 font-mono">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Judul <span class="text-red-500">*</span></label>
+                    <input type="text" name="title" required placeholder="Contoh: Tambah fitur changelog di halaman About"
+                           class="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-800 dark:text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Deskripsi <span class="font-normal text-slate-400">(opsional)</span></label>
+                    <textarea name="description" rows="4" placeholder="Penjelasan lebih detail tentang perubahan ini..."
+                              class="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-800 dark:text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500 resize-none"></textarea>
+                </div>
+                <div class="flex justify-end gap-2">
+                    <button type="button" onclick="document.getElementById('changelog-form').classList.add('hidden')"
+                            class="px-4 py-2 text-xs font-semibold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 rounded-xl transition-colors">
+                        Batal
+                    </button>
+                    <button type="submit"
+                            class="px-4 py-2 text-xs font-semibold text-white bg-violet-600 hover:bg-violet-700 rounded-xl transition-colors">
+                        Simpan
+                    </button>
+                </div>
+            </form>
+        </div>
+        @endif
+
+        {{-- Daftar changelog --}}
+        @if($changelogs->isEmpty())
+        <div class="px-6 py-10 text-center">
+            <div class="w-12 h-12 mx-auto mb-3 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center">
+                <svg class="w-6 h-6 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+                </svg>
+            </div>
+            <p class="text-sm text-slate-400">Belum ada riwayat update.</p>
+        </div>
+        @else
+        <div class="divide-y divide-slate-100 dark:divide-slate-700">
+            @foreach($changelogs as $log)
+            @php
+                $badgeConfig = match($log->type) {
+                    'fix'         => ['label' => 'Fix',         'class' => 'bg-rose-100 dark:bg-rose-900/40 text-rose-600 dark:text-rose-400'],
+                    'improvement' => ['label' => 'Improvement', 'class' => 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400'],
+                    'security'    => ['label' => 'Security',    'class' => 'bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400'],
+                    default       => ['label' => 'Feature',     'class' => 'bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400'],
+                };
+            @endphp
+            <div class="flex items-start gap-4 px-6 py-4 hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors group">
+
+                {{-- Left: badge + tanggal --}}
+                <div class="flex flex-col items-center gap-1.5 shrink-0 pt-0.5" style="min-width:80px">
+                    <span class="inline-block px-2 py-0.5 text-[10px] font-bold rounded-full uppercase tracking-wide {{ $badgeConfig['class'] }}">
+                        {{ $badgeConfig['label'] }}
+                    </span>
+                    <span class="text-[10px] text-slate-400 whitespace-nowrap">
+                        {{ $log->created_at->timezone('Asia/Jakarta')->translatedFormat('d M Y') }}
+                    </span>
+                </div>
+
+                {{-- Right: konten --}}
+                <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <p class="text-sm font-semibold text-slate-800 dark:text-white leading-snug">
+                            {{ $log->title }}
+                        </p>
+                        @if($log->version)
+                        <span class="px-1.5 py-0.5 bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 text-[10px] font-mono font-bold rounded">
+                            {{ $log->version }}
+                        </span>
+                        @endif
+                    </div>
+                    @if($log->description)
+                    <p class="mt-1 text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                        {{ $log->description }}
+                    </p>
+                    @endif
+                </div>
+
+                {{-- Hapus — developer only --}}
+                @if(auth()->user()->isDeveloper())
+                <form method="POST" action="{{ route('about.changelog.destroy', $log) }}"
+                      onsubmit="return confirm('Hapus entry ini?')"
+                      class="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                    @csrf @method('DELETE')
+                    <button type="submit"
+                            class="p-1.5 text-slate-300 hover:text-rose-500 dark:text-slate-600 dark:hover:text-rose-400 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-colors">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                        </svg>
+                    </button>
+                </form>
+                @endif
+            </div>
+            @endforeach
+        </div>
+        @endif
+    </div>
 
 </div>
 @endsection

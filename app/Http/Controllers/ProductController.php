@@ -83,6 +83,14 @@ class ProductController extends Controller
         return redirect()->route('products.index')->with('success', "Produk '{$name}' berhasil dihapus.");
     }
 
+    public function toggleActive(Product $product)
+    {
+        $product->update(['is_active' => !$product->is_active]);
+        $status = $product->is_active ? 'Aktif' : 'Selesai';
+        ActivityLog::record('update', "Tandai produk '{$product->series}' sebagai {$status}");
+        return response()->json(['is_active' => $product->is_active]);
+    }
+
     public function ukuranIndex(Request $request)
     {
         $products = Product::with('category')

@@ -25,7 +25,7 @@
                                @error('category_id') border-red-500 @enderror">
                     <option value="">-- Pilih Kategori --</option>
                     @foreach($categories as $cat)
-                    <option value="{{ $cat->id }}" {{ old('category_id') == $cat->id ? 'selected' : '' }}>{{ $cat->name }}</option>
+                    <option value="{{ $cat->id }}" {{ old('category_id', request('category_id')) == $cat->id ? 'selected' : '' }}>{{ $cat->name }}</option>
                     @endforeach
                 </select>
                 @error('category_id')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
@@ -38,8 +38,8 @@
                 <select name="type"
                         class="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900
                                text-slate-800 dark:text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    <option value="regular" {{ old('type', 'regular') == 'regular' ? 'selected' : '' }}>Regular</option>
-                    <option value="channel" {{ old('type') == 'channel' ? 'selected' : '' }}>Channel (UP + BT)</option>
+                    <option value="regular" {{ old('type', request('type', 'regular')) == 'regular' ? 'selected' : '' }}>Regular</option>
+                    <option value="channel" {{ old('type', request('type')) == 'channel' ? 'selected' : '' }}>Channel (UP + BT)</option>
                 </select>
                 @error('type')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
             </div>
@@ -48,7 +48,7 @@
                 <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
                     Nama Produk <span class="text-red-500">*</span>
                 </label>
-                <input type="text" name="name" value="{{ old('name') }}"
+                <input type="text" name="name" value="{{ old('name', request('name')) }}"
                        placeholder="Contoh: Tanki, Cover, Body"
                        class="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900
                               text-slate-800 dark:text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500
@@ -60,8 +60,8 @@
                 <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
                     Seri Produk <span class="text-red-500">*</span>
                 </label>
-                <input type="text" name="series" value="{{ old('series') }}"
-                       placeholder="Contoh: 2601601004(160)"
+                <input type="text" id="input-series" name="series" value="{{ old('series') }}"
+                       placeholder="Contoh: 26B0091000"
                        class="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900
                               text-slate-800 dark:text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono
                               @error('series') border-red-500 @enderror">
@@ -84,43 +84,12 @@
                     <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
                         Tahun
                     </label>
-                    <select name="tahun"
-                            class="w-full px-4 py-3 border bg-white dark:bg-slate-900 text-slate-800 dark:text-white
-                                   rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500
-                                   {{ $errors->has('tahun') ? 'border-red-500' : 'border-slate-300 dark:border-slate-600' }}">
-                        <option value="">— Pilih —</option>
-                        @for($y = now()->year + 5; $y >= 2025; $y--)
-                        <option value="{{ $y }}" {{ old('tahun') == $y ? 'selected' : '' }}>{{ $y }}</option>
-                        @endfor
-                    </select>
+                    <input type="number" id="select-tahun" name="tahun" value="{{ old('tahun') }}"
+                           placeholder="Contoh: 2026" min="2020" max="2099"
+                           class="w-full px-4 py-3 border bg-white dark:bg-slate-900 text-slate-800 dark:text-white
+                                  rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500
+                                  {{ $errors->has('tahun') ? 'border-red-500' : 'border-slate-300 dark:border-slate-600' }}">
                     @error('tahun')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
-                </div>
-            </div>
-
-            <div class="grid grid-cols-2 gap-4">
-                <div>
-                    <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                        Panjang
-                        <span class="ml-1 text-xs font-normal text-slate-400">(contoh: 900mm)</span>
-                    </label>
-                    <input type="text" name="panjang" value="{{ old('panjang') }}"
-                           placeholder="Contoh: 900mm"
-                           class="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900
-                                  text-slate-800 dark:text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500
-                                  @error('panjang') border-red-500 @enderror">
-                    @error('panjang')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
-                </div>
-                <div>
-                    <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                        Lebar
-                        <span class="ml-1 text-xs font-normal text-slate-400">(contoh: 200mm)</span>
-                    </label>
-                    <input type="text" name="lebar" value="{{ old('lebar') }}"
-                           placeholder="Contoh: 200mm"
-                           class="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900
-                                  text-slate-800 dark:text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500
-                                  @error('lebar') border-red-500 @enderror">
-                    @error('lebar')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
                 </div>
             </div>
 
@@ -167,3 +136,24 @@
     </div>
 </div>
 @endsection
+
+@push('scripts')
+<script>
+(function () {
+    const seriesInput = document.getElementById('input-series');
+    const tahunInput  = document.getElementById('select-tahun');
+    if (!seriesInput || !tahunInput) return;
+
+    seriesInput.addEventListener('input', function () {
+        if (tahunInput.dataset.manualSet) return;
+        const m = this.value.match(/^(\d{2})/);
+        if (!m) return;
+        tahunInput.value = 2000 + parseInt(m[1]);
+    });
+
+    tahunInput.addEventListener('input', function () {
+        this.dataset.manualSet = '1';
+    });
+}());
+</script>
+@endpush

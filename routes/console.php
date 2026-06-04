@@ -30,14 +30,19 @@ Artisan::command('jadwal:clear', function () {
 
 Schedule::command('jadwal:clear')->weekly()->mondays()->at('00:01');
 
-// Kirim laporan harian setiap jam 6 sore
+// Kirim laporan harian setiap jam 10 malam
 Artisan::command('laporan:harian', function () {
+    $setting = \App\Models\BotSetting::instance();
+    if (!$setting->report_enabled) {
+        $this->info('Laporan harian dinonaktifkan — dilewati.');
+        return;
+    }
     $result = BotNotificationService::sendDailyReport();
     if ($result['ok']) {
         $this->info($result['message']);
     } else {
         $this->warn($result['message']);
     }
-})->purpose('Kirim laporan harian produksi ke Telegram/Discord setiap jam 6 sore');
+})->purpose('Kirim laporan harian produksi ke Telegram/Discord setiap jam 10 malam');
 
-Schedule::command('laporan:harian')->dailyAt('18:00')->timezone('Asia/Jakarta');
+Schedule::command('laporan:harian')->dailyAt('22:00')->timezone('Asia/Jakarta');

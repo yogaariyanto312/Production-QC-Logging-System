@@ -4,11 +4,11 @@
 @section('page-subtitle', 'Catat deadline, pengingat, atau hal penting')
 
 @section('content')
-<div x-data="notesApp()" x-init="load()" @keydown.escape.window="closeModal()">
+<div x-data="notesApp()" x-init="load(); setInterval(() => load(), 60000)" @keydown.escape.window="closeModal()">
 
     {{-- Toolbar --}}
-    <div class="flex flex-col sm:flex-row sm:items-center gap-3 mb-6">
-        <div class="relative flex-1 max-w-xs">
+    <div class="flex items-center gap-2 mb-3">
+        <div class="relative flex-1">
             <svg class="absolute left-3 top-2.5 w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
             </svg>
@@ -16,33 +16,29 @@
                    class="w-full pl-9 pr-4 py-2 bg-slate-800 border border-slate-700 text-slate-100 text-sm
                           rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-slate-500">
         </div>
-
-        <div class="flex items-center gap-2 ml-auto">
-            <select x-model="filter"
-                    class="py-2 px-3 bg-slate-800 border border-slate-700 text-slate-300 text-sm rounded-xl
-                           focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer">
-                <option value="all">Semua</option>
-                <option value="active">Aktif</option>
-                <option value="done">Selesai</option>
-                <option value="today">Deadline Hari Ini</option>
-                <option value="overdue">Terlambat</option>
-            </select>
-
-            <button @click="openModal()"
-                    class="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm
-                           font-semibold rounded-xl transition-colors shadow-lg shadow-blue-900/30">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
-                </svg>
-                Baru
-            </button>
-        </div>
+        <select x-model="filter"
+                class="py-2 px-2 sm:px-3 bg-slate-800 border border-slate-700 text-slate-300 text-sm rounded-xl
+                       focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer shrink-0">
+            <option value="all">Semua</option>
+            <option value="active">Aktif</option>
+            <option value="done">Selesai</option>
+            <option value="today">Hari Ini</option>
+            <option value="overdue">Terlambat</option>
+        </select>
+        <button @click="openModal()"
+                class="shrink-0 flex items-center gap-1.5 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm
+                       font-semibold rounded-xl transition-colors shadow-lg shadow-blue-900/30">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+            </svg>
+            Baru
+        </button>
     </div>
 
     {{-- Stats bar --}}
-    <div class="flex gap-4 mb-6">
+    <div class="flex gap-3 mb-4">
         <template x-for="s in stats" :key="s.label">
-            <div class="flex items-center gap-2 text-sm">
+            <div class="flex items-center gap-1.5 text-xs">
                 <span class="font-bold text-white" x-text="s.count"></span>
                 <span class="text-slate-500" x-text="s.label"></span>
             </div>
@@ -319,6 +315,7 @@
         </div>
     </div>
 
+
 </div>
 @endsection
 
@@ -440,6 +437,7 @@ function notesApp() {
             } catch (e) {}
             this.loading = false;
         },
+
 
         isAssigned(note) {
             return note.user_id !== this.userId && note.target_user_id === this.userId;

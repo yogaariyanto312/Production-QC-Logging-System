@@ -128,6 +128,17 @@
                             <span class="text-xs text-slate-400">{{ $groupItems->count() }} varian</span>
                         </div>
                     </div>
+                    @if(auth()->user()->isPrivileged())
+                    <a href="{{ route('products.create') }}?name={{ urlencode($productName) }}&category_id={{ $firstItem->category_id }}&type={{ $firstItem->type }}"
+                       title="Tambah varian baru"
+                       class="shrink-0 w-8 h-8 flex items-center justify-center rounded-xl
+                              bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400
+                              hover:bg-green-200 dark:hover:bg-green-800/50 transition-colors">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                        </svg>
+                    </a>
+                    @endif
                 </div>
 
                 {{-- Series Rows --}}
@@ -135,11 +146,17 @@
                     @foreach($groupItems as $product)
                     <div class="px-5 py-3 flex items-center justify-between gap-3 hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
                         <div class="min-w-0 flex-1">
+                            @if($product->series)
                             <p class="text-sm font-mono font-semibold text-slate-700 dark:text-slate-200 truncate">
-                                {{ $product->series ?: '—' }}
+                                {{ $product->series }}
                             </p>
                             @if($product->kva)
                             <p class="text-xs text-slate-400 mt-0.5">{{ $product->kva }} KVA</p>
+                            @endif
+                            @else
+                            <p class="text-xs font-medium text-amber-500 dark:text-amber-400 italic">
+                                Input Seri & KVA Manual
+                            </p>
                             @endif
                         </div>
                         <div class="flex items-center gap-1.5 shrink-0">
@@ -186,3 +203,4 @@
 
 </div>
 @endsection
+

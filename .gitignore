@@ -22,3 +22,10 @@
 Homestead.json
 Homestead.yaml
 Thumbs.db
+
+# ─── Tooling lokal & sinkronisasi DB (berisi kredensial — JANGAN di-commit) ───
+/*.py
+/db_backups/
+/db_mirror_temp.sql*
+/test.txt
+/test.html

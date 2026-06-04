@@ -83,12 +83,31 @@
                         {{ $productionLog->created_at->format('d/m/Y H:i') }}
                     </span>
                 </div>
-                @if($productionLog->notes)
+                @php $isChannelProd = ($productionLog->product->type ?? 'regular') === 'channel'; @endphp
+                @if($productionLog->notes || ($isChannelProd && ($lastChannelSerials['up'] || $lastChannelSerials['bt'])))
                 <div class="py-3">
                     <span class="text-sm text-slate-500">Nomor Urut</span>
+                    @if($isChannelProd)
+                    @php
+                        $chLines = collect(explode("\n", $productionLog->notes ?? ''))->map(fn($l) => trim($l))->filter();
+                        $upLine  = $chLines->first(fn($l) => preg_match('/\bUP\b/i', $l));
+                        $btLine  = $chLines->first(fn($l) => preg_match('/\bBT\b/i', $l));
+                        $upDisp  = $upLine ?: ($lastChannelSerials['up'] ?? null);
+                        $btDisp  = $btLine ?: ($lastChannelSerials['bt'] ?? null);
+                    @endphp
+                    <div class="mt-1 bg-slate-50 dark:bg-slate-700/50 rounded-lg p-3 font-mono text-sm space-y-1">
+                        @if($upDisp)
+                        <p class="text-slate-800 dark:text-white">{{ $upDisp }}</p>
+                        @endif
+                        @if($btDisp)
+                        <p class="text-slate-800 dark:text-white">{{ $btDisp }}</p>
+                        @endif
+                    </div>
+                    @else
                     <p class="mt-1 text-sm text-slate-800 dark:text-white bg-slate-50 dark:bg-slate-700/50 rounded-lg p-3 whitespace-pre-line font-mono">
                         {{ $productionLog->notes }}
                     </p>
+                    @endif
                 </div>
                 @endif
                 @if($productionLog->keterangan)
@@ -142,12 +161,12 @@
                           hover:bg-slate-200 dark:hover:bg-slate-600 rounded-xl font-semibold text-sm transition-colors">
                     ← Kembali
                 </a>
-                @if(auth()->user()->isPrivileged())
+                @unless(auth()->user()->isVisitor())
                 <a href="{{ route('production.edit', $productionLog) }}"
                    class="flex-1 py-3 text-center text-white bg-amber-500 hover:bg-amber-600 rounded-xl font-semibold text-sm transition-colors">
                     Edit Data
                 </a>
-                @endif
+                @endunless
             </div>
         </div>
     </div>

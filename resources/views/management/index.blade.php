@@ -139,6 +139,7 @@
                     <span class="hidden sm:inline">Tambah Supervisor</span>
                 </a>
                 @endif
+                @unless(auth()->user()->isOperator())
                 <a x-show="tab === 'operator'" href="{{ route('operators.create') }}"
                    class="flex items-center gap-2 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl transition-colors">
                     <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
@@ -150,6 +151,7 @@
                     <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
                     <span class="hidden sm:inline">Tambah Visitor</span>
                 </a>
+                @endunless
                 <span x-show="tab === 'department'"
                       class="flex items-center gap-2 px-3 py-2 text-amber-600 dark:text-amber-400 text-sm font-semibold">
                     <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
@@ -179,7 +181,9 @@
                                 <div class="w-9 h-9 rounded-full overflow-hidden shrink-0 flex items-center justify-center"
                                      style="{{ $dev->avatar ? '' : 'background: linear-gradient(135deg,#1e3a8a,#1d4ed8);' }}">
                                     @if($dev->avatar)
-                                    <img src="{{ route('storage.file', ['path' => $dev->avatar]) }}" class="w-full h-full object-cover">
+                                    <img src="{{ $dev->avatarUrl() }}" class="w-full h-full object-cover"
+                                         onerror="this.style.display='none';this.nextElementSibling.style.display='';this.parentElement.style.background='linear-gradient(135deg,#1e3a8a,#1d4ed8)'">
+                                    <span class="text-sm font-bold text-white" style="display:none">{{ strtoupper(substr($dev->name, 0, 1)) }}</span>
                                     @else
                                     <span class="text-sm font-bold text-white">{{ strtoupper(substr($dev->name, 0, 1)) }}</span>
                                     @endif
@@ -253,7 +257,9 @@
                                 <div class="w-9 h-9 rounded-full overflow-hidden shrink-0 flex items-center justify-center
                                             {{ $adm->avatar ? '' : 'bg-purple-100 dark:bg-purple-900/30' }}">
                                     @if($adm->avatar)
-                                    <img src="{{ route('storage.file', ['path' => $adm->avatar]) }}" class="w-full h-full object-cover">
+                                    <img src="{{ $adm->avatarUrl() }}" class="w-full h-full object-cover"
+                                         onerror="this.style.display='none';this.nextElementSibling.style.display='';this.parentElement.style.background='#f3e8ff'">
+                                    <span class="text-sm font-bold text-purple-700" style="display:none">{{ strtoupper(substr($adm->name, 0, 1)) }}</span>
                                     @else
                                     <span class="text-sm font-bold text-purple-700 dark:text-purple-400">{{ strtoupper(substr($adm->name, 0, 1)) }}</span>
                                     @endif
@@ -315,7 +321,9 @@
                                 <div class="w-9 h-9 rounded-full overflow-hidden shrink-0 flex items-center justify-center
                                             {{ $spv->avatar ? '' : 'bg-teal-100 dark:bg-teal-900/30' }}">
                                     @if($spv->avatar)
-                                    <img src="{{ route('storage.file', ['path' => $spv->avatar]) }}" class="w-full h-full object-cover">
+                                    <img src="{{ $spv->avatarUrl() }}" class="w-full h-full object-cover"
+                                         onerror="this.style.display='none';this.nextElementSibling.style.display='';this.parentElement.style.background='#ccfbf1'">
+                                    <span class="text-sm font-bold text-teal-700" style="display:none">{{ strtoupper(substr($spv->name, 0, 1)) }}</span>
                                     @else
                                     <span class="text-sm font-bold text-teal-700 dark:text-teal-400">{{ strtoupper(substr($spv->name, 0, 1)) }}</span>
                                     @endif
@@ -379,7 +387,9 @@
                                 <div class="w-9 h-9 rounded-full overflow-hidden shrink-0 flex items-center justify-center
                                             {{ $op->avatar ? '' : 'bg-blue-100 dark:bg-blue-900/30' }}">
                                     @if($op->avatar)
-                                    <img src="{{ route('storage.file', ['path' => $op->avatar]) }}" class="w-full h-full object-cover">
+                                    <img src="{{ $op->avatarUrl() }}" class="w-full h-full object-cover"
+                                         onerror="this.style.display='none';this.nextElementSibling.style.display='';this.parentElement.style.background='#dbeafe'">
+                                    <span class="text-sm font-bold text-blue-700" style="display:none">{{ strtoupper(substr($op->name, 0, 1)) }}</span>
                                     @else
                                     <span class="text-sm font-bold text-blue-700 dark:text-blue-400">{{ strtoupper(substr($op->name, 0, 1)) }}</span>
                                     @endif
@@ -395,6 +405,7 @@
                         <td class="hidden sm:table-cell px-5 py-4 text-slate-600 dark:text-slate-400">{{ $op->username ?? '-' }}</td>
                         <td class="hidden md:table-cell px-5 py-4 text-slate-500 dark:text-slate-400 text-xs">{{ $op->email ?? '-' }}</td>
                         <td class="px-5 py-4 text-center">
+                            @if(!auth()->user()->isOperator())
                             <form method="POST" action="{{ route('operators.toggle-active', $op) }}" class="inline">
                                 @csrf @method('PATCH')
                                 <button type="submit"
@@ -405,8 +416,14 @@
                                     {{ $op->is_active ? 'Aktif' : 'Nonaktif' }}
                                 </button>
                             </form>
+                            @else
+                            <span class="px-2.5 py-1 rounded-full text-xs font-semibold {{ $op->is_active ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' }}">
+                                {{ $op->is_active ? 'Aktif' : 'Nonaktif' }}
+                            </span>
+                            @endif
                         </td>
                         <td class="px-5 py-4">
+                            @if(!auth()->user()->isOperator())
                             <div class="flex items-center justify-center gap-2">
                                 <a href="{{ route('operators.edit', $op) }}"
                                    class="p-1.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-lg transition-colors" title="Edit">
@@ -420,6 +437,9 @@
                                     </button>
                                 </form>
                             </div>
+                            @else
+                            <span class="text-xs text-slate-400 block text-center">—</span>
+                            @endif
                         </td>
                     </tr>
                     @empty
@@ -448,7 +468,9 @@
                                 <div class="w-9 h-9 rounded-full overflow-hidden shrink-0 flex items-center justify-center"
                                      style="{{ $vis->avatar ? '' : 'background: linear-gradient(135deg,#0f766e,#0d9488);' }}">
                                     @if($vis->avatar)
-                                    <img src="{{ route('storage.file', ['path' => $vis->avatar]) }}" class="w-full h-full object-cover">
+                                    <img src="{{ $vis->avatarUrl() }}" class="w-full h-full object-cover"
+                                         onerror="this.style.display='none';this.nextElementSibling.style.display='';this.parentElement.style.background='linear-gradient(135deg,#0f766e,#0d9488)'">
+                                    <span class="text-sm font-bold text-white" style="display:none">{{ strtoupper(substr($vis->name, 0, 1)) }}</span>
                                     @else
                                     <span class="text-sm font-bold text-white">{{ strtoupper(substr($vis->name, 0, 1)) }}</span>
                                     @endif
@@ -466,6 +488,7 @@
                         <td class="hidden sm:table-cell px-5 py-4 text-slate-500 dark:text-slate-400 text-xs">{{ $vis->email }}</td>
                         <td class="hidden md:table-cell px-5 py-4 text-slate-500 dark:text-slate-400 text-xs">{{ $vis->created_at->format('d/m/Y') }}</td>
                         <td class="px-5 py-4">
+                            @if(!auth()->user()->isOperator())
                             <div class="flex items-center justify-center gap-2">
                                 <a href="{{ route('visitors.edit', $vis) }}"
                                    class="p-1.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-lg transition-colors" title="Edit">
@@ -479,6 +502,9 @@
                                     </button>
                                 </form>
                             </div>
+                            @else
+                            <span class="text-xs text-slate-400 block text-center">—</span>
+                            @endif
                         </td>
                     </tr>
                     @empty

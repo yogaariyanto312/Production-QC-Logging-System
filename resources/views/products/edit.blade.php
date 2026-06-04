@@ -45,7 +45,7 @@
 
             <div>
                 <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Seri Produk</label>
-                <input type="text" name="series" value="{{ old('series', $product->series) }}"
+                <input type="text" id="input-series" name="series" value="{{ old('series', $product->series) }}"
                        class="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900
                               text-slate-800 dark:text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono">
             </div>
@@ -67,43 +67,13 @@
                     <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
                         Tahun
                     </label>
-                    <select name="tahun"
-                            class="w-full px-4 py-3 border bg-white dark:bg-slate-900 text-slate-800 dark:text-white
-                                   rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500
-                                   {{ $errors->has('tahun') ? 'border-red-500' : 'border-slate-300 dark:border-slate-600' }}">
-                        <option value="">— Pilih —</option>
-                        @for($y = now()->year + 5; $y >= 2025; $y--)
-                        <option value="{{ $y }}" {{ old('tahun', $product->tahun) == $y ? 'selected' : '' }}>{{ $y }}</option>
-                        @endfor
-                    </select>
+                    <input type="number" id="select-tahun" name="tahun"
+                           value="{{ old('tahun', $product->tahun) }}"
+                           placeholder="Contoh: 2026" min="2020" max="2099"
+                           class="w-full px-4 py-3 border bg-white dark:bg-slate-900 text-slate-800 dark:text-white
+                                  rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500
+                                  {{ $errors->has('tahun') ? 'border-red-500' : 'border-slate-300 dark:border-slate-600' }}">
                     @error('tahun')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
-                </div>
-            </div>
-
-            <div class="grid grid-cols-2 gap-4">
-                <div>
-                    <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                        Panjang
-                        <span class="ml-1 text-xs font-normal text-slate-400">(contoh: 900mm)</span>
-                    </label>
-                    <input type="text" name="panjang" value="{{ old('panjang', $product->panjang) }}"
-                           placeholder="Contoh: 900mm"
-                           class="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900
-                                  text-slate-800 dark:text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500
-                                  @error('panjang') border-red-500 @enderror">
-                    @error('panjang')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
-                </div>
-                <div>
-                    <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                        Lebar
-                        <span class="ml-1 text-xs font-normal text-slate-400">(contoh: 200mm)</span>
-                    </label>
-                    <input type="text" name="lebar" value="{{ old('lebar', $product->lebar) }}"
-                           placeholder="Contoh: 200mm"
-                           class="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900
-                                  text-slate-800 dark:text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500
-                                  @error('lebar') border-red-500 @enderror">
-                    @error('lebar')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
                 </div>
             </div>
 
@@ -147,3 +117,24 @@
     </div>
 </div>
 @endsection
+
+@push('scripts')
+<script>
+(function () {
+    const seriesInput = document.getElementById('input-series');
+    const tahunInput  = document.getElementById('select-tahun');
+    if (!seriesInput || !tahunInput) return;
+
+    seriesInput.addEventListener('input', function () {
+        if (tahunInput.dataset.manualSet) return;
+        const m = this.value.match(/^(\d{2})/);
+        if (!m) return;
+        tahunInput.value = 2000 + parseInt(m[1]);
+    });
+
+    tahunInput.addEventListener('input', function () {
+        this.dataset.manualSet = '1';
+    });
+}());
+</script>
+@endpush

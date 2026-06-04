@@ -46,11 +46,12 @@
                     @foreach($products->groupBy('name') as $groupName => $groupItems)
                     <optgroup label="{{ $groupName }}">
                         @foreach($groupItems as $product)
+                        @php $isPlaceholder = $product->category && $product->category->has_manual_serial && !$product->series; @endphp
                         <option value="{{ $product->id }}"
                                 data-type="{{ $product->type }}"
-                                data-manual="{{ $product->category && $product->category->has_manual_serial ? '1' : '0' }}"
+                                data-manual="{{ $isPlaceholder ? '1' : '0' }}"
                                 {{ old('product_id', $productionLog->product_id) == $product->id ? 'selected' : '' }}>
-                            {{ $product->category && $product->category->has_manual_serial ? 'Input Seri & KVA Manual' : (($product->series ?: '—') . ($product->kva ? " · {$product->kva} KVA" : '')) }}
+                            {{ $isPlaceholder ? 'Input Seri & KVA Manual' : (($product->series ?: '—') . ($product->kva ? " · {$product->kva} KVA" : '')) }}
                         </option>
                         @endforeach
                     </optgroup>
@@ -375,7 +376,7 @@
         sectionChannel.classList.toggle('hidden', !isChannel);
         sectionRegular.classList.toggle('hidden', isChannel);
         sectionNotesChannel.classList.toggle('hidden', !isChannel || manual);
-        sectionNotesRegular.classList.toggle('hidden', isChannel  || manual);
+        sectionNotesRegular.classList.toggle('hidden', isChannel);
         sectionManualSerial.classList.toggle('hidden', !manual);
         totalRegular.disabled = isChannel;
         totalHidden.disabled  = !isChannel;
@@ -395,6 +396,24 @@
     noAwalBt.addEventListener('input', generateChannel);
 
     switchMode(getSelected());
+
+    // ── Cegah double-submit (penyebab data/total ganda di riwayat) ───────────
+    const form = productSelect.closest('form');
+    if (form) {
+        let submitted = false;
+        form.addEventListener('submit', function (e) {
+            if (submitted) { e.preventDefault(); return; }
+            submitted = true;
+            const btn = form.querySelector('button[type="submit"]');
+            if (btn) { btn.disabled = true; btn.classList.add('opacity-60', 'cursor-not-allowed'); }
+        });
+        window.addEventListener('pageshow', function (e) {
+            if (!e.persisted) return;
+            submitted = false;
+            const btn = form.querySelector('button[type="submit"]');
+            if (btn) { btn.disabled = false; btn.classList.remove('opacity-60', 'cursor-not-allowed'); }
+        });
+    }
 }());
 </script>
 @endsection

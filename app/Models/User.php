@@ -21,7 +21,6 @@ class User extends Authenticatable
         'password',
         'role',
         'department',
-        'phone',
         'avatar',
         'about_avatar',
         'handle',
@@ -48,6 +47,13 @@ class User extends Authenticatable
             'password' => 'hashed',
             'is_active' => 'boolean',
         ];
+    }
+
+    public function avatarUrl(): ?string
+    {
+        if (!$this->avatar) return null;
+        if (str_starts_with($this->avatar, 'http')) return $this->avatar;
+        return route('storage.file', ['path' => $this->avatar]);
     }
 
     public function isDeveloper(): bool

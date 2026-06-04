@@ -45,11 +45,18 @@
                     @foreach($products->groupBy('name') as $groupName => $groupItems)
                     <optgroup label="{{ $groupName }}">
                         @foreach($groupItems as $product)
+                        @php
+                            $isPlaceholder = $product->category && $product->category->has_manual_serial && !$product->series;
+                            if ($isPlaceholder) {
+                                $nl = strtolower($product->name);
+                                $typeTag = str_contains($nl, 'swasta') ? 'Swasta' : (str_contains($nl, 'type') ? 'TypeTest' : 'PLN');
+                            }
+                        @endphp
                         <option value="{{ $product->id }}"
                                 data-type="{{ $product->type }}"
-                                data-manual="{{ $product->category && $product->category->has_manual_serial ? '1' : '0' }}"
+                                data-manual="{{ $isPlaceholder ? '1' : '0' }}"
                                 {{ old('product_id') == $product->id ? 'selected' : '' }}>
-                            {{ $product->category && $product->category->has_manual_serial ? 'Input Seri & KVA Manual' : (($product->series ?: '—') . ($product->kva ? ' · ' . $product->kva . ' KVA' : '')) }}
+                            {{ $isPlaceholder ? 'Seri & KVA Manual → ' . $typeTag : (($product->series ?: '—') . ($product->kva ? ' · ' . $product->kva . ' KVA' : '')) }}
                         </option>
                         @endforeach
                     </optgroup>
@@ -315,12 +322,14 @@
                 <a href="{{ route('production.index') }}"
                    class="flex-1 py-3 px-4 text-center text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-700
                           hover:bg-slate-200 dark:hover:bg-slate-600 rounded-xl font-semibold transition-colors">
-                    Batal
+                    <span class="md:hidden">Cancel</span>
+                    <span class="hidden md:inline">Batal</span>
                 </a>
                 <button type="submit"
                         class="flex-1 py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold
                                shadow-lg shadow-blue-900/20 transition-all hover:scale-[1.01]">
-                    Simpan Data Produksi
+                    <span class="md:hidden">Save</span>
+                    <span class="hidden md:inline">Simpan Data Produksi</span>
                 </button>
             </div>
         </form>
@@ -415,9 +424,8 @@
         const isChannel = type === 'channel';
         sectionChannel.classList.toggle('hidden', !isChannel);
         sectionRegular.classList.toggle('hidden', isChannel);
-        // Nomor urut disembunyikan untuk produk manual (seri diisi di section-manual-serial)
-        sectionNotesChannel.classList.toggle('hidden', !isChannel || manual);
-        sectionNotesRegular.classList.toggle('hidden', isChannel  || manual);
+        sectionNotesChannel.classList.toggle('hidden', !isChannel);
+        sectionNotesRegular.classList.toggle('hidden', isChannel);
         sectionManualSerial.classList.toggle('hidden', !manual);
 
         totalRegular.disabled = isChannel;
@@ -569,6 +577,85 @@
         fetchLastSerial(productSelect.value, initSel.type, initSel.manual);
     }
 
+    // ── Cegah double-submit (penyebab data/total ganda di riwayat) ───────────
+    const form = productSelect.closest('form');
+    if (form) {
+        let submitted = false;
+        form.addEventListener('submit', function (e) {
+            if (submitted) { e.preventDefault(); return; }
+            submitted = true;
+            const btn = form.querySelector('button[type="submit"]');
+            if (btn) { btn.disabled = true; btn.classList.add('opacity-60', 'cursor-not-allowed'); }
+        });
+        // Pulihkan tombol bila halaman dikembalikan dari cache (tombol Back)
+        window.addEventListener('pageshow', function (e) {
+            if (!e.persisted) return;
+            submitted = false;
+            const btn = form.querySelector('button[type="submit"]');
+            if (btn) { btn.disabled = false; btn.classList.remove('opacity-60', 'cursor-not-allowed'); }
+        });
+    }
+
 }());
 </script>
+
+@push('styles')
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/css/tom-select.min.css">
+<style>
+.ts-wrapper.full.focus .ts-control,
+.ts-wrapper.full .ts-control { box-shadow: none; }
+.ts-control {
+    background: var(--ts-bg, #1e293b) !important;
+    border-color: var(--ts-border, #475569) !important;
+    border-radius: 0.75rem !important;
+    padding: 0.75rem 1rem !important;
+    color: var(--ts-color, #f1f5f9) !important;
+    font-size: 0.875rem !important;
+    min-height: unset !important;
+}
+.ts-dropdown {
+    background: #1e293b !important;
+    border-color: #475569 !important;
+    border-radius: 0.75rem !important;
+    margin-top: 4px !important;
+    color: #f1f5f9 !important;
+    font-size: 0.875rem !important;
+}
+.ts-dropdown .option { padding: 8px 12px !important; }
+.ts-dropdown .option:hover,
+.ts-dropdown .option.active { background: #3b82f6 !important; color: #fff !important; }
+.ts-dropdown .optgroup-header {
+    font-weight: 700 !important;
+    font-size: 0.7rem !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.05em !important;
+    padding: 8px 12px 4px !important;
+    color: #94a3b8 !important;
+    background: #0f172a !important;
+}
+.ts-dropdown-content { max-height: 300px !important; }
+.ts-wrapper .ts-control input { color: #f1f5f9 !important; }
+.ts-wrapper .ts-control input::placeholder { color: #64748b !important; }
+</style>
+@endpush
+
+@push('scripts')
+<script src="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/js/tom-select.complete.min.js"></script>
+<script>
+(function () {
+    const ts = new TomSelect('#product_id', {
+        placeholder: '-- Pilih Produk --',
+        searchField: ['text'],
+        maxOptions: null,
+        onInitialize() {
+            // ensure initial mode applied after TomSelect wraps the element
+        },
+        onChange(val) {
+            // trigger native change so existing JS picks it up
+            document.getElementById('product_id').dispatchEvent(new Event('change'));
+        }
+    });
+}());
+</script>
+@endpush
 @endsection

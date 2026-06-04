@@ -281,8 +281,8 @@
 
     </div>
 
-    {{-- ====== KATEGORI + DEPARTEMEN (privileged only) ====== --}}
-    @if(auth()->user()->isPrivileged())
+    {{-- ====== CATATAN + KALENDER ====== --}}
+    @php $isPrivileged = auth()->user()->isPrivileged(); @endphp
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
 
         {{-- Catatan --}}
@@ -313,6 +313,7 @@
                         <p class="text-xs text-slate-400">{{ $recentNotes->count() }} catatan terbaru</p>
                     </div>
                 </div>
+                @if($isPrivileged)
                 <a href="{{ route('notes.index') }}"
                    class="flex items-center gap-1 px-2.5 py-1 bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold rounded-lg transition-colors">
                     <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -320,6 +321,7 @@
                     </svg>
                     Tambah
                 </a>
+                @endif
             </div>
 
             {{-- List catatan --}}
@@ -378,7 +380,7 @@
             </div>
         </div>
 
-        {{-- Kalender --}}
+    {{-- Kalender --}}
         @php
             $calNow      = \Carbon\Carbon::now();
             $daysInMonth = $calNow->daysInMonth;
@@ -504,6 +506,7 @@
 
     </div>
 
+    @if($isPrivileged)
     {{-- ====== MODAL EDIT CEPAT KATEGORI ====== --}}
     <div id="editCategoryModal"
          class="fixed inset-0 z-50 hidden items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
@@ -580,7 +583,14 @@
                 $carbon    = \Illuminate\Support\Carbon::parse($dateStr)->locale('id');
                 $dayName   = $carbon->translatedFormat('l');
                 $dateFmt   = $carbon->translatedFormat('d F Y');
-                $catGroups = $dayLogs->groupBy(fn($l) => $l->product->category->name ?? 'Lainnya');
+                $catOrder  = ['Channel' => 0, 'Cover' => 1, 'Tangki' => 2];
+                $catGroups = $dayLogs->groupBy(function($l) {
+                    $n = strtolower($l->product->category->name ?? '');
+                    if (str_contains($n, 'channel')) return 'Channel';
+                    if (str_contains($n, 'cover'))   return 'Cover';
+                    if (str_contains($n, 'tangki'))  return 'Tangki';
+                    return $l->product->category->name ?? 'Lainnya';
+                })->sortBy(fn($logs, $key) => $catOrder[$key] ?? 99);
                 $dayTotal  = $dayLogs->sum('total_qty');
             @endphp
             <div class="space-y-3">
@@ -604,17 +614,33 @@
                 {{-- Category cards per hari --}}
                 <div class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-3">
                     @foreach($catGroups as $catName => $catLogs)
-                    @php $catTotal = $catLogs->sum('total_qty'); @endphp
+                    @php
+                        $catTotal    = $catLogs->sum('total_qty');
+                        $catNameLow  = strtolower($catName);
+                        if (str_contains($catNameLow, 'channel')) {
+                            $dotColor  = 'bg-blue-500';
+                            $textColor = 'text-blue-600 dark:text-blue-400';
+                        } elseif (str_contains($catNameLow, 'cover')) {
+                            $dotColor  = 'bg-emerald-500';
+                            $textColor = 'text-emerald-600 dark:text-emerald-400';
+                        } elseif (str_contains($catNameLow, 'tangki')) {
+                            $dotColor  = 'bg-amber-500';
+                            $textColor = 'text-amber-600 dark:text-amber-400';
+                        } else {
+                            $dotColor  = 'bg-slate-400';
+                            $textColor = 'text-slate-600 dark:text-slate-300';
+                        }
+                    @endphp
                     <div class="bg-slate-50 dark:bg-slate-900/40 rounded-xl border border-slate-100 dark:border-slate-700 overflow-hidden">
 
                         {{-- Card header --}}
                         <div class="flex items-center justify-between px-3 py-2.5 border-b border-slate-100 dark:border-slate-700 bg-white/50 dark:bg-slate-800/50">
                             <div class="flex items-center gap-2">
-                                <span class="w-2 h-2 rounded-full bg-blue-500 shrink-0"></span>
+                                <span class="w-2 h-2 rounded-full {{ $dotColor }} shrink-0"></span>
                                 <span class="text-xs font-bold text-slate-700 dark:text-white">{{ $catName }}</span>
                                 <span class="text-[10px] text-slate-400">· {{ $catLogs->count() }} entri</span>
                             </div>
-                            <span class="text-xs font-bold text-blue-600 dark:text-blue-400">
+                            <span class="text-xs font-bold {{ $textColor }}">
                                 {{ $fmtQty($catTotal) }} <span class="text-[10px] font-normal text-slate-400">unit</span>
                             </span>
                         </div>
@@ -622,15 +648,28 @@
                         {{-- Entry rows --}}
                         <div class="divide-y divide-slate-100 dark:divide-slate-700/50">
                             @foreach($catLogs as $log)
-                            @php $isChannel = ($log->product->type ?? 'regular') === 'channel'; @endphp
+                            @php
+                                $isChannel = ($log->product->type ?? 'regular') === 'channel';
+                                $catRaw    = strtolower($log->product->category->name ?? '');
+                                $isSwasta  = str_contains($catRaw, 'swasta');
+                                $isType    = str_contains($catRaw, 'type');
+                                $typeBadge = $isSwasta
+                                    ? ['l' => 'Swasta',   'c' => 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400']
+                                    : ($isType
+                                    ? ['l' => 'Typetest', 'c' => 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400']
+                                    : null);
+                            @endphp
                             <div class="px-3 py-2 flex items-center gap-2 hover:bg-white dark:hover:bg-slate-800/60 transition-colors">
 
                                 {{-- Info kiri --}}
                                 <div class="min-w-0 flex-1">
-                                    <div class="flex items-baseline gap-1.5 flex-wrap">
-                                        <p class="text-xs font-semibold text-slate-800 dark:text-white">{{ $log->product->name ?? '-' }}</p>
+                                    <div class="flex items-center gap-1.5 flex-wrap">
+                                        <p class="text-xs font-semibold text-slate-800 dark:text-white">{{ preg_replace('/\s+(typetest|swasta|pln)\b/i', '', $log->product->name ?? '-') }}</p>
                                         @if($log->product->series_with_kva)
                                         <span class="text-[10px] text-slate-400 font-mono">{{ $log->product->series_with_kva }}</span>
+                                        @endif
+                                        @if($typeBadge)
+                                        <span class="text-[9px] px-1 py-0.5 rounded-full font-semibold {{ $typeBadge['c'] }}">{{ $typeBadge['l'] }}</span>
                                         @endif
                                     </div>
                                     <div class="flex items-center gap-1.5 flex-wrap mt-0.5">
@@ -885,6 +924,7 @@ new Chart(document.getElementById('barChart').getContext('2d'), {
 // Render legend HTML
 const legendEl = document.getElementById('doughnutLegend');
 if (legendEl && doughnutData.length) {
+    const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
     legendEl.innerHTML = doughnutLabels.map((label, i) => {
         const val = doughnutData[i];
         const pct = doughnutTotal > 0 ? Math.round(val / doughnutTotal * 100) : 0;
@@ -892,7 +932,7 @@ if (legendEl && doughnutData.length) {
         return `
         <div class="flex items-center gap-2">
             <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background:${doughnutColors[i % doughnutColors.length]}"></span>
-            <span class="text-xs text-slate-600 dark:text-slate-300 flex-1 truncate">${label}</span>
+            <span class="text-xs text-slate-600 dark:text-slate-300 flex-1 truncate">${esc(label)}</span>
             <span class="text-xs font-semibold text-slate-800 dark:text-white">${val.toLocaleString('id-ID')} <span class="font-normal text-slate-400">Unit</span></span>
             <div class="w-16 bg-slate-100 dark:bg-slate-700 rounded-full h-1.5 overflow-hidden">
                 <div class="h-full rounded-full" style="width:${w}%;background:${doughnutColors[i % doughnutColors.length]}"></div>
@@ -907,7 +947,7 @@ if (legendEl && doughnutData.length) {
 let operatorChartInstance = null; // kept for compat with fetchLiveStats
 
 // ====== AUTO REFRESH ======
-const AR_INTERVAL = 30;
+const AR_INTERVAL = 60;
 let arEnabled  = localStorage.getItem('dashAutoRefresh') !== 'false';
 let arTimer    = null;
 let cdTimer    = null;
@@ -937,6 +977,7 @@ async function fetchLiveStats() {
 
         const listEl = document.getElementById('operatorList');
         if (listEl && d.top_operators?.length) {
+            const esc   = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
             const maxT  = Math.max(...d.top_operators.map(o => o.total), 1);
             const rk    = ['bg-amber-400 text-white', 'bg-slate-300 text-slate-600', 'bg-slate-100 text-slate-500'];
             listEl.innerHTML = d.top_operators.map((o, i) => {
@@ -946,7 +987,7 @@ async function fetchLiveStats() {
                     <span class="w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center shrink-0 ${rc}">${i + 1}</span>
                     <div class="flex-1 min-w-0">
                         <div class="flex items-center justify-between">
-                            <span class="text-xs font-medium text-slate-700 dark:text-slate-200 truncate">${o.name}</span>
+                            <span class="text-xs font-medium text-slate-700 dark:text-slate-200 truncate">${esc(o.name)}</span>
                             <span class="text-xs font-bold text-slate-800 dark:text-white ml-2 shrink-0">${o.total.toLocaleString('id-ID')} <span class="font-normal text-slate-400 text-[10px]">unit</span></span>
                         </div>
                         <div class="mt-0.5 h-1.5 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">

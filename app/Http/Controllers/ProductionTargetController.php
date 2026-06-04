@@ -30,7 +30,12 @@ class ProductionTargetController extends Controller
         $totalTarget = $targets->sum('target_qty');
         $totalActual = ProductionLog::whereDate('production_date', $date)->sum('total_qty');
 
-        $products      = Product::where('is_active', true)->orderBy('name')->get();
+        $products = Product::where('is_active', true)
+            ->with('category')
+            ->orderBy('name')
+            ->orderByRaw('CAST(kva AS UNSIGNED)')
+            ->orderBy('series')
+            ->get();
         $schedulePhoto = SchedulePhoto::with('uploader')->where('target_date', $date)->first();
 
         return view('production.targets.index', compact(
@@ -42,22 +47,34 @@ class ProductionTargetController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'product_id' => ['required', 'exists:products,id'],
-            'target_date' => ['required', 'date'],
-            'target_qty'  => ['required', 'integer', 'min:1', 'max:999999'],
-            'notes'       => ['nullable', 'string', 'max:200'],
+            'product_id'    => ['required', 'exists:products,id'],
+            'target_date'   => ['required', 'date'],
+            'target_qty'    => ['required', 'integer', 'min:1', 'max:999999'],
+            'notes'         => ['nullable', 'string', 'max:200'],
+            'manual_series' => ['nullable', 'string', 'max:100'],
+            'manual_kva'    => ['nullable', 'string', 'max:50'],
         ]);
 
+        $productId = $request->product_id;
+        $product   = Product::with('category')->find($productId);
+        $isManual  = $product && $product->category && $product->category->has_manual_serial;
+
+        if ($isManual && $request->filled('manual_series')) {
+            preg_match('/^(\d{2})/', $request->manual_series, $ym);
+            $tahun = isset($ym[1]) ? (2000 + (int)$ym[1]) : now()->year;
+
+            $product = Product::firstOrCreate(
+                ['category_id' => $product->category_id, 'series' => $request->manual_series, 'kva' => $request->manual_kva ?: null],
+                ['name' => $product->name, 'type' => $product->type, 'tahun' => $tahun, 'is_active' => true]
+            );
+            $productId = $product->id;
+        }
+
         $target = ProductionTarget::updateOrCreate(
-            ['product_id' => $request->product_id, 'target_date' => $request->target_date],
-            [
-                'target_qty'  => $request->target_qty,
-                'notes'       => $request->notes,
-                'created_by'  => auth()->id(),
-            ]
+            ['product_id' => $productId, 'target_date' => $request->target_date],
+            ['target_qty' => $request->target_qty, 'notes' => $request->notes, 'created_by' => auth()->id()]
         );
 
-        $product = Product::find($request->product_id);
         ActivityLog::record('create', "Set target produksi: {$product->name} = {$request->target_qty} unit pada {$request->target_date}", $target);
 
         return back()->with('success', "Target untuk {$product->name} berhasil disimpan.");

@@ -6,9 +6,19 @@
 
 @section('content')
 @php
-    $fmtQty = fn($v) => fmod((float)$v, 1) == 0 ? number_format($v) : number_format($v, 1);
+    $fmtQty    = fn($v) => fmod((float)$v, 1) == 0 ? number_format($v) : number_format($v, 1);
     $monthName = $months[$month] ?? '';
-    $catGroups = $report->groupBy(fn($r) => $r->product->category->name ?? 'Lainnya')->sortKeys();
+
+    $catOrder  = ['Channel' => 0, 'Cover' => 1, 'Tangki' => 2];
+    $catGroups = $report->groupBy(function($r) {
+        $name = strtolower($r->product->category->name ?? '');
+        if (str_contains($name, 'channel')) return 'Channel';
+        if (str_contains($name, 'cover'))   return 'Cover';
+        if (str_contains($name, 'tangki'))  return 'Tangki';
+        return $r->product->category->name ?? 'Lainnya';
+    })
+    ->sortBy(fn($rows, $key) => $catOrder[$key] ?? 99)
+    ->map(fn($rows) => $rows->sortBy(fn($r) => (float)($r->product->kva ?? 0)));
 
     $totalUp    = $report->sum('total_shift1');
     $totalBt    = $report->sum('total_shift2');
@@ -19,57 +29,62 @@
 <div class="space-y-5">
 
     {{-- Filter & Export Bar --}}
-    <div class="bg-white dark:bg-slate-800 rounded-2xl p-5 shadow-sm border border-slate-100 dark:border-slate-700">
-        <form method="GET" class="flex flex-wrap gap-3 items-end">
-            <div>
-                <label class="block text-xs font-medium text-slate-500 mb-1">Bulan</label>
-                <select name="month"
-                        class="px-3 py-2.5 text-sm border border-slate-300 dark:border-slate-600 rounded-xl
-                               bg-white dark:bg-slate-900 text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    @foreach($months as $num => $name)
-                    <option value="{{ $num }}" {{ $month == $num ? 'selected' : '' }}>{{ $name }}</option>
-                    @endforeach
-                </select>
+    <div class="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-100 dark:border-slate-700">
+        <form method="GET" class="space-y-3">
+            {{-- Row 1: Bulan + Tahun + Tampilkan --}}
+            <div class="flex items-end gap-2">
+                <div class="flex-1">
+                    <label class="block text-xs font-medium text-slate-500 mb-1">Bulan</label>
+                    <select name="month"
+                            class="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-xl
+                                   bg-white dark:bg-slate-900 text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        @foreach($months as $num => $name)
+                        <option value="{{ $num }}" {{ $month == $num ? 'selected' : '' }}>{{ $name }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-500 mb-1">Tahun</label>
+                    <select name="year"
+                            class="px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-xl
+                                   bg-white dark:bg-slate-900 text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        @foreach($years as $y)
+                        <option value="{{ $y }}" {{ $year == $y ? 'selected' : '' }}>{{ $y }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <button type="submit"
+                        class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl transition-colors whitespace-nowrap">
+                    Tampilkan
+                </button>
             </div>
-            <div>
-                <label class="block text-xs font-medium text-slate-500 mb-1">Tahun</label>
-                <select name="year"
-                        class="px-3 py-2.5 text-sm border border-slate-300 dark:border-slate-600 rounded-xl
-                               bg-white dark:bg-slate-900 text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    @foreach($years as $y)
-                    <option value="{{ $y }}" {{ $year == $y ? 'selected' : '' }}>{{ $y }}</option>
-                    @endforeach
-                </select>
+            {{-- Row 2: Action buttons --}}
+            <div class="flex items-center gap-2">
+                <a href="{{ route('reports.daily') }}"
+                   class="flex-1 sm:flex-none px-3 py-2 bg-slate-600 hover:bg-slate-700 text-white text-sm font-semibold rounded-xl flex items-center justify-center gap-1.5 transition-colors">
+                    <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                    </svg>
+                    <span class="whitespace-nowrap">Harian</span>
+                </a>
+                <a href="{{ route('reports.export-excel', ['month' => $month, 'year' => $year]) }}"
+                   class="flex-1 sm:flex-none px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-xl flex items-center justify-center gap-1.5 transition-colors">
+                    <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                    </svg>
+                    Excel
+                </a>
+                <a href="{{ route('reports.export-pdf', ['month' => $month, 'year' => $year]) }}"
+                   class="flex-1 sm:flex-none px-3 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-xl flex items-center justify-center gap-1.5 transition-colors">
+                    <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
+                    </svg>
+                    PDF
+                </a>
             </div>
-            <button type="submit"
-                    class="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl transition-colors">
-                Tampilkan
-            </button>
-            <div class="flex-1"></div>
-            <a href="{{ route('reports.daily') }}"
-               class="px-4 py-2.5 bg-slate-600 hover:bg-slate-700 text-white text-sm font-semibold rounded-xl flex items-center gap-2 transition-colors">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                          d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
-                </svg>
-                Laporan Harian
-            </a>
-            <a href="{{ route('reports.export-excel', ['month' => $month, 'year' => $year]) }}"
-               class="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-xl flex items-center gap-2 transition-colors">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                          d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
-                </svg>
-                Excel
-            </a>
-            <a href="{{ route('reports.export-pdf', ['month' => $month, 'year' => $year]) }}"
-               class="px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-xl flex items-center gap-2 transition-colors">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                          d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
-                </svg>
-                PDF
-            </a>
         </form>
     </div>
 
@@ -139,17 +154,41 @@
     {{-- Category Cards --}}
     <div class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
         @foreach($catGroups as $catName => $rows)
-        @php $catTotal = $rows->sum('grand_total'); @endphp
+        @php
+            $catTotal     = $rows->sum('grand_total');
+            $catNameLower = strtolower($catName);
+            if (str_contains($catNameLower, 'channel')) {
+                $cardIcon  = 'M13 10V3L4 14h7v7l9-11h-7z';
+                $cardColor = 'text-blue-600 dark:text-blue-400';
+                $cardBg    = 'bg-blue-100 dark:bg-blue-900/40';
+            } elseif (str_contains($catNameLower, 'cover')) {
+                $cardIcon  = 'M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4';
+                $cardColor = 'text-emerald-600 dark:text-emerald-400';
+                $cardBg    = 'bg-emerald-100 dark:bg-emerald-900/40';
+            } elseif (str_contains($catNameLower, 'tangki')) {
+                $cardIcon  = 'M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4';
+                $cardColor = 'text-amber-600 dark:text-amber-400';
+                $cardBg    = 'bg-amber-100 dark:bg-amber-900/40';
+            } else {
+                $cardIcon  = 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2';
+                $cardColor = 'text-slate-600 dark:text-slate-400';
+                $cardBg    = 'bg-slate-100 dark:bg-slate-700';
+            }
+        @endphp
         <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 overflow-hidden">
 
             {{-- Card header --}}
             <div class="flex items-center justify-between px-4 py-3 border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/40">
                 <div class="flex items-center gap-2">
-                    <span class="w-2 h-2 rounded-full bg-blue-500"></span>
+                    <div class="w-6 h-6 rounded-lg {{ $cardBg }} flex items-center justify-center shrink-0">
+                        <svg class="w-3.5 h-3.5 {{ $cardColor }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="{{ $cardIcon }}"/>
+                        </svg>
+                    </div>
                     <span class="text-sm font-bold text-slate-700 dark:text-white">{{ $catName }}</span>
                     <span class="text-xs text-slate-400">· {{ $rows->count() }} produk</span>
                 </div>
-                <span class="text-sm font-bold text-blue-600 dark:text-blue-400">
+                <span class="text-sm font-bold {{ $cardColor }}">
                     {{ $fmtQty($catTotal) }} <span class="text-xs font-normal text-slate-400">unit</span>
                 </span>
             </div>
@@ -157,16 +196,29 @@
             {{-- Rows --}}
             <div class="divide-y divide-slate-100 dark:divide-slate-700">
                 @foreach($rows as $row)
-                @php $isChannel = ($row->product->type ?? 'regular') === 'channel'; @endphp
+                @php
+                    $isChannel  = ($row->product->type ?? 'regular') === 'channel';
+                    $catRaw     = strtolower($row->product->category->name ?? '');
+                    $isSwasta   = str_contains($catRaw, 'swasta');
+                    $isType     = str_contains($catRaw, 'type');
+                    $isPln      = !$isSwasta && !$isType;
+                    $seriesColor = $isSwasta ? 'text-red-500 dark:text-red-400'
+                                 : ($isType  ? 'text-blue-500 dark:text-blue-400'
+                                 :             'text-slate-200 dark:text-white');
+                    $typeBadge   = $isSwasta ? ['l' => 'Swasta',   'c' => 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300']
+                                 : ($isType  ? ['l' => 'Typetest', 'c' => 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300']
+                                 :             ['l' => 'PLN',      'c' => 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300']);
+                @endphp
                 <div class="px-4 py-2.5 flex items-center gap-3 hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
 
                     {{-- Info kiri --}}
                     <div class="min-w-0 flex-1">
                         <div class="flex items-baseline gap-2 flex-wrap">
-                            <p class="text-sm font-semibold text-slate-800 dark:text-white">{{ $row->product->name ?? '-' }}</p>
+                            <p class="text-sm font-semibold text-slate-800 dark:text-white uppercase">{{ $row->product->name ?? '-' }}</p>
                             @if($row->product->series_with_kva)
-                            <span class="text-xs text-slate-400 font-mono">{{ $row->product->series_with_kva }}</span>
+                            <span class="text-xs {{ $seriesColor }} font-mono font-semibold">{{ $row->product->series_with_kva }}</span>
                             @endif
+                            <span class="text-[10px] px-1.5 py-0.5 rounded-full font-semibold {{ $typeBadge['c'] }}">{{ $typeBadge['l'] }}</span>
                         </div>
                         @if($row->last_notes)
                         <p class="text-xs text-slate-400 italic mt-0.5">{{ Str::limit($row->last_notes, 40) }}</p>
