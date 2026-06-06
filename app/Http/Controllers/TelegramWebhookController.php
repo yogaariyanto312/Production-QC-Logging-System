@@ -14,6 +14,16 @@ class TelegramWebhookController extends Controller
 {
     public function handle(Request $request)
     {
+        // Verifikasi secret token Telegram (jika dikonfigurasi) — cegah request palsu
+        // dari pihak yang tahu URL webhook. Endpoint ini publik & CSRF-exempt.
+        $expectedSecret = config('services.telegram.webhook_secret');
+        if ($expectedSecret) {
+            $providedSecret = $request->header('X-Telegram-Bot-Api-Secret-Token');
+            if (!is_string($providedSecret) || !hash_equals($expectedSecret, $providedSecret)) {
+                abort(403);
+            }
+        }
+
         $setting = BotSetting::instance();
         if (!$setting->telegram_token) {
             return response()->json(['ok' => true]);

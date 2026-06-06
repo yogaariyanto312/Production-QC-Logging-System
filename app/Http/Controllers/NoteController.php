@@ -64,7 +64,11 @@ class NoteController extends Controller
 
         // Penerima catatan hanya bisa update is_done
         if ($note->user_id !== $userId) {
-            $note->update(['is_done' => $request->boolean('is_done')]);
+            $isDone = $request->boolean('is_done');
+            $note->update([
+                'is_done' => $isDone,
+                'done_at' => $isDone ? now() : null,
+            ]);
             return response()->json($note->fresh()->load(['user:id,name,role', 'targetUser:id,name']));
         }
 
@@ -76,6 +80,10 @@ class NoteController extends Controller
             'is_done'        => ['boolean'],
             'target_user_id' => ['nullable', 'integer', 'exists:users,id'],
         ]);
+
+        if (array_key_exists('is_done', $data)) {
+            $data['done_at'] = $data['is_done'] ? now() : null;
+        }
 
         $note->update($data);
 

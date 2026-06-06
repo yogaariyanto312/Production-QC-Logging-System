@@ -19,9 +19,10 @@ class BotSettingController extends Controller
     public function update(Request $request)
     {
         $request->validate([
-            'telegram_token'       => ['nullable', 'string', 'max:255'],
-            'telegram_chat_id'     => ['nullable', 'string', 'max:100'],
-            'telegram_enabled'     => ['nullable', 'boolean'],
+            'telegram_token'          => ['nullable', 'string', 'max:255'],
+            'telegram_chat_id'        => ['nullable', 'string', 'max:100'],
+            'telegram_report_chat_id' => ['nullable', 'string', 'max:100'],
+            'telegram_enabled'        => ['nullable', 'boolean'],
             'discord_webhook'      => ['nullable', 'url', 'max:500'],
             'discord_enabled'      => ['nullable', 'boolean'],
             'reject_threshold'     => ['nullable', 'numeric', 'min:0', 'max:100'],
@@ -38,9 +39,10 @@ class BotSettingController extends Controller
         ]);
 
         BotSetting::instance()->update([
-            'telegram_token'      => $request->telegram_token ?: null,
-            'telegram_chat_id'    => $request->telegram_chat_id ?: null,
-            'telegram_enabled'    => $request->boolean('telegram_enabled'),
+            'telegram_token'          => $request->telegram_token ?: null,
+            'telegram_chat_id'        => $request->telegram_chat_id ?: null,
+            'telegram_report_chat_id' => $request->telegram_report_chat_id ?: null,
+            'telegram_enabled'        => $request->boolean('telegram_enabled'),
             'discord_webhook'     => $request->discord_webhook ?: null,
             'discord_enabled'     => $request->boolean('discord_enabled'),
             'reject_threshold'    => $request->input('reject_threshold', 5.0),

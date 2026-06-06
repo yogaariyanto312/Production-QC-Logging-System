@@ -74,6 +74,7 @@
             </div>
             {{-- Tombol-tombol --}}
             <div class="flex flex-col gap-2 mt-auto">
+                @unless(auth()->user()->isSupervisor())
                 <a href="{{ route('production.create') }}"
                    class="flex items-center gap-2 py-2 px-3 bg-white/20 hover:bg-white/30 text-white rounded-xl text-xs font-semibold transition-colors">
                     <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -81,6 +82,7 @@
                     </svg>
                     Input Produksi
                 </a>
+                @endunless
                 @if(auth()->user()->isPrivileged())
                 <a href="{{ route('reports.daily') }}"
                    class="flex items-center gap-2 py-2 px-3 bg-white/20 hover:bg-white/30 text-white rounded-xl text-xs font-semibold transition-colors">
@@ -99,77 +101,88 @@
     {{-- ====== TARGET vs AKTUAL + REJECT ====== --}}
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
 
-        {{-- Target vs Aktual --}}
-        <div class="bg-white dark:bg-slate-800 rounded-xl p-4 shadow-sm border border-slate-100 dark:border-slate-700">
-            <div class="flex items-center justify-between mb-3">
+        {{-- Target Bulan Ini --}}
+        <div class="bg-white dark:bg-slate-800 rounded-xl p-3 shadow-sm border border-slate-100 dark:border-slate-700 flex flex-col">
+            <div class="flex items-center justify-between mb-2">
                 <div>
-                    <h3 class="text-sm font-semibold text-slate-800 dark:text-white">Target Hari Ini</h3>
-                    <p class="text-xs text-slate-400">{{ now()->translatedFormat('d F Y') }}</p>
+                    <h3 class="text-sm font-semibold text-slate-800 dark:text-white">Target Bulan Ini</h3>
+                    <p class="text-[10px] text-slate-400">{{ now()->translatedFormat('F Y') }}</p>
                 </div>
                 @if(auth()->user()->isPrivileged())
                 <a href="{{ route('production.targets.index') }}"
                    class="text-xs text-blue-500 hover:text-blue-700 font-medium">Kelola →</a>
                 @endif
             </div>
-            @if($totalTarget > 0)
-            <div class="space-y-3">
-                <div class="flex items-end justify-between">
-                    <div>
-                        <p id="stat-target-actual" class="text-2xl font-black text-slate-800 dark:text-white">{{ number_format($totalActual) }}</p>
-                        <p class="text-xs text-slate-400">aktual dari <span id="stat-target-total">{{ number_format($totalTarget) }}</span> target</p>
+            @if($monthlyTargetTotal > 0)
+            {{-- Summary row --}}
+            <div class="flex items-center justify-between mb-1.5">
+                <div class="flex items-baseline gap-1">
+                    <p class="text-xl font-black text-slate-800 dark:text-white">{{ number_format($monthlyActualTotal) }}</p>
+                    <span class="text-[10px] text-slate-400">/ {{ number_format($monthlyTargetTotal) }}</span>
+                </div>
+                <p class="text-xl font-black {{ $monthlyTargetPct >= 100 ? 'text-green-500' : ($monthlyTargetPct >= 70 ? 'text-amber-500' : 'text-blue-500') }}">
+                    {{ $monthlyTargetPct }}%
+                </p>
+            </div>
+            <div class="h-1.5 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden mb-2">
+                <div class="h-full rounded-full transition-all {{ $monthlyTargetPct >= 100 ? 'bg-green-500' : ($monthlyTargetPct >= 70 ? 'bg-amber-400' : 'bg-blue-500') }}"
+                     style="width: {{ $monthlyTargetPct }}%"></div>
+            </div>
+            {{-- Scrollable list per produk --}}
+            <div class="overflow-y-auto space-y-1" style="max-height: 120px;">
+                @foreach($monthlyTargetsByProduct as $mt)
+                <div class="flex items-center justify-between gap-2 py-0.5">
+                    <div class="min-w-0 flex-1">
+                        <span class="text-xs text-slate-500 dark:text-slate-400 truncate block">{{ $mt['name'] }}</span>
+                        @if($mt['series_kva'])
+                        <span class="text-[10px] text-slate-400 font-mono leading-none">{{ $mt['series_kva'] }}</span>
+                        @endif
                     </div>
-                    <p id="stat-target-pct" class="text-2xl font-black {{ $targetPct >= 100 ? 'text-green-500' : ($targetPct >= 70 ? 'text-amber-500' : 'text-blue-500') }}">
-                        {{ $targetPct }}%
-                    </p>
-                </div>
-                <div class="h-3 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
-                    <div id="stat-target-bar" class="h-full rounded-full transition-all {{ $targetPct >= 100 ? 'bg-green-500' : ($targetPct >= 70 ? 'bg-amber-400' : 'bg-blue-500') }}"
-                         style="width: {{ $targetPct }}%"></div>
-                </div>
-                @foreach($todayTargets->take(3) as $t)
-                @php $act = \App\Models\ProductionLog::whereDate('production_date', today())->where('product_id', $t->product_id)->sum('total_qty'); @endphp
-                <div class="flex items-center justify-between text-xs">
-                    <span class="text-slate-500 truncate max-w-[60%]">{{ $t->product->name ?? '-' }}</span>
-                    <span class="font-semibold {{ $act >= $t->target_qty ? 'text-green-600' : 'text-slate-600 dark:text-slate-300' }}">
-                        {{ number_format($act) }}/{{ number_format($t->target_qty) }}
+                    <span class="text-xs font-semibold shrink-0 {{ $mt['done'] ? 'text-green-600 dark:text-green-400' : 'text-slate-600 dark:text-slate-300' }}">
+                        {{ number_format($mt['actual']) }}/{{ number_format($mt['target']) }}
                     </span>
                 </div>
                 @endforeach
-                @if($todayTargets->count() > 3)
-                <a href="{{ route('production.targets.index') }}"
-                   class="text-xs text-slate-400 hover:text-blue-500">+{{ $todayTargets->count() - 3 }} produk lainnya</a>
-                @endif
             </div>
             @else
-            <div class="flex flex-col items-center justify-center py-6 text-center">
-                <p class="text-slate-400 text-sm">Belum ada target</p>
+            <div class="flex flex-col items-center justify-center py-4 text-center flex-1">
+                <p class="text-slate-400 text-xs">Belum ada target bulan ini</p>
                 @if(auth()->user()->isPrivileged())
                 <a href="{{ route('production.targets.index') }}"
-                   class="mt-2 text-xs text-blue-500 hover:underline">Set target sekarang →</a>
+                   class="mt-1 text-xs text-blue-500 hover:underline">Set target sekarang →</a>
                 @endif
             </div>
             @endif
         </div>
 
         {{-- Reject Stats --}}
-        <div class="bg-white dark:bg-slate-800 rounded-xl p-4 shadow-sm border border-slate-100 dark:border-slate-700">
-            <h3 class="text-sm font-semibold text-slate-800 dark:text-white mb-1">Reject Hari Ini</h3>
-            <p class="text-xs text-slate-400 mb-4">Defect / produk reject</p>
-            <div class="flex items-center justify-center py-4">
+        <div class="bg-white dark:bg-slate-800 rounded-xl p-3 shadow-sm border border-slate-100 dark:border-slate-700">
+            <div class="flex items-center justify-between mb-1">
+                <div>
+                    <h3 class="text-sm font-semibold text-slate-800 dark:text-white">Reject Hari Ini</h3>
+                    <p class="text-[10px] text-slate-400">Defect / produk reject</p>
+                </div>
+                @if($todayReject > 0)
+                <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-50 dark:bg-red-900/20 text-red-500">
+                    High Alert
+                </span>
+                @endif
+            </div>
+            <div class="flex items-center justify-center gap-6 py-2">
                 <div class="text-center">
-                    <p id="stat-reject-count" class="text-4xl font-black {{ $todayReject > 0 ? 'text-red-500' : 'text-green-500' }}">
-                        {{ $todayReject > 0 ? number_format($todayReject) : '0' }}
+                    <p id="stat-reject-count" class="text-3xl font-black {{ $todayReject > 0 ? 'text-red-500' : 'text-green-500' }}">
+                        {{ number_format($todayReject) }}
                     </p>
-                    <p class="text-xs text-slate-400 mt-1">unit reject</p>
+                    <p class="text-[10px] text-slate-400">unit reject</p>
+                </div>
+                <div class="h-10 w-px bg-slate-200 dark:bg-slate-600"></div>
+                <div class="text-center">
                     @if($todayReject > 0)
-                    <div class="mt-3 px-3 py-1.5 bg-red-50 dark:bg-red-900/20 rounded-lg">
-                        <p id="stat-reject-pct" class="text-sm font-bold text-red-600 dark:text-red-400">{{ $todayRejectPct }}%</p>
-                        <p class="text-[10px] text-red-400">reject rate</p>
-                    </div>
+                    <p id="stat-reject-pct" class="text-3xl font-black text-red-500">{{ $todayRejectPct }}%</p>
+                    <p class="text-[10px] text-slate-400">reject rate</p>
                     @else
-                    <div class="mt-3 px-3 py-1.5 bg-green-50 dark:bg-green-900/20 rounded-lg">
-                        <p class="text-xs text-green-600 dark:text-green-400 font-medium">Tidak ada reject hari ini ✓</p>
-                    </div>
+                    <p class="text-2xl font-black text-green-500">✓</p>
+                    <p class="text-[10px] text-green-600 dark:text-green-400">Tidak ada reject</p>
                     @endif
                 </div>
             </div>
@@ -244,36 +257,39 @@
             </div>
         </div>
 
-        {{-- Defect Rate per Produk --}}
+        {{-- Top Operator Bulanan --}}
         <div class="bg-white dark:bg-slate-800 rounded-xl p-3 shadow-sm border border-slate-100 dark:border-slate-700">
             <div class="flex items-center justify-between mb-2.5">
                 <div>
-                    <h3 class="text-sm font-semibold text-slate-800 dark:text-white">Defect Rate</h3>
-                    <p class="text-[10px] text-slate-400">{{ now()->translatedFormat('F Y') }} · per produk</p>
+                    <h3 class="text-sm font-semibold text-slate-800 dark:text-white">Top Operator</h3>
+                    <p class="text-[10px] text-slate-400">{{ now()->translatedFormat('F Y') }} · unit terproduksi</p>
                 </div>
             </div>
             <div class="space-y-2">
-                @forelse($defectRates as $dr)
+                @php $maxMonthly = $topOperatorsMonthly->max('total') ?: 1; @endphp
+                @forelse($topOperatorsMonthly as $i => $op)
                 <div class="flex items-center gap-2.5">
-                    <span class="text-[11px] font-bold w-9 text-right shrink-0
-                                 {{ $dr['rate'] >= 10 ? 'text-red-500' : ($dr['rate'] >= 5 ? 'text-amber-500' : 'text-green-600') }}">
-                        {{ $dr['rate'] }}%
+                    <span class="text-[11px] font-black w-5 text-center shrink-0
+                                 {{ $i === 0 ? 'text-amber-500' : ($i === 1 ? 'text-slate-400' : ($i === 2 ? 'text-orange-400' : 'text-slate-500 dark:text-slate-400')) }}">
+                        {{ $i + 1 }}
                     </span>
                     <div class="flex-1 min-w-0">
                         <div class="flex items-center justify-between">
-                            <span class="text-xs text-slate-600 dark:text-slate-300 truncate">{{ $dr['name'] }}</span>
-                            <span class="text-[10px] text-slate-400 ml-2 shrink-0">{{ $dr['reject'] }} reject</span>
+                            <span class="text-xs font-medium text-slate-700 dark:text-slate-200 truncate">
+                                {{ $op->operator_name }}@if($i === 0) 👑@endif
+                            </span>
+                            <span class="text-[10px] font-bold text-blue-600 dark:text-blue-400 ml-2 shrink-0">{{ number_format($op->total) }} unit</span>
                         </div>
                         <div class="mt-0.5 h-1.5 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
                             <div class="h-full rounded-full transition-all
-                                        {{ $dr['rate'] >= 10 ? 'bg-red-500' : ($dr['rate'] >= 5 ? 'bg-amber-400' : 'bg-green-500') }}"
-                                 style="width: {{ min($dr['rate'] * 5, 100) }}%"></div>
+                                        {{ $i === 0 ? 'bg-amber-400' : 'bg-blue-500' }}"
+                                 style="width: {{ round(($op->total / $maxMonthly) * 100) }}%"></div>
                         </div>
                     </div>
                 </div>
                 @empty
                 <div class="flex items-center justify-center py-4">
-                    <span class="text-xs text-green-600 dark:text-green-400 font-medium">Tidak ada reject bulan ini ✓</span>
+                    <span class="text-xs text-slate-400">Belum ada data produksi bulan ini</span>
                 </div>
                 @endforelse
             </div>
@@ -388,44 +404,7 @@
             $today       = (int) $calNow->day;
             $calYear     = (int) $calNow->year;
             $calMonth    = (int) $calNow->month;
-
-            // Hari libur nasional Indonesia (tahun dinamis)
-            $holidays = collect([
-                // Tahun 2025
-                ['date' => '2025-01-01', 'name' => 'Tahun Baru Masehi'],
-                ['date' => '2025-01-27', 'name' => 'Isra Mi\'raj'],
-                ['date' => '2025-01-29', 'name' => 'Tahun Baru Imlek'],
-                ['date' => '2025-03-29', 'name' => 'Hari Suci Nyepi'],
-                ['date' => '2025-04-18', 'name' => 'Wafat Isa Al Masih'],
-                ['date' => '2025-03-31', 'name' => 'Idul Fitri 1446 H'],
-                ['date' => '2025-04-01', 'name' => 'Idul Fitri 1446 H (Hari ke-2)'],
-                ['date' => '2025-05-01', 'name' => 'Hari Buruh Internasional'],
-                ['date' => '2025-05-12', 'name' => 'Hari Raya Waisak'],
-                ['date' => '2025-05-29', 'name' => 'Kenaikan Isa Al Masih'],
-                ['date' => '2025-06-01', 'name' => 'Hari Lahir Pancasila'],
-                ['date' => '2025-06-06', 'name' => 'Idul Adha 1446 H'],
-                ['date' => '2025-06-27', 'name' => 'Tahun Baru Islam 1447 H'],
-                ['date' => '2025-08-17', 'name' => 'HUT Kemerdekaan RI'],
-                ['date' => '2025-09-05', 'name' => 'Maulid Nabi Muhammad SAW'],
-                ['date' => '2025-12-25', 'name' => 'Hari Natal'],
-                // Tahun 2026
-                ['date' => '2026-01-01', 'name' => 'Tahun Baru Masehi'],
-                ['date' => '2026-01-17', 'name' => 'Isra Mi\'raj'],
-                ['date' => '2026-02-17', 'name' => 'Tahun Baru Imlek'],
-                ['date' => '2026-03-19', 'name' => 'Hari Suci Nyepi'],
-                ['date' => '2026-03-20', 'name' => 'Idul Fitri 1447 H'],
-                ['date' => '2026-03-21', 'name' => 'Idul Fitri 1447 H (Hari ke-2)'],
-                ['date' => '2026-04-03', 'name' => 'Wafat Isa Al Masih'],
-                ['date' => '2026-05-01', 'name' => 'Hari Buruh Internasional'],
-                ['date' => '2026-05-14', 'name' => 'Kenaikan Isa Al Masih'],
-                ['date' => '2026-05-22', 'name' => 'Hari Raya Waisak'],
-                ['date' => '2026-05-27', 'name' => 'Idul Adha 1447 H (Hari Raya Kurban)'],
-                ['date' => '2026-06-01', 'name' => 'Hari Lahir Pancasila'],
-                ['date' => '2026-06-17', 'name' => 'Tahun Baru Islam 1448 H'],
-                ['date' => '2026-08-17', 'name' => 'HUT Kemerdekaan RI'],
-                ['date' => '2026-08-26', 'name' => 'Maulid Nabi Muhammad SAW'],
-                ['date' => '2026-12-25', 'name' => 'Hari Natal'],
-            ])->keyBy('date');
+            // $holidays sudah di-pass dari DashboardController via HolidayService
         @endphp
         <div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700 overflow-hidden">
             {{-- Header bulan --}}
@@ -726,9 +705,9 @@
                     </svg>
                 </div>
                 <p class="text-sm text-slate-400">Belum ada data produksi</p>
-                @unless(auth()->user()->isVisitor())
+                @if(!auth()->user()->isVisitor() && !auth()->user()->isSupervisor())
                 <a href="{{ route('production.create') }}" class="mt-1 text-blue-600 text-xs hover:underline">Input sekarang →</a>
-                @endunless
+                @endif
             </div>
             @endforelse
         </div>

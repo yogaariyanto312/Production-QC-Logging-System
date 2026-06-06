@@ -60,7 +60,9 @@ class BotNotificationService
             $dateFmt   = \Carbon\Carbon::parse($date)->translatedFormat('d F Y');
             $time      = now()->timezone('Asia/Jakarta')->format('H:i') . ' WIB';
 
-            if ($setting->telegram_enabled && $setting->telegram_token && $setting->telegram_chat_id) {
+            // Alert produksi → kirim ke chat laporan produksi (fallback ke chat utama)
+            $reportChatId = $setting->telegram_report_chat_id ?: $setting->telegram_chat_id;
+            if ($setting->telegram_enabled && $setting->telegram_token && $reportChatId) {
                 $text = "⚠️ <b>ALERT: Reject Rate Tinggi!</b>\n"
                       . "📦 Produk: <b>" . htmlspecialchars($product->name) . "</b>\n"
                       . "📉 Reject Rate: <b>{$rateFmt}%</b> (batas: {$threshFmt}%)\n"
@@ -69,7 +71,7 @@ class BotNotificationService
 
                 Http::withoutVerifying()->timeout(5)->post(
                     "https://api.telegram.org/bot{$setting->telegram_token}/sendMessage",
-                    ['chat_id' => $setting->telegram_chat_id, 'text' => $text, 'parse_mode' => 'HTML']
+                    ['chat_id' => $reportChatId, 'text' => $text, 'parse_mode' => 'HTML']
                 );
             }
 
@@ -145,10 +147,12 @@ class BotNotificationService
 
             $sent = 0;
 
-            if ($setting->telegram_enabled && $setting->telegram_token && $setting->telegram_chat_id) {
+            // Laporan harian → kirim ke chat laporan produksi (fallback ke chat utama)
+            $reportChatId = $setting->telegram_report_chat_id ?: $setting->telegram_chat_id;
+            if ($setting->telegram_enabled && $setting->telegram_token && $reportChatId) {
                 $res = Http::withoutVerifying()->timeout(8)->post(
                     "https://api.telegram.org/bot{$setting->telegram_token}/sendMessage",
-                    ['chat_id' => $setting->telegram_chat_id, 'text' => $text, 'parse_mode' => 'HTML']
+                    ['chat_id' => $reportChatId, 'text' => $text, 'parse_mode' => 'HTML']
                 );
                 if ($res->successful()) $sent++;
             }

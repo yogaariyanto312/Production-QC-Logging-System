@@ -9,6 +9,7 @@ class BotSetting extends Model
     protected $fillable = [
         'telegram_token',
         'telegram_chat_id',
+        'telegram_report_chat_id',
         'telegram_enabled',
         'discord_webhook',
         'discord_enabled',

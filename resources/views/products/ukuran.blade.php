@@ -65,7 +65,7 @@
     <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 overflow-hidden">
         <div class="px-5 py-4 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
             <h3 class="font-semibold text-slate-800 dark:text-white">Daftar Ukuran Produk</h3>
-            @if(auth()->user()->isPrivileged())
+            @if(auth()->user()->isDeveloper() || auth()->user()->isAdmin())
             <a href="{{ route('products.index') }}"
                class="text-xs text-blue-600 dark:text-blue-400 hover:underline font-medium">
                 Kelola Produk →

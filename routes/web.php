@@ -27,7 +27,7 @@ Route::post('/telegram/webhook', [TelegramWebhookController::class, 'handle'])->
 // Auth routes (guest only)
 Route::middleware('guest')->group(function () {
     Route::get('/login', [LoginController::class, 'showLoginForm'])->name('login');
-    Route::post('/login', [LoginController::class, 'login']);
+    Route::post('/login', [LoginController::class, 'login'])->middleware('throttle:10,1');
 
     Route::get('/forgot-password', [ForgotPasswordController::class, 'showForm'])->name('password.request');
     Route::post('/forgot-password', [ForgotPasswordController::class, 'sendLink'])->name('password.email');
@@ -80,8 +80,8 @@ Route::middleware(['auth'])->group(function () {
     // Riwayat Produksi — semua role bisa lihat
     Route::get('/production', [ProductionLogController::class, 'index'])->name('production.index');
 
-    // Input / Edit Produksi — visitor tidak bisa (literal routes HARUS sebelum wildcard {productionLog})
-    Route::middleware('role:developer,admin,supervisor,operator')->group(function () {
+    // Input / Edit Produksi — supervisor & visitor tidak bisa
+    Route::middleware('role:developer,admin,operator')->group(function () {
         Route::get('/production/create', [ProductionLogController::class, 'create'])->name('production.create');
         Route::post('/production', [ProductionLogController::class, 'store'])->name('production.store');
         Route::get('/production/{productionLog}/edit', [ProductionLogController::class, 'edit'])->name('production.edit');
@@ -113,6 +113,8 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/api/production/poll', [ProductionLogController::class, 'poll'])->name('api.production.poll');
     // API — live data target produksi (untuk auto-refresh)
     Route::get('/api/production/targets-live', [ProductionTargetController::class, 'liveData'])->name('api.targets.live');
+    // API — aktual produksi per produk per tanggal (untuk hint no. urut di form target)
+    Route::get('/api/production/actual-qty', [ProductionTargetController::class, 'actualQty'])->name('api.targets.actual-qty');
 
     // Ukuran Produk (semua user bisa lihat)
     Route::get('/products/ukuran', [ProductController::class, 'ukuranIndex'])->name('products.ukuran');
@@ -155,10 +157,6 @@ Route::middleware(['auth'])->group(function () {
         // Kategori — hanya bisa lihat (index), create/edit/delete hanya untuk developer
         Route::get('/categories', [\App\Http\Controllers\CategoryController::class, 'index'])->name('categories.index');
 
-        // Produk
-        Route::resource('products', ProductController::class);
-        Route::patch('products/{product}/toggle-active', [ProductController::class, 'toggleActive'])->name('products.toggle-active');
-
         // Laporan
         Route::prefix('reports')->name('reports.')->group(function () {
             Route::get('/',             [ReportController::class, 'index'])->name('index');
@@ -181,6 +179,10 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/management', [ManagementController::class, 'index'])->name('management.index')->middleware('role:developer,admin,operator');
 
     Route::middleware('role:developer,admin')->group(function () {
+        // Produk (Master Produk) — supervisor tidak bisa akses
+        Route::resource('products', ProductController::class);
+        Route::patch('products/{product}/toggle-active', [ProductController::class, 'toggleActive'])->name('products.toggle-active');
+
         // Manajemen Operator (admin boleh kelola operator)
         Route::resource('operators', OperatorController::class)->except(['show']);
         Route::patch('/operators/{operator}/toggle-active', [OperatorController::class, 'toggleActive'])->name('operators.toggle-active');

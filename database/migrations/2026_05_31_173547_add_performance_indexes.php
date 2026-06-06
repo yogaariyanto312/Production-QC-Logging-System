@@ -9,7 +9,8 @@ return new class extends Migration
 {
     public function up(): void
     {
-        $existing = fn(string $table) => collect(DB::select("SHOW INDEX FROM `{$table}`"))->pluck('Key_name');
+        // Cross-DB (MySQL & SQLite): ambil nama index lewat Schema introspection
+        $existing = fn(string $table) => collect(Schema::getIndexes($table))->pluck('name');
 
         Schema::table('production_logs', function (Blueprint $table) use ($existing) {
             $idx = $existing('production_logs');

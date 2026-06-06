@@ -32,18 +32,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // ==================
-    // Dark mode toggle
-    // ==================
-    const darkToggle = document.getElementById('dark-toggle');
-    if (darkToggle) {
-        document.documentElement.classList.toggle('dark', localStorage.getItem('darkMode') === 'true');
-        darkToggle.addEventListener('click', () => {
-            const dark = document.documentElement.classList.toggle('dark');
-            localStorage.setItem('darkMode', dark);
-        });
-    }
-
-    // ==================
     // Confirm delete
     // ==================
     document.querySelectorAll('[data-confirm]').forEach(btn => {

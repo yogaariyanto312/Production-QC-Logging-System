@@ -6,6 +6,9 @@ use App\Http\Controllers\Controller;
 use App\Models\ActivityLog;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 class LoginController extends Controller
 {
@@ -29,7 +32,17 @@ class LoginController extends Controller
         ]);
 
         $identifier = $request->input('identifier');
-        $isEmail    = str_contains($identifier, '@');
+
+        // Rate limiting: maks 5 percobaan gagal per identifier+IP, blokir 60 detik.
+        $throttleKey = Str::lower($identifier) . '|' . $request->ip();
+        if (RateLimiter::tooManyAttempts($throttleKey, 5)) {
+            $seconds = RateLimiter::availableIn($throttleKey);
+            throw ValidationException::withMessages([
+                'identifier' => "Terlalu banyak percobaan login. Coba lagi dalam {$seconds} detik.",
+            ]);
+        }
+
+        $isEmail = str_contains($identifier, '@');
 
         if ($isEmail) {
             $user = \App\Models\User::where('email', $identifier)->first();
@@ -40,6 +53,7 @@ class LoginController extends Controller
         }
 
         if (!$user || !\Illuminate\Support\Facades\Hash::check($request->password, $user->password)) {
+            RateLimiter::hit($throttleKey, 60); // catat percobaan gagal, decay 60 detik
             return back()->withErrors(['identifier' => 'Username/email atau password salah.'])->onlyInput('identifier');
         }
 
@@ -47,6 +61,7 @@ class LoginController extends Controller
             return back()->withErrors(['identifier' => 'Akun Anda tidak aktif. Hubungi administrator.'])->onlyInput('identifier');
         }
 
+        RateLimiter::clear($throttleKey); // reset counter setelah login sukses
         Auth::login($user, $request->boolean('remember'));
         $request->session()->regenerate();
         ActivityLog::record('login', 'User login ke sistem');

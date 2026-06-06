@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Note;
 use App\Models\SchedulePhoto;
 use App\Services\BotNotificationService;
 use Illuminate\Foundation\Inspiring;
@@ -29,6 +30,18 @@ Artisan::command('jadwal:clear', function () {
 })->purpose('Hapus semua foto jadwal dari server (dijadwalkan tiap Senin)');
 
 Schedule::command('jadwal:clear')->weekly()->mondays()->at('00:01');
+
+// Hapus catatan yang sudah ditandai selesai lebih dari 8 jam
+Artisan::command('catatan:clear-done', function () {
+    $count = Note::where('is_done', true)
+        ->whereNotNull('done_at')
+        ->where('done_at', '<=', now()->subHours(8))
+        ->delete();
+
+    $this->info("Selesai: {$count} catatan yang sudah selesai dihapus.");
+})->purpose('Hapus catatan yang sudah ditandai selesai lebih dari 8 jam');
+
+Schedule::command('catatan:clear-done')->hourly();
 
 // Kirim laporan harian setiap jam 10 malam
 Artisan::command('laporan:harian', function () {

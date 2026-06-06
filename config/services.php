@@ -35,4 +35,14 @@ return [
         ],
     ],
 
+    'google' => [
+        'calendar_api_key' => env('GOOGLE_CALENDAR_API_KEY'),
+    ],
+
+    'telegram' => [
+        // Secret token untuk verifikasi webhook (header X-Telegram-Bot-Api-Secret-Token).
+        // Daftarkan saat setWebhook: ...setWebhook?url=...&secret_token=<nilai>
+        'webhook_secret' => env('TELEGRAM_WEBHOOK_SECRET'),
+    ],
+
 ];

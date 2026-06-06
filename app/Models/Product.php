@@ -69,7 +69,7 @@ class Product extends Model
     public function getSeriesWithKvaAttribute(): string
     {
         if (!$this->series) return '';
-        return $this->kva ? "{$this->series}({$this->kva})" : $this->series;
+        return $this->kva ? "{$this->series} · {$this->kva} KVA" : $this->series;
     }
 
     public function getFullNameAttribute(): string

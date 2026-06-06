@@ -14,21 +14,38 @@ class ProductionTargetController extends Controller
 {
     public function index(Request $request)
     {
-        $date = $request->date ?: today()->toDateString();
+        // Filter bulan (format: Y-m), default bulan ini
+        $month = $request->month ?: now()->format('Y-m');
+        [$year, $mon] = array_map('intval', explode('-', $month));
 
-        $targets = ProductionTarget::with(['product', 'creator'])
-            ->where('target_date', $date)
-            ->orderBy('product_id')
+        // Target per produk untuk bulan ini (aggregat jika ada beberapa entri)
+        $rawTargets = ProductionTarget::with(['product'])
+            ->whereYear('target_date', $year)
+            ->whereMonth('target_date', $mon)
             ->get();
 
-        // Hitung aktual per produk untuk tanggal ini
-        $actuals = ProductionLog::whereDate('production_date', $date)
-            ->selectRaw('product_id, SUM(total_qty) as actual_qty, SUM(reject_qty) as total_reject')
+        // Grup per produk, ambil target_qty & id terbaru
+        $targets = $rawTargets->groupBy('product_id')->map(function ($group) {
+            $latest = $group->sortByDesc('created_at')->first();
+            return (object) [
+                'id'         => $latest->id,
+                'product_id' => $latest->product_id,
+                'product'    => $latest->product,
+                'target_qty' => $group->sum('target_qty'),
+                'notes'      => $latest->notes,
+            ];
+        })->values();
+
+        // Aktual per produk bulan ini
+        $actuals = ProductionLog::whereMonth('production_date', $mon)
+            ->whereYear('production_date', $year)
+            ->selectRaw('product_id, SUM(total_qty) as actual_qty')
             ->groupBy('product_id')
             ->pluck('actual_qty', 'product_id');
 
         $totalTarget = $targets->sum('target_qty');
-        $totalActual = ProductionLog::whereDate('production_date', $date)->sum('total_qty');
+        $totalActual = (int) ProductionLog::whereMonth('production_date', $mon)
+            ->whereYear('production_date', $year)->sum('total_qty');
 
         $products = Product::where('is_active', true)
             ->with('category')
@@ -36,10 +53,13 @@ class ProductionTargetController extends Controller
             ->orderByRaw('CAST(kva AS UNSIGNED)')
             ->orderBy('series')
             ->get();
+
+        // Foto jadwal tetap per hari ini
+        $date          = today()->toDateString();
         $schedulePhoto = SchedulePhoto::with('uploader')->where('target_date', $date)->first();
 
         return view('production.targets.index', compact(
-            'targets', 'actuals', 'date', 'products',
+            'targets', 'actuals', 'month', 'date', 'products',
             'totalTarget', 'totalActual', 'schedulePhoto'
         ));
     }
@@ -48,12 +68,15 @@ class ProductionTargetController extends Controller
     {
         $request->validate([
             'product_id'    => ['required', 'exists:products,id'],
-            'target_date'   => ['required', 'date'],
+            'target_month'  => ['required', 'date_format:Y-m'],
             'target_qty'    => ['required', 'integer', 'min:1', 'max:999999'],
             'notes'         => ['nullable', 'string', 'max:200'],
             'manual_series' => ['nullable', 'string', 'max:100'],
             'manual_kva'    => ['nullable', 'string', 'max:50'],
         ]);
+
+        // Konversi bulan ke tanggal 1 awal bulan untuk disimpan
+        $targetDate = \Carbon\Carbon::createFromFormat('Y-m', $request->target_month)->startOfMonth()->toDateString();
 
         $productId = $request->product_id;
         $product   = Product::with('category')->find($productId);
@@ -71,11 +94,11 @@ class ProductionTargetController extends Controller
         }
 
         $target = ProductionTarget::updateOrCreate(
-            ['product_id' => $productId, 'target_date' => $request->target_date],
+            ['product_id' => $productId, 'target_date' => $targetDate],
             ['target_qty' => $request->target_qty, 'notes' => $request->notes, 'created_by' => auth()->id()]
         );
 
-        ActivityLog::record('create', "Set target produksi: {$product->name} = {$request->target_qty} unit pada {$request->target_date}", $target);
+        ActivityLog::record('create', "Set target produksi: {$product->name} = {$request->target_qty} unit bulan {$request->target_month}", $target);
 
         return back()->with('success', "Target untuk {$product->name} berhasil disimpan.");
     }
@@ -147,6 +170,29 @@ class ProductionTargetController extends Controller
             $photo->delete();
         }
         return back()->with('success', 'Foto jadwal berhasil dihapus.');
+    }
+
+    public function actualQty(Request $request)
+    {
+        $productId = (int) $request->input('product_id');
+        $date      = $request->input('date', today()->toDateString());
+
+        if (!$productId) {
+            return response()->json(['actual' => 0, 'target_qty' => null]);
+        }
+
+        // Total kumulatif semua tanggal = no. urut terakhir yang diproduksi
+        $actual = (int) ProductionLog::where('product_id', $productId)->sum('total_qty');
+
+        // Target yang sudah ada untuk produk ini pada tanggal yang dipilih
+        $target = ProductionTarget::where('product_id', $productId)
+            ->where('target_date', $date)
+            ->value('target_qty');
+
+        return response()->json([
+            'actual'     => $actual,
+            'target_qty' => $target ? (int) $target : null,
+        ]);
     }
 
     public function destroy(ProductionTarget $productionTarget)

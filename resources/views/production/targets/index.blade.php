@@ -2,7 +2,7 @@
 
 @section('title', 'Target Produksi')
 @section('page-title', 'Target Produksi')
-@section('page-subtitle', 'Set & pantau target produksi harian per produk')
+@section('page-subtitle', 'Set & pantau target produksi bulanan per produk')
 
 @section('content')
 <div class="space-y-5">
@@ -28,18 +28,18 @@
             <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 overflow-hidden sticky top-4">
                 <div class="bg-gradient-to-r from-green-600 to-emerald-600 px-5 py-4">
                     <h3 class="text-base font-bold text-white">Set Target</h3>
-                    <p class="text-green-100 text-xs mt-0.5">Target produksi per produk per hari</p>
+                    <p class="text-green-100 text-xs mt-0.5">Target produksi per produk per bulan</p>
                 </div>
                 <form method="POST" action="{{ route('production.targets.store') }}" class="p-5 space-y-4">
                     @csrf
 
                     <div>
-                        <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">Tanggal</label>
-                        <input type="date" name="target_date" value="{{ old('target_date', $date) }}"
+                        <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">Bulan</label>
+                        <input type="month" name="target_month" value="{{ old('target_month', $month) }}"
                                class="w-full px-3 py-2.5 text-sm rounded-xl border border-slate-300 dark:border-slate-600
                                       bg-white dark:bg-slate-900 text-slate-800 dark:text-white
                                       focus:outline-none focus:ring-2 focus:ring-green-500">
-                        @error('target_date')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+                        @error('target_month')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
                     </div>
 
                     <div>
@@ -61,6 +61,7 @@
                                 @endphp
                                 <option value="{{ $product->id }}"
                                         data-manual="{{ $isPlaceholder ? '1' : '0' }}"
+                                        data-type="{{ $product->type }}"
                                         {{ old('product_id') == $product->id ? 'selected' : '' }}>
                                     {{ $isPlaceholder ? 'Seri & KVA Manual → ' . $typeTag : (($product->series ?: '—') . ($product->kva ? ' · ' . $product->kva . ' KVA' : '')) }}
                                 </option>
@@ -115,14 +116,218 @@
 
                     <div>
                         <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">Target Unit</label>
-                        <input type="number" name="target_qty" min="1" max="999999"
-                               value="{{ old('target_qty') }}"
-                               placeholder="Contoh: 500"
-                               class="w-full px-3 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600
-                                      bg-white dark:bg-slate-900 text-slate-800 dark:text-white
-                                      focus:outline-none focus:ring-2 focus:ring-green-500 text-center font-bold text-lg">
+
+                        {{-- Mode toggle --}}
+                        <div class="flex rounded-xl border border-slate-300 dark:border-slate-600 overflow-hidden mb-3 text-xs font-semibold">
+                            <button type="button" id="tgt-mode-qty"
+                                    onclick="setTargetMode('qty')"
+                                    class="flex-1 py-2 transition-colors bg-green-600 text-white">
+                                Jumlah Unit
+                            </button>
+                            <button type="button" id="tgt-mode-serial"
+                                    onclick="setTargetMode('serial')"
+                                    class="flex-1 py-2 transition-colors bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400">
+                                Sampai No. Urut
+                            </button>
+                        </div>
+
+                        {{-- Mode 1: Jumlah Unit --}}
+                        <div id="tgt-section-qty">
+                            {{-- Sub: regular (non-channel) --}}
+                            <div id="tgt-qty-regular">
+                                <input type="number" id="tgt-qty-input" name="target_qty" min="1" max="999999"
+                                       value="{{ old('target_qty') }}"
+                                       placeholder="Contoh: 500"
+                                       class="w-full px-3 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600
+                                              bg-white dark:bg-slate-900 text-slate-800 dark:text-white
+                                              focus:outline-none focus:ring-2 focus:ring-green-500 text-center font-bold text-lg">
+                                <p class="text-[10px] text-slate-400 mt-1 text-center">Total unit yang harus diproduksi</p>
+                            </div>
+
+                            {{-- Sub: channel (UP + BT) --}}
+                            <div id="tgt-qty-channel" class="hidden space-y-3">
+                                <div class="grid grid-cols-2 gap-2">
+                                    <div>
+                                        <label class="block text-[10px] text-blue-500 font-semibold mb-1 text-center">Channel UP</label>
+                                        <input type="number" id="tgt-channel-up" min="0" max="9999"
+                                               placeholder="Contoh: 100"
+                                               class="w-full px-3 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600
+                                                      bg-white dark:bg-slate-900 text-slate-800 dark:text-white
+                                                      focus:outline-none focus:ring-2 focus:ring-blue-500 text-center font-bold text-lg">
+                                    </div>
+                                    <div>
+                                        <label class="block text-[10px] text-purple-500 font-semibold mb-1 text-center">Channel BT</label>
+                                        <input type="number" id="tgt-channel-bt" min="0" max="9999"
+                                               placeholder="Contoh: 100"
+                                               class="w-full px-3 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600
+                                                      bg-white dark:bg-slate-900 text-slate-800 dark:text-white
+                                                      focus:outline-none focus:ring-2 focus:ring-purple-500 text-center font-bold text-lg">
+                                    </div>
+                                </div>
+                                <div id="tgt-channel-preview" class="hidden px-3 py-2 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl text-center">
+                                    <p class="text-xs text-slate-500 dark:text-slate-400">Total target <span class="text-[10px]">(UP + BT) ÷ 2</span></p>
+                                    <p id="tgt-channel-total" class="text-lg font-black text-blue-600 dark:text-blue-400">0</p>
+                                    <input type="hidden" id="tgt-channel-qty" name="target_qty" value="">
+                                </div>
+                            </div>
+                        </div>
+
+                        {{-- Mode 2: Sampai No. Urut --}}
+                        <div id="tgt-section-serial" class="hidden space-y-2">
+                            <div class="grid grid-cols-2 gap-2">
+                                <div>
+                                    <label class="block text-[10px] text-slate-400 mb-1">
+                                        Dari No. Urut
+                                        <span id="tgt-serial-from-hint" class="text-green-500 hidden">(otomatis)</span>
+                                    </label>
+                                    <input type="number" id="tgt-serial-from" min="1" max="999999"
+                                           placeholder="Auto dari riwayat"
+                                           class="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-600
+                                                  bg-white dark:bg-slate-900 text-slate-800 dark:text-white
+                                                  focus:outline-none focus:ring-2 focus:ring-green-500 text-center font-bold">
+                                </div>
+                                <div>
+                                    <label class="block text-[10px] text-slate-400 mb-1">Sampai No. Urut</label>
+                                    <input type="number" id="tgt-serial-to" min="1" max="999999"
+                                           placeholder="Contoh: 500"
+                                           class="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-600
+                                                  bg-white dark:bg-slate-900 text-slate-800 dark:text-white
+                                                  focus:outline-none focus:ring-2 focus:ring-green-500 text-center font-bold">
+                                </div>
+                            </div>
+                            <input type="hidden" id="tgt-serial-qty" name="target_qty" value="">
+                            <div id="tgt-serial-preview"
+                                 class="hidden px-3 py-2 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl text-center">
+                                <p class="text-xs text-slate-500 dark:text-slate-400">Total target</p>
+                                <p id="tgt-serial-result" class="text-lg font-black text-green-600 dark:text-green-400">0 unit</p>
+                                <p class="text-[10px] text-slate-400">No. Urut <span id="tgt-serial-range">-</span></p>
+                            </div>
+                        </div>
+
                         @error('target_qty')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
                     </div>
+
+                    <script>
+                    function updateSerialCalc() {
+                        const from      = parseInt(document.getElementById('tgt-serial-from').value) || 0;
+                        const to        = parseInt(document.getElementById('tgt-serial-to').value)   || 0;
+                        const preview   = document.getElementById('tgt-serial-preview');
+                        const hiddenQty = document.getElementById('tgt-serial-qty');
+
+                        // "Dari" = no. urut terakhir yg sudah selesai, jadi qty = sampai - dari
+                        if (from >= 0 && to > 0 && to > from) {
+                            const qty = to - from;
+                            hiddenQty.value = qty;
+                            document.getElementById('tgt-serial-result').textContent = qty.toLocaleString('id-ID') + ' unit';
+                            document.getElementById('tgt-serial-range').textContent  = from + ' → ' + to;
+                            preview.classList.remove('hidden');
+                        } else {
+                            hiddenQty.value = '';
+                            preview.classList.add('hidden');
+                        }
+                    }
+
+                    async function autoFillSerialFrom() {
+                        const productId = document.getElementById('tgt-product-select').value;
+                        const date      = document.querySelector('input[name="target_month"]').value;
+                        const fromInput = document.getElementById('tgt-serial-from');
+                        const toInput   = document.getElementById('tgt-serial-to');
+                        const hint      = document.getElementById('tgt-serial-from-hint');
+                        if (!productId || !date) return;
+                        try {
+                            const r = await fetch(`{{ route('api.targets.actual-qty') }}?product_id=${productId}&date=${date}`);
+                            if (!r.ok) return;
+                            const d = await r.json();
+                            const dari = d.actual ?? 0;
+                            fromInput.value = dari;
+                            hint.classList.remove('hidden');
+
+                            // Auto-fill sampai jika ada target yang sudah diset hari ini
+                            if (d.target_qty && !toInput.value) {
+                                toInput.value = dari + d.target_qty;
+                            }
+
+                            updateSerialCalc();
+                        } catch {}
+                    }
+
+                    function isChannelSelected() {
+                        const opt = document.getElementById('tgt-product-select').options[
+                            document.getElementById('tgt-product-select').selectedIndex
+                        ];
+                        return opt && opt.dataset.type === 'channel';
+                    }
+
+                    function calcChannelTarget() {
+                        const up  = parseFloat(document.getElementById('tgt-channel-up').value)  || 0;
+                        const bt  = parseFloat(document.getElementById('tgt-channel-bt').value)  || 0;
+                        const total = (up + bt) / 2;
+                        const preview = document.getElementById('tgt-channel-preview');
+                        const hiddenQty = document.getElementById('tgt-channel-qty');
+
+                        if (up > 0 || bt > 0) {
+                            hiddenQty.value = total;
+                            document.getElementById('tgt-channel-total').textContent =
+                                (total % 1 === 0 ? total.toLocaleString('id-ID') : total.toFixed(1)) + ' unit';
+                            preview.classList.remove('hidden');
+                        } else {
+                            hiddenQty.value = '';
+                            preview.classList.add('hidden');
+                        }
+                    }
+
+                    function applyProductType() {
+                        const isChannel = isChannelSelected();
+                        document.getElementById('tgt-qty-regular').classList.toggle('hidden', isChannel);
+                        document.getElementById('tgt-qty-channel').classList.toggle('hidden', !isChannel);
+                        document.getElementById('tgt-qty-input').name    = isChannel ? '' : 'target_qty';
+                        document.getElementById('tgt-channel-qty').name  = isChannel ? 'target_qty' : '';
+
+                        // Sembunyikan "Sampai No. Urut" untuk channel
+                        document.getElementById('tgt-mode-serial').classList.toggle('hidden', isChannel);
+                        if (isChannel) {
+                            setTargetMode('qty');
+                        }
+                    }
+
+                    function setTargetMode(mode) {
+                        const isSerial  = mode === 'serial';
+                        const isChannel = isChannelSelected();
+
+                        document.getElementById('tgt-section-qty').classList.toggle('hidden', isSerial);
+                        document.getElementById('tgt-section-serial').classList.toggle('hidden', !isSerial);
+
+                        // Pastikan nama field benar sesuai mode & tipe produk
+                        document.getElementById('tgt-qty-input').name    = (!isSerial && !isChannel) ? 'target_qty' : '';
+                        document.getElementById('tgt-channel-qty').name  = (!isSerial && isChannel)  ? 'target_qty' : '';
+                        document.getElementById('tgt-serial-qty').name   = isSerial ? 'target_qty' : '';
+
+                        document.getElementById('tgt-mode-qty').className =
+                            'flex-1 py-2 transition-colors ' + (!isSerial ? 'bg-green-600 text-white' : 'bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400');
+                        document.getElementById('tgt-mode-serial').className =
+                            'flex-1 py-2 transition-colors ' + (isSerial ? 'bg-green-600 text-white' : 'bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400');
+
+                        if (isSerial) autoFillSerialFrom();
+                    }
+
+                    document.getElementById('tgt-channel-up').addEventListener('input', calcChannelTarget);
+                    document.getElementById('tgt-channel-bt').addEventListener('input', calcChannelTarget);
+
+                    document.getElementById('tgt-serial-from').addEventListener('input', updateSerialCalc);
+                    document.getElementById('tgt-serial-to').addEventListener('input', updateSerialCalc);
+
+                    document.getElementById('tgt-product-select').addEventListener('change', function () {
+                        applyProductType();
+                        if (!document.getElementById('tgt-section-serial').classList.contains('hidden')) {
+                            autoFillSerialFrom();
+                        }
+                    });
+                    document.querySelector('input[name="target_month"]').addEventListener('change', function () {
+                        if (!document.getElementById('tgt-section-serial').classList.contains('hidden')) {
+                            autoFillSerialFrom();
+                        }
+                    });
+                    </script>
 
                     <div>
                         <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">Catatan <span class="font-normal text-slate-400">(opsional)</span></label>
@@ -253,17 +458,17 @@
                 @endif
             </div>
 
-            {{-- Filter tanggal --}}
+            {{-- Filter bulan --}}
             <form method="GET" class="flex items-center gap-3">
-                <input type="date" name="date" value="{{ $date }}"
+                <input type="month" name="month" value="{{ $month }}"
                        class="px-3 py-2 text-sm rounded-xl border border-slate-300 dark:border-slate-600
                               bg-white dark:bg-slate-800 text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
                 <button type="submit" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl transition-colors">
                     Lihat
                 </button>
-                <a href="?date={{ today()->toDateString() }}"
+                <a href="?month={{ now()->format('Y-m') }}"
                    class="px-4 py-2 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-sm font-semibold rounded-xl transition-colors hover:bg-slate-200">
-                    Hari Ini
+                    Bulan Ini
                 </a>
             </form>
 
@@ -290,7 +495,7 @@
             {{-- Tabel target --}}
             @if($targets->isEmpty())
             <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 p-12 text-center">
-                <p class="text-slate-400 text-sm">Belum ada target untuk tanggal ini.</p>
+                <p class="text-slate-400 text-sm">Belum ada target untuk bulan ini.</p>
                 <p class="text-slate-300 dark:text-slate-600 text-xs mt-1">Set target menggunakan form di sebelah kiri.</p>
             </div>
             @else
@@ -327,7 +532,7 @@
                                     {{ $pct }}%
                                 </span>
                                 @unless(auth()->user()->isOperator())
-                                <form method="POST" action="{{ route('production.targets.destroy', $target) }}">
+                                <form method="POST" action="{{ route('production.targets.destroy', $target->id) }}">
                                     @csrf @method('DELETE')
                                     <button type="submit"
                                             data-confirm="Hapus target {{ $target->product->name }}?"

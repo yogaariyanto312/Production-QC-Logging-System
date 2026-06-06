@@ -9,25 +9,28 @@ use Illuminate\Support\Facades\DB;
 
 class ReportController extends Controller
 {
-    public function index(Request $request)
+    /**
+     * Rekap produksi per produk untuk satu bulan.
+     * Dipakai bersama oleh index() dan exportPdf() agar tidak duplikasi query.
+     */
+    private function buildMonthlyReport(int $month, int $year)
     {
-        // Cast ke int — nilai ini diinterpolasi langsung ke raw SQL subquery di bawah
-        $month = (int) ($request->month ?? now()->month);
-        $year  = (int) ($request->year  ?? now()->year);
-
-        // Rekap per produk per bulan
-        $report = ProductionLog::select(
+        return ProductionLog::select(
                 'product_id',
                 DB::raw('SUM(shift1_qty) as total_shift1'),
                 DB::raw('SUM(shift2_qty) as total_shift2'),
                 DB::raw('SUM(shift3_qty) as total_shift3'),
-                DB::raw('SUM(total_qty) as grand_total'),
-                DB::raw("(SELECT notes FROM production_logs p2
-                           WHERE p2.product_id = production_logs.product_id
-                             AND MONTH(p2.production_date) = {$month}
-                             AND YEAR(p2.production_date)  = {$year}
-                           ORDER BY p2.production_date DESC, p2.created_at DESC
-                           LIMIT 1) as last_notes")
+                DB::raw('SUM(total_qty) as grand_total')
+            )
+            // Subquery no. urut terakhir — pakai binding parameter (aman dari injeksi)
+            ->selectRaw(
+                "(SELECT notes FROM production_logs p2
+                   WHERE p2.product_id = production_logs.product_id
+                     AND MONTH(p2.production_date) = ?
+                     AND YEAR(p2.production_date)  = ?
+                   ORDER BY p2.production_date DESC, p2.created_at DESC
+                   LIMIT 1) as last_notes",
+                [$month, $year]
             )
             ->with('product.category')
             ->whereMonth('production_date', $month)
@@ -35,6 +38,15 @@ class ReportController extends Controller
             ->groupBy('product_id')
             ->orderByDesc('grand_total')
             ->get();
+    }
+
+    public function index(Request $request)
+    {
+        $month = (int) ($request->month ?? now()->month);
+        $year  = (int) ($request->year  ?? now()->year);
+
+        // Rekap per produk per bulan
+        $report = $this->buildMonthlyReport($month, $year);
 
         // Rekap harian bulan ini
         $dailyReport = ProductionLog::select(
@@ -57,29 +69,10 @@ class ReportController extends Controller
     // Export PDF menggunakan DomPDF
     public function exportPdf(Request $request)
     {
-        // Cast ke int — nilai ini diinterpolasi langsung ke raw SQL subquery di bawah
         $month = (int) ($request->month ?? now()->month);
         $year  = (int) ($request->year  ?? now()->year);
 
-        $report = ProductionLog::select(
-                'product_id',
-                DB::raw('SUM(shift1_qty) as total_shift1'),
-                DB::raw('SUM(shift2_qty) as total_shift2'),
-                DB::raw('SUM(shift3_qty) as total_shift3'),
-                DB::raw('SUM(total_qty) as grand_total'),
-                DB::raw("(SELECT notes FROM production_logs p2
-                           WHERE p2.product_id = production_logs.product_id
-                             AND MONTH(p2.production_date) = {$month}
-                             AND YEAR(p2.production_date)  = {$year}
-                           ORDER BY p2.production_date DESC, p2.created_at DESC
-                           LIMIT 1) as last_notes")
-            )
-            ->with('product.category')
-            ->whereMonth('production_date', $month)
-            ->whereYear('production_date', $year)
-            ->groupBy('product_id')
-            ->orderByDesc('grand_total')
-            ->get();
+        $report = $this->buildMonthlyReport($month, $year);
 
         $monthName = \Carbon\Carbon::create(null, $month)->translatedFormat('F');
         $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('reports.pdf', compact('report', 'month', 'year', 'monthName'));

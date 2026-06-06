@@ -65,7 +65,7 @@
                     Reset
                 </a>
                 <div class="flex-1"></div>
-                @unless(auth()->user()->isVisitor())
+                @if(!auth()->user()->isVisitor() && !auth()->user()->isSupervisor())
                 <a href="{{ route('production.create') }}"
                    class="px-3 sm:px-5 py-2 sm:py-2.5 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold rounded-xl transition-colors flex items-center gap-1.5 whitespace-nowrap">
                     <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -73,7 +73,7 @@
                     </svg>
                     Input Baru
                 </a>
-                @endunless
+                @endif
             </div>
         </form>
     </div>
@@ -365,10 +365,12 @@
         </svg>
         <p class="text-slate-500 dark:text-slate-400 font-medium">Tidak ada data produksi</p>
         <p class="text-slate-400 text-sm mt-1">Coba ubah filter pencarian atau tambah data baru</p>
+        @if(!auth()->user()->isVisitor() && !auth()->user()->isSupervisor())
         <a href="{{ route('production.create') }}"
            class="mt-4 inline-block px-5 py-2 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700">
             Input Produksi Sekarang
         </a>
+        @endif
     </div>
     @endforelse
 

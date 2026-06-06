@@ -9,15 +9,18 @@ use App\Models\Product;
 use App\Models\ProductionLog;
 use App\Models\ProductionTarget;
 use App\Models\ActivityLog;
+use App\Services\HolidayService;
 use Illuminate\Support\Facades\DB;
 
 class DashboardController extends Controller
 {
-    public function index()
+    public function index(HolidayService $holidayService)
     {
         $today        = now()->toDateString();
         $currentMonth = now()->month;
         $currentYear  = now()->year;
+
+        $holidays = $holidayService->getHolidays($currentYear);
 
         // Statistik utama
         $stats = [
@@ -78,6 +81,16 @@ class DashboardController extends Controller
             ->limit(5)
             ->get();
 
+        // Top 5 operator bulan ini
+        $topOperatorsMonthly = ProductionLog::whereMonth('production_date', $currentMonth)
+            ->whereYear('production_date', $currentYear)
+            ->whereNotNull('operator_name')->where('operator_name', '!=', '')
+            ->select('operator_name', DB::raw('SUM(total_qty) as total'))
+            ->groupBy('operator_name')
+            ->orderByDesc('total')
+            ->limit(5)
+            ->get();
+
         // Defect rate per produk bulan ini (hanya yang ada reject)
         $defectRates = ProductionLog::whereMonth('production_date', $currentMonth)
             ->whereYear('production_date', $currentYear)
@@ -121,13 +134,47 @@ class DashboardController extends Controller
             ->limit(5)
             ->get();
 
-        // Target vs Aktual hari ini
+        // Target vs Aktual hari ini (tetap dipakai untuk live stats)
         $todayTargets = ProductionTarget::with('product')
             ->where('target_date', $today)
             ->get();
         $totalTarget = $todayTargets->sum('target_qty');
         $totalActual = ProductionLog::whereDate('production_date', $today)->sum('total_qty');
         $targetPct   = $totalTarget > 0 ? min(round(($totalActual / $totalTarget) * 100), 100) : null;
+
+        // Target vs Aktual bulan ini (per produk, diurutkan berdasarkan sisa target)
+        $monthlyTargetTotal  = ProductionTarget::whereMonth('target_date', $currentMonth)
+            ->whereYear('target_date', $currentYear)
+            ->sum('target_qty');
+        $monthlyActualTotal  = (int) $stats['monthly_total'];
+        $monthlyTargetPct    = $monthlyTargetTotal > 0
+            ? min(round(($monthlyActualTotal / $monthlyTargetTotal) * 100), 100)
+            : null;
+        // Aktual per produk bulan ini — satu query, dipakai untuk lookup (hindari N+1)
+        $monthlyActualByProduct = ProductionLog::whereMonth('production_date', $currentMonth)
+            ->whereYear('production_date', $currentYear)
+            ->select('product_id', DB::raw('SUM(total_qty) as actual_qty'))
+            ->groupBy('product_id')
+            ->pluck('actual_qty', 'product_id');
+
+        $monthlyTargetsByProduct = ProductionTarget::with('product')
+            ->whereMonth('target_date', $currentMonth)
+            ->whereYear('target_date', $currentYear)
+            ->select('product_id', DB::raw('SUM(target_qty) as total_target'))
+            ->groupBy('product_id')
+            ->get()
+            ->map(function ($t) use ($monthlyActualByProduct) {
+                $actual = (int) ($monthlyActualByProduct[$t->product_id] ?? 0);
+                return [
+                    'name'       => $t->product->name ?? '-',
+                    'series_kva' => $t->product?->series_with_kva ?: null,
+                    'target'     => (int) $t->total_target,
+                    'actual'     => $actual,
+                    'done'       => $actual >= $t->total_target,
+                ];
+            })
+            ->sortBy('done')
+            ->values();
 
         // Reject stats hari ini
         $rejectStats    = ProductionLog::whereDate('production_date', $today)
@@ -150,8 +197,9 @@ class DashboardController extends Controller
             'stats', 'chartData', 'productChart', 'recentLogs', 'recentActivities',
             'categories', 'departments', 'recentNotes',
             'todayTargets', 'totalTarget', 'totalActual', 'targetPct',
+            'monthlyTargetTotal', 'monthlyActualTotal', 'monthlyTargetPct', 'monthlyTargetsByProduct',
             'todayReject', 'todayRejectPct',
-            'topOperators', 'defectRates'
+            'topOperators', 'defectRates', 'topOperatorsMonthly', 'holidays'
         ));
     }
 

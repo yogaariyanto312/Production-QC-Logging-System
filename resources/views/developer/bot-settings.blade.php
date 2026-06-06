@@ -83,11 +83,11 @@
                 @error('telegram_token')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
             </div>
 
-            {{-- Chat ID --}}
+            {{-- Chat ID — Log Server --}}
             <div>
                 <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                    Chat ID
-                    <span class="ml-1 text-xs font-normal text-slate-400">(ID grup, channel, atau personal chat)</span>
+                    Chat ID — Log Server
+                    <span class="ml-1 text-xs font-normal text-slate-400">(aktivitas: login, input, edit, hapus)</span>
                 </label>
                 <input type="text" name="telegram_chat_id"
                        value="{{ old('telegram_chat_id', $setting->telegram_chat_id) }}"
@@ -96,6 +96,22 @@
                               text-slate-800 dark:text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500
                               font-mono text-sm @error('telegram_chat_id') border-red-500 @enderror">
                 @error('telegram_chat_id')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+            </div>
+
+            {{-- Chat ID — Laporan Produksi (grup khusus, terpisah dari log server) --}}
+            <div>
+                <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                    Chat ID — Laporan Produksi
+                    <span class="ml-1 text-xs font-normal text-slate-400">(laporan harian & alert reject)</span>
+                </label>
+                <input type="text" name="telegram_report_chat_id"
+                       value="{{ old('telegram_report_chat_id', $setting->telegram_report_chat_id) }}"
+                       placeholder="Kosongkan untuk pakai Chat ID Log Server"
+                       class="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900
+                              text-slate-800 dark:text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500
+                              font-mono text-sm @error('telegram_report_chat_id') border-red-500 @enderror">
+                <p class="mt-1 text-xs text-slate-400">Grup khusus untuk laporan produksi harian & alert reject. Jika kosong, dikirim ke Chat ID Log Server.</p>
+                @error('telegram_report_chat_id')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
             </div>
 
             {{-- Cara mendapat Chat ID (collapsible) --}}
@@ -335,6 +351,7 @@
                 {{-- Hidden fields agar form ini tidak overwrite field lain --}}
                 <input type="hidden" name="telegram_token"    value="{{ $setting->telegram_token }}">
                 <input type="hidden" name="telegram_chat_id"  value="{{ $setting->telegram_chat_id }}">
+                <input type="hidden" name="telegram_report_chat_id" value="{{ $setting->telegram_report_chat_id }}">
                 <input type="hidden" name="telegram_enabled"  value="{{ $setting->telegram_enabled ? '1' : '0' }}">
                 <input type="hidden" name="discord_webhook"   value="{{ $setting->discord_webhook }}">
                 <input type="hidden" name="discord_enabled"   value="{{ $setting->discord_enabled ? '1' : '0' }}">
@@ -420,6 +437,7 @@
                 {{-- Hidden fields --}}
                 <input type="hidden" name="telegram_token"    value="{{ $setting->telegram_token }}">
                 <input type="hidden" name="telegram_chat_id"  value="{{ $setting->telegram_chat_id }}">
+                <input type="hidden" name="telegram_report_chat_id" value="{{ $setting->telegram_report_chat_id }}">
                 <input type="hidden" name="telegram_enabled"  value="{{ $setting->telegram_enabled ? '1' : '0' }}">
                 <input type="hidden" name="discord_webhook"   value="{{ $setting->discord_webhook }}">
                 <input type="hidden" name="discord_enabled"   value="{{ $setting->discord_enabled ? '1' : '0' }}">
@@ -485,6 +503,7 @@
         @csrf
         <input type="hidden" name="telegram_token"    value="{{ $setting->telegram_token }}">
         <input type="hidden" name="telegram_chat_id"  value="{{ $setting->telegram_chat_id }}">
+        <input type="hidden" name="telegram_report_chat_id" value="{{ $setting->telegram_report_chat_id }}">
         <input type="hidden" name="telegram_enabled"  value="{{ $setting->telegram_enabled ? '1' : '0' }}">
         <input type="hidden" name="discord_webhook"   value="{{ $setting->discord_webhook }}">
         <input type="hidden" name="discord_enabled"   value="{{ $setting->discord_enabled ? '1' : '0' }}">
@@ -589,6 +608,7 @@
         @csrf
         <input type="hidden" name="telegram_token"       value="{{ $setting->telegram_token }}">
         <input type="hidden" name="telegram_chat_id"     value="{{ $setting->telegram_chat_id }}">
+        <input type="hidden" name="telegram_report_chat_id" value="{{ $setting->telegram_report_chat_id }}">
         <input type="hidden" name="telegram_enabled"     value="{{ $setting->telegram_enabled ? '1' : '0' }}">
         <input type="hidden" name="discord_webhook"      value="{{ $setting->discord_webhook }}">
         <input type="hidden" name="discord_enabled"      value="{{ $setting->discord_enabled ? '1' : '0' }}">

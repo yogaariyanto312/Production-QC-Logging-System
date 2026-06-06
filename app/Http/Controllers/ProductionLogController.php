@@ -55,8 +55,13 @@ class ProductionLogController extends Controller
 
         $products   = Product::where('is_active', true)->distinct()->orderBy('name')->pluck('name');
         $categories = Category::where('is_active', true)->orderBy('name')->get();
-        $years      = ProductionLog::selectRaw('YEAR(production_date) as yr')
-            ->distinct()->orderByDesc('yr')->pluck('yr');
+        // Daftar tahun unik — ambil tanggal lalu ekstrak tahun di PHP (cross-DB: MySQL & SQLite)
+        $years      = ProductionLog::query()
+            ->orderByDesc('production_date')
+            ->pluck('production_date')
+            ->map(fn ($d) => (int) \Illuminate\Support\Carbon::parse($d)->year)
+            ->unique()
+            ->values();
 
         // Precompute nomor urut terakhir UP/BT — satu query untuk semua channel product
         $channelProductIds = $logs
@@ -143,7 +148,7 @@ class ProductionLogController extends Controller
         // Non-channel (Cover, Tangki, dll.) selalu buat entri baru per batch.
         $existing = $isChannel
             ? ProductionLog::where('product_id', $data['product_id'])
-                ->where('production_date', $data['production_date'])
+                ->whereDate('production_date', $data['production_date'])
                 ->first()
             : null;
 
@@ -160,11 +165,16 @@ class ProductionLogController extends Controller
                 $update['total_qty'] = $existing->total_qty + (float) ($data['total_qty'] ?? 0);
             }
 
-            // Gabung nomor urut (notes)
+            // Gabung nomor urut (notes) — deduplikasi baris agar tidak ada pengulangan
             if (!empty($data['notes'])) {
-                $update['notes'] = $existing->notes
+                $combined = $existing->notes
                     ? $existing->notes . "\n" . $data['notes']
                     : $data['notes'];
+                $update['notes'] = collect(explode("\n", str_replace("\r\n", "\n", $combined)))
+                    ->map(fn($l) => trim($l))
+                    ->filter()
+                    ->unique()
+                    ->implode("\n");
             }
 
             // Update keterangan jika ada isian baru
