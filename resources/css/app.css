@@ -18,6 +18,10 @@
 /* Alpine.js cloak — hide until initialized */
 [x-cloak] { display: none !important; }
 
+/* Hide scrollbar visually but keep scrollable */
+.no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
+
 /* Custom scrollbar */
 ::-webkit-scrollbar {
     width: 6px;

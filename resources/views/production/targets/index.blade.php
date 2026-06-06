@@ -2,7 +2,7 @@
 
 @section('title', 'Target Produksi')
 @section('page-title', 'Target Produksi')
-@section('page-subtitle', 'Set & pantau target produksi bulanan per produk')
+@section('page-subtitle', 'Set & pantau target produksi mingguan per produk')
 
 @section('content')
 <div class="space-y-5">
@@ -28,18 +28,19 @@
             <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 overflow-hidden sticky top-4">
                 <div class="bg-gradient-to-r from-green-600 to-emerald-600 px-5 py-4">
                     <h3 class="text-base font-bold text-white">Set Target</h3>
-                    <p class="text-green-100 text-xs mt-0.5">Target produksi per produk per bulan</p>
+                    <p class="text-green-100 text-xs mt-0.5">Target produksi per produk per minggu</p>
                 </div>
                 <form method="POST" action="{{ route('production.targets.store') }}" class="p-5 space-y-4">
                     @csrf
 
                     <div>
-                        <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">Bulan</label>
-                        <input type="month" name="target_month" value="{{ old('target_month', $month) }}"
+                        <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">Minggu</label>
+                        <input type="week" name="target_week"
+                               value="{{ old('target_week', \Carbon\Carbon::parse($weekStart)->format('Y-\WW')) }}"
                                class="w-full px-3 py-2.5 text-sm rounded-xl border border-slate-300 dark:border-slate-600
                                       bg-white dark:bg-slate-900 text-slate-800 dark:text-white
                                       focus:outline-none focus:ring-2 focus:ring-green-500">
-                        @error('target_month')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+                        @error('target_week')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
                     </div>
 
                     <div>
@@ -229,7 +230,7 @@
 
                     async function autoFillSerialFrom() {
                         const productId = document.getElementById('tgt-product-select').value;
-                        const date      = document.querySelector('input[name="target_month"]').value;
+                        const date      = document.querySelector('input[name="target_week"]').value;
                         const fromInput = document.getElementById('tgt-serial-from');
                         const toInput   = document.getElementById('tgt-serial-to');
                         const hint      = document.getElementById('tgt-serial-from-hint');
@@ -322,7 +323,7 @@
                             autoFillSerialFrom();
                         }
                     });
-                    document.querySelector('input[name="target_month"]').addEventListener('change', function () {
+                    document.querySelector('input[name="target_week"]').addEventListener('change', function () {
                         if (!document.getElementById('tgt-section-serial').classList.contains('hidden')) {
                             autoFillSerialFrom();
                         }
@@ -458,17 +459,16 @@
                 @endif
             </div>
 
-            {{-- Filter bulan --}}
+            {{-- Filter minggu --}}
             <form method="GET" class="flex items-center gap-3">
-                <input type="month" name="month" value="{{ $month }}"
+                <input type="week" name="week_start" value="{{ \Carbon\Carbon::parse($weekStart)->format('Y-\WW') }}"
                        class="px-3 py-2 text-sm rounded-xl border border-slate-300 dark:border-slate-600
                               bg-white dark:bg-slate-800 text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
                 <button type="submit" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl transition-colors">
                     Lihat
                 </button>
-                <a href="?month={{ now()->format('Y-m') }}"
-                   class="px-4 py-2 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-sm font-semibold rounded-xl transition-colors hover:bg-slate-200">
-                    Bulan Ini
+                <a href="?" class="px-4 py-2 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-sm font-semibold rounded-xl transition-colors hover:bg-slate-200">
+                    Minggu Ini
                 </a>
             </form>
 
@@ -495,7 +495,7 @@
             {{-- Tabel target --}}
             @if($targets->isEmpty())
             <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 p-12 text-center">
-                <p class="text-slate-400 text-sm">Belum ada target untuk bulan ini.</p>
+                <p class="text-slate-400 text-sm">Belum ada target untuk minggu ini.</p>
                 <p class="text-slate-300 dark:text-slate-600 text-xs mt-1">Set target menggunakan form di sebelah kiri.</p>
             </div>
             @else

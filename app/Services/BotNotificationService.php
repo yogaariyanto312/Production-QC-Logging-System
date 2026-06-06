@@ -94,6 +94,73 @@ class BotNotificationService
         } catch (\Throwable) {}
     }
 
+    public static function checkAndNotifyTargetReached(int $productId, string $date): void
+    {
+        try {
+            $setting = BotSetting::instance();
+            if (!$setting->telegram_enabled && !$setting->discord_enabled) return;
+
+            $carbon    = \Carbon\Carbon::parse($date);
+            $weekStart = $carbon->copy()->startOfWeek(\Carbon\Carbon::MONDAY)->toDateString();
+            $weekEnd   = $carbon->copy()->endOfWeek(\Carbon\Carbon::SUNDAY)->toDateString();
+
+            $cacheKey = "target_reached_{$productId}_{$weekStart}";
+            if (\Illuminate\Support\Facades\Cache::has($cacheKey)) return;
+
+            $target = \App\Models\ProductionTarget::where('product_id', $productId)
+                ->whereBetween('target_date', [$weekStart, $weekEnd])
+                ->sum('target_qty');
+
+            if ($target <= 0) return;
+
+            $actual = \App\Models\ProductionLog::where('product_id', $productId)
+                ->whereBetween('production_date', [$weekStart, $weekEnd])
+                ->sum('total_qty');
+
+            if ($actual < $target) return;
+
+            \Illuminate\Support\Facades\Cache::put($cacheKey, true, now()->endOfWeek());
+
+            $product   = \App\Models\Product::find($productId);
+            $weekFmt   = \Carbon\Carbon::parse($weekStart)->translatedFormat('d M') . ' – ' . \Carbon\Carbon::parse($weekEnd)->translatedFormat('d M Y');
+            $time      = now()->timezone('Asia/Jakarta')->format('H:i') . ' WIB';
+            $pctActual = number_format($actual);
+            $pctTarget = number_format($target);
+
+            $reportChatId = $setting->telegram_report_chat_id ?: $setting->telegram_chat_id;
+            if ($setting->telegram_enabled && $setting->telegram_token && $reportChatId) {
+                $text = "🎯 <b>TARGET TERCAPAI!</b>\n"
+                      . "📦 Produk: <b>" . htmlspecialchars($product->name ?? '-') . "</b>\n"
+                      . "✅ Produksi: <b>{$pctActual}</b> / {$pctTarget} unit (100%)\n"
+                      . "📅 Minggu: <b>{$weekFmt}</b>\n"
+                      . "🕒 {$time}\n\n"
+                      . "<i>QC Production System</i>";
+
+                Http::withoutVerifying()->timeout(5)->post(
+                    "https://api.telegram.org/bot{$setting->telegram_token}/sendMessage",
+                    ['chat_id' => $reportChatId, 'text' => $text, 'parse_mode' => 'HTML']
+                );
+            }
+
+            if ($setting->discord_enabled && $setting->discord_webhook) {
+                Http::withoutVerifying()->timeout(5)->post($setting->discord_webhook, [
+                    'embeds' => [[
+                        'title'       => '🎯 Target Tercapai!',
+                        'description' => "Produksi **" . ($product->name ?? '-') . "** telah mencapai target minggu **{$weekFmt}**!",
+                        'color'       => 0x2ecc71,
+                        'fields'      => [
+                            ['name' => '📦 Produk',   'value' => $product->name ?? '-',     'inline' => true],
+                            ['name' => '✅ Produksi', 'value' => "{$pctActual} unit",        'inline' => true],
+                            ['name' => '🎯 Target',   'value' => "{$pctTarget} unit",        'inline' => true],
+                        ],
+                        'footer'    => ['text' => 'QC Production System'],
+                        'timestamp' => now()->toIso8601String(),
+                    ]],
+                ]);
+            }
+        } catch (\Throwable) {}
+    }
+
     public static function sendDailyReport(?string $date = null): array
     {
         try {

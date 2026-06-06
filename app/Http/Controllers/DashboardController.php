@@ -142,24 +142,17 @@ class DashboardController extends Controller
         $totalActual = ProductionLog::whereDate('production_date', $today)->sum('total_qty');
         $targetPct   = $totalTarget > 0 ? min(round(($totalActual / $totalTarget) * 100), 100) : null;
 
-        // Target vs Aktual bulan ini (per produk, diurutkan berdasarkan sisa target)
-        $monthlyTargetTotal  = ProductionTarget::whereMonth('target_date', $currentMonth)
-            ->whereYear('target_date', $currentYear)
-            ->sum('target_qty');
-        $monthlyActualTotal  = (int) $stats['monthly_total'];
-        $monthlyTargetPct    = $monthlyTargetTotal > 0
-            ? min(round(($monthlyActualTotal / $monthlyTargetTotal) * 100), 100)
-            : null;
-        // Aktual per produk bulan ini — satu query, dipakai untuk lookup (hindari N+1)
-        $monthlyActualByProduct = ProductionLog::whereMonth('production_date', $currentMonth)
-            ->whereYear('production_date', $currentYear)
+        // Target vs Aktual MINGGU INI (per produk, diurutkan berdasarkan sisa target)
+        $weekStart = now()->startOfWeek(\Carbon\Carbon::MONDAY)->toDateString();
+        $weekEnd   = now()->endOfWeek(\Carbon\Carbon::SUNDAY)->toDateString();
+
+        $monthlyActualByProduct = ProductionLog::whereBetween('production_date', [$weekStart, $weekEnd])
             ->select('product_id', DB::raw('SUM(total_qty) as actual_qty'))
             ->groupBy('product_id')
             ->pluck('actual_qty', 'product_id');
 
         $monthlyTargetsByProduct = ProductionTarget::with('product')
-            ->whereMonth('target_date', $currentMonth)
-            ->whereYear('target_date', $currentYear)
+            ->whereBetween('target_date', [$weekStart, $weekEnd])
             ->select('product_id', DB::raw('SUM(target_qty) as total_target'))
             ->groupBy('product_id')
             ->get()
@@ -175,6 +168,15 @@ class DashboardController extends Controller
             })
             ->sortBy('done')
             ->values();
+
+        // Total target & aktual HANYA dari produk yang punya target minggu ini.
+        // Aktual di-cap per produk supaya over-produksi tidak menutupi produk lain.
+        $monthlyTargetTotal = (int) $monthlyTargetsByProduct->sum('target');
+        $monthlyActualTotal = (int) $monthlyTargetsByProduct
+            ->sum(fn ($p) => min($p['actual'], $p['target']));
+        $monthlyTargetPct   = $monthlyTargetTotal > 0
+            ? min(round(($monthlyActualTotal / $monthlyTargetTotal) * 100), 100)
+            : null;
 
         // Reject stats hari ini
         $rejectStats    = ProductionLog::whereDate('production_date', $today)
@@ -198,6 +200,7 @@ class DashboardController extends Controller
             'categories', 'departments', 'recentNotes',
             'todayTargets', 'totalTarget', 'totalActual', 'targetPct',
             'monthlyTargetTotal', 'monthlyActualTotal', 'monthlyTargetPct', 'monthlyTargetsByProduct',
+            'weekStart', 'weekEnd',
             'todayReject', 'todayRejectPct',
             'topOperators', 'defectRates', 'topOperatorsMonthly', 'holidays'
         ));

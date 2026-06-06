@@ -14,14 +14,15 @@ class ProductionTargetController extends Controller
 {
     public function index(Request $request)
     {
-        // Filter bulan (format: Y-m), default bulan ini
-        $month = $request->month ?: now()->format('Y-m');
-        [$year, $mon] = array_map('intval', explode('-', $month));
+        // Filter minggu (week_start = tanggal Senin), default minggu ini
+        $weekStart = $request->week_start
+            ? \Carbon\Carbon::parse($request->week_start)->startOfWeek(\Carbon\Carbon::MONDAY)
+            : now()->startOfWeek(\Carbon\Carbon::MONDAY);
+        $weekEnd = $weekStart->copy()->endOfWeek(\Carbon\Carbon::SUNDAY);
 
-        // Target per produk untuk bulan ini (aggregat jika ada beberapa entri)
+        // Target per produk untuk minggu ini
         $rawTargets = ProductionTarget::with(['product'])
-            ->whereYear('target_date', $year)
-            ->whereMonth('target_date', $mon)
+            ->whereBetween('target_date', [$weekStart->toDateString(), $weekEnd->toDateString()])
             ->get();
 
         // Grup per produk, ambil target_qty & id terbaru
@@ -36,16 +37,14 @@ class ProductionTargetController extends Controller
             ];
         })->values();
 
-        // Aktual per produk bulan ini
-        $actuals = ProductionLog::whereMonth('production_date', $mon)
-            ->whereYear('production_date', $year)
+        // Aktual per produk minggu ini
+        $actuals = ProductionLog::whereBetween('production_date', [$weekStart->toDateString(), $weekEnd->toDateString()])
             ->selectRaw('product_id, SUM(total_qty) as actual_qty')
             ->groupBy('product_id')
             ->pluck('actual_qty', 'product_id');
 
         $totalTarget = $targets->sum('target_qty');
-        $totalActual = (int) ProductionLog::whereMonth('production_date', $mon)
-            ->whereYear('production_date', $year)->sum('total_qty');
+        $totalActual = (int) ProductionLog::whereBetween('production_date', [$weekStart->toDateString(), $weekEnd->toDateString()])->sum('total_qty');
 
         $products = Product::where('is_active', true)
             ->with('category')
@@ -59,7 +58,7 @@ class ProductionTargetController extends Controller
         $schedulePhoto = SchedulePhoto::with('uploader')->where('target_date', $date)->first();
 
         return view('production.targets.index', compact(
-            'targets', 'actuals', 'month', 'date', 'products',
+            'targets', 'actuals', 'weekStart', 'weekEnd', 'date', 'products',
             'totalTarget', 'totalActual', 'schedulePhoto'
         ));
     }
@@ -68,15 +67,16 @@ class ProductionTargetController extends Controller
     {
         $request->validate([
             'product_id'    => ['required', 'exists:products,id'],
-            'target_month'  => ['required', 'date_format:Y-m'],
+            'target_week'   => ['required', 'date_format:Y-\WW'],
             'target_qty'    => ['required', 'integer', 'min:1', 'max:999999'],
             'notes'         => ['nullable', 'string', 'max:200'],
             'manual_series' => ['nullable', 'string', 'max:100'],
             'manual_kva'    => ['nullable', 'string', 'max:50'],
         ]);
 
-        // Konversi bulan ke tanggal 1 awal bulan untuk disimpan
-        $targetDate = \Carbon\Carbon::createFromFormat('Y-m', $request->target_month)->startOfMonth()->toDateString();
+        // Konversi YYYY-WNN ke Senin awal minggu
+        [$yr, $wk] = sscanf($request->target_week, '%d-W%d');
+        $targetDate = \Carbon\Carbon::now()->setISODate($yr, $wk, 1)->toDateString();
 
         $productId = $request->product_id;
         $product   = Product::with('category')->find($productId);
@@ -93,12 +93,15 @@ class ProductionTargetController extends Controller
             $productId = $product->id;
         }
 
+        $weekLabel = \Carbon\Carbon::parse($targetDate)->translatedFormat('d M') . ' – '
+                   . \Carbon\Carbon::parse($targetDate)->endOfWeek()->translatedFormat('d M Y');
+
         $target = ProductionTarget::updateOrCreate(
             ['product_id' => $productId, 'target_date' => $targetDate],
             ['target_qty' => $request->target_qty, 'notes' => $request->notes, 'created_by' => auth()->id()]
         );
 
-        ActivityLog::record('create', "Set target produksi: {$product->name} = {$request->target_qty} unit bulan {$request->target_month}", $target);
+        ActivityLog::record('create', "Set target produksi: {$product->name} = {$request->target_qty} unit minggu {$weekLabel}", $target);
 
         return back()->with('success', "Target untuk {$product->name} berhasil disimpan.");
     }

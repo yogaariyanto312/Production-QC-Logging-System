@@ -189,6 +189,7 @@ class ProductionLogController extends Controller
 
             ActivityLog::record('update', "Tambah produksi: {$log->product->name} (total kini: {$log->total_qty} unit)", $log);
             BotNotificationService::checkAndAlertRejectRate($product, $data['production_date']);
+            BotNotificationService::checkAndNotifyTargetReached($data['product_id'], $data['production_date']);
             return redirect()->route('production.index')
                 ->with('success', "Ditambahkan ke entri yang ada. Total sekarang: {$log->total_qty} unit.");
         }
@@ -196,6 +197,7 @@ class ProductionLogController extends Controller
         $log = ProductionLog::create($data);
         ActivityLog::record('create', "Input produksi: {$log->product->name} ({$log->total_qty} unit)", $log);
         BotNotificationService::checkAndAlertRejectRate($product, $data['production_date']);
+        BotNotificationService::checkAndNotifyTargetReached($data['product_id'], $data['production_date']);
 
         return redirect()->route('production.index')
             ->with('success', "Data produksi berhasil disimpan. Total: {$log->total_qty} unit.");
@@ -282,6 +284,7 @@ class ProductionLogController extends Controller
         $productionLog->update($data);
         ActivityLog::record('update', "Edit produksi: {$productionLog->product->name} ({$productionLog->total_qty} unit)", $productionLog);
         BotNotificationService::checkAndAlertRejectRate($product, $data['production_date']);
+        BotNotificationService::checkAndNotifyTargetReached($data['product_id'], $data['production_date']);
         return redirect()->route('production.index')
             ->with('success', 'Data produksi berhasil diperbarui.');
     }

@@ -105,8 +105,10 @@
         <div class="bg-white dark:bg-slate-800 rounded-xl p-3 shadow-sm border border-slate-100 dark:border-slate-700 flex flex-col">
             <div class="flex items-center justify-between mb-2">
                 <div>
-                    <h3 class="text-sm font-semibold text-slate-800 dark:text-white">Target Bulan Ini</h3>
-                    <p class="text-[10px] text-slate-400">{{ now()->translatedFormat('F Y') }}</p>
+                    <h3 class="text-sm font-semibold text-slate-800 dark:text-white">Target Minggu Ini</h3>
+                    <p class="text-[10px] text-slate-400">
+                        {{ \Carbon\Carbon::parse($weekStart)->translatedFormat('d M') }} – {{ \Carbon\Carbon::parse($weekEnd)->translatedFormat('d M Y') }}
+                    </p>
                 </div>
                 @if(auth()->user()->isPrivileged())
                 <a href="{{ route('production.targets.index') }}"
@@ -128,19 +130,29 @@
                 <div class="h-full rounded-full transition-all {{ $monthlyTargetPct >= 100 ? 'bg-green-500' : ($monthlyTargetPct >= 70 ? 'bg-amber-400' : 'bg-blue-500') }}"
                      style="width: {{ $monthlyTargetPct }}%"></div>
             </div>
-            {{-- Scrollable list per produk --}}
-            <div class="overflow-y-auto space-y-1" style="max-height: 120px;">
+            {{-- List per produk --}}
+            <div class="overflow-y-auto no-scrollbar space-y-1.5" style="max-height: 130px;">
                 @foreach($monthlyTargetsByProduct as $mt)
-                <div class="flex items-center justify-between gap-2 py-0.5">
-                    <div class="min-w-0 flex-1">
-                        <span class="text-xs text-slate-500 dark:text-slate-400 truncate block">{{ $mt['name'] }}</span>
-                        @if($mt['series_kva'])
-                        <span class="text-[10px] text-slate-400 font-mono leading-none">{{ $mt['series_kva'] }}</span>
-                        @endif
+                @php
+                    $pct = $mt['target'] > 0 ? min(round(($mt['actual'] / $mt['target']) * 100), 100) : 0;
+                    $barColor = $mt['done'] ? 'bg-green-500' : ($pct >= 70 ? 'bg-amber-400' : 'bg-blue-500');
+                    $textColor = $mt['done'] ? 'text-green-500 dark:text-green-400' : 'text-slate-300';
+                @endphp
+                <div class="rounded-lg bg-slate-50 dark:bg-slate-700/50 px-2.5 py-2">
+                    <div class="flex items-center justify-between gap-2 mb-1">
+                        <div class="min-w-0 flex-1">
+                            <span class="text-xs font-medium text-slate-700 dark:text-slate-200 truncate block">{{ $mt['name'] }}</span>
+                            @if($mt['series_kva'])
+                            <span class="text-[10px] text-slate-400 font-mono leading-tight">{{ $mt['series_kva'] }}</span>
+                            @endif
+                        </div>
+                        <span class="text-xs font-bold shrink-0 {{ $textColor }}">
+                            {{ number_format($mt['actual']) }}<span class="font-normal text-slate-400">/{{ number_format($mt['target']) }}</span>
+                        </span>
                     </div>
-                    <span class="text-xs font-semibold shrink-0 {{ $mt['done'] ? 'text-green-600 dark:text-green-400' : 'text-slate-600 dark:text-slate-300' }}">
-                        {{ number_format($mt['actual']) }}/{{ number_format($mt['target']) }}
-                    </span>
+                    <div class="h-1 bg-slate-200 dark:bg-slate-600 rounded-full overflow-hidden">
+                        <div class="h-full {{ $barColor }} rounded-full transition-all" style="width: {{ $pct }}%"></div>
+                    </div>
                 </div>
                 @endforeach
             </div>
@@ -156,36 +168,58 @@
         </div>
 
         {{-- Reject Stats --}}
-        <div class="bg-white dark:bg-slate-800 rounded-xl p-3 shadow-sm border border-slate-100 dark:border-slate-700">
-            <div class="flex items-center justify-between mb-1">
+        <div class="bg-white dark:bg-slate-800 rounded-xl p-3 shadow-sm border border-slate-100 dark:border-slate-700 flex flex-col">
+            <div class="flex items-center justify-between mb-2">
                 <div>
                     <h3 class="text-sm font-semibold text-slate-800 dark:text-white">Reject Hari Ini</h3>
                     <p class="text-[10px] text-slate-400">Defect / produk reject</p>
                 </div>
                 @if($todayReject > 0)
                 <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-50 dark:bg-red-900/20 text-red-500">
-                    High Alert
+                    ⚠ High Alert
+                </span>
+                @else
+                <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400">
+                    ✓ All Good
                 </span>
                 @endif
             </div>
-            <div class="flex items-center justify-center gap-6 py-2">
-                <div class="text-center">
-                    <p id="stat-reject-count" class="text-3xl font-black {{ $todayReject > 0 ? 'text-red-500' : 'text-green-500' }}">
-                        {{ number_format($todayReject) }}
-                    </p>
-                    <p class="text-[10px] text-slate-400">unit reject</p>
+
+            @if($todayReject > 0)
+            {{-- Ada reject --}}
+            <div class="flex items-center gap-4 mb-3">
+                <div class="flex-1 bg-red-50 dark:bg-red-900/10 rounded-lg p-2.5 text-center">
+                    <p id="stat-reject-count" class="text-2xl font-black text-red-500">{{ number_format($todayReject) }}</p>
+                    <p class="text-[10px] text-slate-400 mt-0.5">unit reject</p>
                 </div>
-                <div class="h-10 w-px bg-slate-200 dark:bg-slate-600"></div>
-                <div class="text-center">
-                    @if($todayReject > 0)
-                    <p id="stat-reject-pct" class="text-3xl font-black text-red-500">{{ $todayRejectPct }}%</p>
-                    <p class="text-[10px] text-slate-400">reject rate</p>
-                    @else
-                    <p class="text-2xl font-black text-green-500">✓</p>
-                    <p class="text-[10px] text-green-600 dark:text-green-400">Tidak ada reject</p>
-                    @endif
+                <div class="flex-1 bg-red-50 dark:bg-red-900/10 rounded-lg p-2.5 text-center">
+                    <p id="stat-reject-pct" class="text-2xl font-black text-red-500">{{ $todayRejectPct }}%</p>
+                    <p class="text-[10px] text-slate-400 mt-0.5">reject rate</p>
                 </div>
             </div>
+            <div class="mt-auto">
+                <div class="flex justify-between text-[10px] text-slate-400 mb-1">
+                    <span>Defect rate</span>
+                    <span>{{ $todayRejectPct }}%</span>
+                </div>
+                <div class="h-1.5 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
+                    <div class="h-full bg-red-500 rounded-full transition-all" style="width: {{ min($todayRejectPct, 100) }}%"></div>
+                </div>
+            </div>
+            @else
+            {{-- Tidak ada reject --}}
+            <div class="flex flex-col items-center justify-center flex-1 py-3">
+                <div class="w-11 h-11 rounded-full bg-green-50 dark:bg-green-900/20 flex items-center justify-center mb-2">
+                    <svg class="w-6 h-6 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
+                    </svg>
+                </div>
+                <p id="stat-reject-count" class="hidden">0</p>
+                <p id="stat-reject-pct" class="hidden">0</p>
+                <p class="text-sm font-semibold text-green-600 dark:text-green-400">Tidak ada reject</p>
+                <p class="text-[10px] text-slate-400 mt-0.5">Produksi berjalan lancar hari ini</p>
+            </div>
+            @endif
         </div>
     </div>
 
