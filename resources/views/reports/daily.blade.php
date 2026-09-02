@@ -10,6 +10,7 @@
     {{-- Filter Date --}}
     <div class="bg-white dark:bg-slate-800 rounded-2xl p-5 shadow-sm border border-slate-100 dark:border-slate-700">
         <form method="GET" class="flex flex-wrap gap-4 items-end">
+            @if(!empty($deptFilter))<input type="hidden" name="department" value="{{ $deptFilter }}">@endif
             <div>
                 <label class="block text-xs font-medium text-slate-500 mb-1">Tanggal</label>
                 <input type="date" name="date" value="{{ $date }}" max="{{ today()->toDateString() }}"
@@ -21,7 +22,8 @@
                 Tampilkan
             </button>
             <div class="flex-1"></div>
-            <a href="{{ route('reports.daily-pdf', ['date' => $date]) }}"
+            @allowedTo('laporan.export')
+            <a href="{{ route('reports.daily-pdf', array_filter(['date' => $date, 'department' => $deptFilter ?? null])) }}"
                class="px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-xl flex items-center gap-2">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -29,6 +31,7 @@
                 </svg>
                 Export PDF
             </a>
+            @endallowedTo
             <button onclick="window.print()"
                     class="px-4 py-2.5 bg-slate-700 hover:bg-slate-800 text-white text-sm font-semibold rounded-xl flex items-center gap-2">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

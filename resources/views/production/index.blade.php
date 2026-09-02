@@ -9,7 +9,8 @@
 
     {{-- Filter Panel --}}
     <div class="bg-white dark:bg-slate-800 rounded-2xl p-5 shadow-sm border border-slate-100 dark:border-slate-700">
-        <form method="GET" action="{{ route('production.index') }}" class="space-y-4">
+        <form method="GET" action="{{ route('production.index') }}" class="space-y-4"
+              data-poll-url="{{ route('api.production.poll') }}">
             <div class="grid grid-cols-2 lg:grid-cols-5 gap-3">
                 <div class="col-span-2 lg:col-span-1">
                     <label class="block text-xs font-medium text-slate-500 mb-1">Cari Produk</label>
@@ -54,25 +55,35 @@
                                   bg-white dark:bg-slate-900 text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
                 </div>
             </div>
+            @if($departments->isNotEmpty())
+            <div class="max-w-xs">
+                <label class="block text-xs font-medium text-slate-500 mb-1">Departemen</label>
+                <select name="department" onchange="this.form.submit()"
+                        class="w-full px-3 py-2.5 text-sm border border-slate-300 dark:border-slate-600 rounded-xl
+                               bg-white dark:bg-slate-900 text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="">Semua Departemen</option>
+                    @foreach($departments as $d)
+                    <option value="{{ $d }}" {{ $deptFilter === $d ? 'selected' : '' }}>{{ $d }}</option>
+                    @endforeach
+                </select>
+            </div>
+            @endif
             <div class="flex items-center gap-2">
-                <button type="submit"
-                        class="px-3 sm:px-5 py-2 sm:py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl transition-colors whitespace-nowrap">
-                    Filter
-                </button>
+                <button type="submit" class="hidden">Filter</button>
                 <a href="{{ route('production.index') }}"
                    class="px-3 sm:px-5 py-2 sm:py-2.5 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600
                           text-slate-700 dark:text-slate-300 text-sm font-semibold rounded-xl transition-colors whitespace-nowrap">
                     Reset
                 </a>
                 <div class="flex-1"></div>
-                @if(!auth()->user()->isVisitor() && !auth()->user()->isSupervisor())
-                <a href="{{ route('production.create') }}"
+                @if(\App\Support\MenuAccess::can(auth()->user(), 'input-produksi'))
+                <button type="button" id="prod-input-open"
                    class="px-3 sm:px-5 py-2 sm:py-2.5 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold rounded-xl transition-colors flex items-center gap-1.5 whitespace-nowrap">
                     <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
                     </svg>
                     Input Baru
-                </a>
+                </button>
                 @endif
             </div>
         </form>
@@ -80,8 +91,8 @@
 
     @php $fmtQty = fn($v) => fmod((float)$v, 1) == 0 ? number_format($v) : number_format($v, 1); @endphp
 
+<div id="prod-list-area" class="space-y-5">
     {{-- Summary Bar --}}
-    @if($totalCount > 0)
     @php $summaryLabel = now()->translatedFormat('d F Y'); @endphp
     <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-100 dark:border-slate-700 shadow-sm overflow-hidden">
         <div class="px-4 py-1.5 border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/40">
@@ -103,19 +114,19 @@
                     </div>
                 </div>
             </div>
-            {{-- Tanki --}}
-            <div class="px-3 py-2.5 text-center border-b sm:border-b-0 sm:border-r border-slate-100 dark:border-slate-700">
-                <p class="text-[10px] font-medium text-slate-400 mb-1.5">Total Tangki</p>
-                <div class="flex items-baseline justify-center gap-1">
-                    <p class="text-sm font-bold text-slate-700 dark:text-white">{{ $fmtQty($totalTanki) }}</p>
-                    <span class="text-[10px] text-slate-400">U</span>
-                </div>
-            </div>
             {{-- Cover --}}
             <div class="px-3 py-2.5 text-center border-r border-b sm:border-b-0 border-slate-100 dark:border-slate-700">
                 <p class="text-[10px] font-medium text-slate-400 mb-1.5">Total Cover</p>
                 <div class="flex items-baseline justify-center gap-1">
                     <p class="text-sm font-bold text-slate-700 dark:text-white">{{ $fmtQty($totalCover) }}</p>
+                    <span class="text-[10px] text-slate-400">U</span>
+                </div>
+            </div>
+            {{-- Tanki --}}
+            <div class="px-3 py-2.5 text-center border-b sm:border-b-0 sm:border-r border-slate-100 dark:border-slate-700">
+                <p class="text-[10px] font-medium text-slate-400 mb-1.5">Total Tangki</p>
+                <div class="flex items-baseline justify-center gap-1">
+                    <p class="text-sm font-bold text-slate-700 dark:text-white">{{ $fmtQty($totalTanki) }}</p>
                     <span class="text-[10px] text-slate-400">U</span>
                 </div>
             </div>
@@ -129,7 +140,6 @@
             </div>
         </div>
     </div>
-    @endif
 
     {{-- Info pagination --}}
     @if($dates->total() > 0)
@@ -324,7 +334,7 @@
                                           d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
                                 </svg>
                             </a>
-                            @unless(auth()->user()->isVisitor())
+                            @allowedTo('riwayat-produksi.edit')
                             <a href="{{ route('production.edit', $log) }}"
                                class="p-1 text-slate-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-lg transition-colors"
                                title="Edit">
@@ -333,7 +343,9 @@
                                           d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
                                 </svg>
                             </a>
-                            <form method="POST" action="{{ route('production.destroy', $log) }}" class="inline">
+                            @endallowedTo
+                            @allowedTo('riwayat-produksi.delete')
+                            <form method="POST" action="{{ route('production.destroy', $log) }}" class="inline" data-ajax="delete">
                                 @csrf @method('DELETE')
                                 <button type="submit"
                                         data-confirm="Hapus data produksi {{ $log->product->name ?? '' }} tanggal {{ $log->production_date->format('d/m/Y') }}?"
@@ -345,7 +357,7 @@
                                     </svg>
                                 </button>
                             </form>
-                            @endunless
+                            @endallowedTo
                         </div>
 
                     </div>
@@ -365,7 +377,7 @@
         </svg>
         <p class="text-slate-500 dark:text-slate-400 font-medium">Tidak ada data produksi</p>
         <p class="text-slate-400 text-sm mt-1">Coba ubah filter pencarian atau tambah data baru</p>
-        @if(!auth()->user()->isVisitor() && !auth()->user()->isSupervisor())
+        @if(\App\Support\MenuAccess::can(auth()->user(), 'input-produksi'))
         <a href="{{ route('production.create') }}"
            class="mt-4 inline-block px-5 py-2 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700">
             Input Produksi Sekarang
@@ -373,6 +385,7 @@
         @endif
     </div>
     @endforelse
+</div>{{-- #prod-list-area --}}
 
 
     {{-- Chat Admin (Operator only) --}}
@@ -461,9 +474,160 @@
     @endif
 
 </div>
+
+{{-- ===== Modal Input Produksi (iframe) ===== --}}
+@if(\App\Support\MenuAccess::can(auth()->user(), 'input-produksi'))
+<div id="prod-input-modal"
+     class="fixed inset-0 z-80 hidden items-center justify-center p-3 sm:p-4"
+     aria-hidden="true">
+    {{-- Overlay --}}
+    <div id="prod-input-backdrop"
+         class="absolute inset-0 bg-black/60 opacity-0 transition-opacity duration-300 ease-out"
+         style="will-change:opacity"></div>
+
+    {{-- Box --}}
+    <div id="prod-input-box"
+         class="relative w-full max-w-3xl max-h-[92vh] flex flex-col bg-white dark:bg-slate-800 rounded-2xl shadow-2xl
+                overflow-hidden opacity-0 translate-y-6 scale-95"
+         style="will-change:transform,opacity;transition:transform .34s cubic-bezier(.16,1,.3,1),opacity .28s ease-out">
+
+        {{-- Header --}}
+        <div class="flex items-center justify-between px-5 py-4 bg-linear-to-r from-blue-600 to-blue-700 shrink-0">
+            <div>
+                <h2 class="text-base font-bold text-white leading-tight">Form Input Produksi Harian</h2>
+                <p class="text-blue-100 text-xs mt-0.5">Isi data produksi dengan lengkap</p>
+            </div>
+            <button type="button" data-modal-close
+                    class="p-1.5 text-white/80 hover:text-white hover:bg-white/15 rounded-lg transition-colors" title="Tutup">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+            </button>
+        </div>
+
+        {{-- Isi: iframe form create (iframe menangani scroll internal) --}}
+        <div class="bg-white dark:bg-slate-800">
+            <iframe id="prod-input-frame" title="Input Produksi"
+                    class="w-full block border-0" style="height:76vh"></iframe>
+        </div>
+    </div>
+</div>
+@endif
 @endsection
 
 @push('scripts')
+<script>
+/* ── Modal "Input Baru" (iframe form create, tanpa pindah halaman) ── */
+(function () {
+    var openBtn  = document.getElementById('prod-input-open');
+    var modal    = document.getElementById('prod-input-modal');
+    if (!openBtn || !modal) return;
+
+    var backdrop = document.getElementById('prod-input-backdrop');
+    var box      = document.getElementById('prod-input-box');
+    var frame    = document.getElementById('prod-input-frame');
+    var CREATE_URL = '{{ route('production.create') }}?modal=1';
+    var changed  = false;
+
+    function openModal() {
+        changed = false;
+        if (!frame.src) frame.src = CREATE_URL; // muat form sekali saat pertama dibuka
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+        modal.setAttribute('aria-hidden', 'false');
+        document.body.style.overflow = 'hidden';
+        requestAnimationFrame(function () {
+            requestAnimationFrame(function () {
+                backdrop.classList.remove('opacity-0');
+                box.classList.remove('opacity-0', 'translate-y-6', 'scale-95');
+            });
+        });
+    }
+
+    function closeModal() {
+        backdrop.classList.add('opacity-0');
+        box.classList.add('opacity-0', 'translate-y-6', 'scale-95');
+        document.body.style.overflow = '';
+        modal.setAttribute('aria-hidden', 'true');
+        setTimeout(function () {
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+            // Segarkan daftar bila ada data baru yang disimpan dari modal
+            if (changed && typeof window.refreshProdList === 'function') {
+                window.refreshProdList();
+            }
+        }, 300);
+    }
+
+    openBtn.addEventListener('click', openModal);
+    backdrop.addEventListener('click', closeModal);
+    modal.querySelectorAll('[data-modal-close]').forEach(function (b) {
+        b.addEventListener('click', closeModal);
+    });
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && modal.classList.contains('flex')) closeModal();
+    });
+
+    // Pesan dari iframe (form create dalam mode modal)
+    window.addEventListener('message', function (e) {
+        var msg = e.data || {};
+        if (msg.type === 'prod-modal-close') {
+            closeModal();
+        } else if (msg.type === 'prod-changed') {
+            changed = true;
+            // Refresh instan di belakang modal supaya terlihat begitu ditutup
+            if (typeof window.refreshProdList === 'function') window.refreshProdList();
+        }
+    });
+
+    // Bersihkan saat pindah halaman via SPA
+    document.addEventListener('spa:leave', function () {
+        document.body.style.overflow = '';
+    }, { once: true });
+}());
+
+/* ── Realtime poll: deteksi data produksi baru dari komputer lain ── */
+(function () {
+    var pollUrl = (document.querySelector('[data-poll-url]') || {}).dataset.pollUrl;
+    if (!pollUrl) return;
+
+    clearInterval(window._prodPollTimer);
+    var _prodTs    = null;
+    var _prodCount = null;
+
+    async function prodPoll() {
+        if (document.hidden) return;
+        try {
+            var r = await fetch(pollUrl, {
+                headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
+                credentials: 'same-origin'
+            });
+            if (!r.ok) return;
+            var d = await r.json();
+            if (_prodTs === null) {
+                _prodTs = d.ts; _prodCount = d.count; return; // set baseline, jangan refresh
+            }
+            if (d.ts !== _prodTs || d.count !== _prodCount) {
+                _prodTs = d.ts; _prodCount = d.count;
+                // Refresh daftar via AJAX (tanpa reload halaman). Fallback ke
+                // navigate/reload hanya bila fungsi refresh belum tersedia.
+                if (typeof window.refreshProdList === 'function') window.refreshProdList();
+                else if (typeof navigate === 'function') navigate(window.location.href, false);
+                else location.reload();
+            }
+        } catch(e) {}
+    }
+
+    prodPoll();
+    window._prodPollTimer = setInterval(prodPoll, 15000);
+
+    document.addEventListener('spa:leave', function () {
+        clearInterval(window._prodPollTimer);
+        window._prodPollTimer = null;
+    }, { once: true });
+}());
+</script>
+
 <script>
 function prodChatPanel() {
     return {
@@ -542,65 +706,4 @@ function prodChatPanel() {
 }
 </script>
 
-<script>
-(function () {
-    const POLL_URL = '{{ route("api.production.poll") }}';
-    const INTERVAL = 15000;
-
-    let lastTs    = null;
-    let lastCount = null;
-    let banner    = null;
-
-    function showBanner() {
-        if (banner) return;
-        banner = document.createElement('div');
-        banner.id = 'prod-realtime-banner';
-        banner.style.cssText = 'position:fixed;bottom:1.25rem;left:50%;transform:translateX(-50%);z-index:9999;animation:slideUp .3s ease';
-        banner.innerHTML = `
-            <button onclick="window.location.reload()"
-                    class="flex items-center gap-2.5 px-5 py-3 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold
-                           rounded-2xl shadow-xl transition-colors whitespace-nowrap">
-                <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                          d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
-                </svg>
-                Data produksi diperbarui — klik untuk muat ulang
-            </button>`;
-        document.body.appendChild(banner);
-    }
-
-    async function poll() {
-        try {
-            const res  = await fetch(POLL_URL, { credentials: 'same-origin' });
-            if (!res.ok) return;
-            const data = await res.json();
-
-            if (lastTs === null) {
-                lastTs    = data.ts;
-                lastCount = data.count;
-                return;
-            }
-
-            if (data.ts !== lastTs || data.count !== lastCount) {
-                showBanner();
-            }
-
-            lastTs    = data.ts;
-            lastCount = data.count;
-        } catch (_) {}
-    }
-
-    // Inisialisasi setelah 2 detik, lalu poll tiap 15 detik
-    setTimeout(function () {
-        poll();
-        setInterval(poll, INTERVAL);
-    }, 2000);
-}());
-</script>
-<style>
-@keyframes slideUp {
-    from { opacity: 0; transform: translateX(-50%) translateY(12px); }
-    to   { opacity: 1; transform: translateX(-50%) translateY(0); }
-}
-</style>
 @endpush

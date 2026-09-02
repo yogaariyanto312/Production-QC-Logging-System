@@ -161,7 +161,7 @@
                           hover:bg-slate-200 dark:hover:bg-slate-600 rounded-xl font-semibold text-sm transition-colors">
                     ← Kembali
                 </a>
-                @unless(auth()->user()->isVisitor())
+                @unless(auth()->user()->isVisitor() || auth()->user()->isSupervisor() || auth()->user()->isMandor())
                 <a href="{{ route('production.edit', $productionLog) }}"
                    class="flex-1 py-3 text-center text-white bg-amber-500 hover:bg-amber-600 rounded-xl font-semibold text-sm transition-colors">
                     Edit Data

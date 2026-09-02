@@ -480,19 +480,18 @@
                     </svg>
                     Simpan
                 </button>
-                <form method="POST" action="{{ route('developer.bot-settings.send-daily-report') }}" class="inline">
-                    @csrf
-                    <button type="submit"
-                            onclick="return confirm('Kirim laporan hari ini ke semua bot yang aktif?')"
-                            class="flex items-center gap-2 px-5 py-2.5 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600
-                                   text-slate-700 dark:text-slate-300 text-sm font-semibold rounded-xl transition-colors">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                  d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/>
-                        </svg>
-                        Kirim Sekarang
-                    </button>
-                </form>
+                <button type="submit"
+                        formaction="{{ route('developer.bot-settings.send-daily-report') }}"
+                        data-confirm="Kirim laporan produksi hari ini ke semua bot yang aktif?"
+                        data-confirm-title="Kirim Laporan Harian"
+                        class="flex items-center gap-2 px-5 py-2.5 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600
+                               text-slate-700 dark:text-slate-300 text-sm font-semibold rounded-xl transition-colors">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/>
+                    </svg>
+                    Kirim Sekarang
+                </button>
             </div>
         </div>
     </div>
@@ -684,7 +683,8 @@
                 @csrf
                 <input type="hidden" name="type" value="telegram">
                 <button type="submit"
-                        @click="return confirm('Kirim test message ke Telegram?')"
+                        data-confirm="Kirim test message ke Telegram sekarang?"
+                        data-confirm-title="Test Telegram"
                         class="flex items-center gap-2 px-5 py-2.5 bg-sky-50 dark:bg-sky-900/20 hover:bg-sky-100 dark:hover:bg-sky-900/40
                                text-sky-700 dark:text-sky-400 border border-sky-200 dark:border-sky-800
                                text-sm font-semibold rounded-xl transition-colors">
@@ -700,7 +700,8 @@
                 @csrf
                 <input type="hidden" name="type" value="discord">
                 <button type="submit"
-                        @click="return confirm('Kirim test message ke Discord?')"
+                        data-confirm="Kirim test message ke Discord sekarang?"
+                        data-confirm-title="Test Discord"
                         class="flex items-center gap-2 px-5 py-2.5 bg-indigo-50 dark:bg-indigo-900/20 hover:bg-indigo-100 dark:hover:bg-indigo-900/40
                                text-indigo-700 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800
                                text-sm font-semibold rounded-xl transition-colors">
@@ -822,7 +823,7 @@
                 <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
                     Bio <span class="ml-1 text-xs font-normal text-slate-400">(maks 500 karakter)</span>
                 </label>
-                <textarea name="bio" rows="3" placeholder="Tuliskan bio singkat..."
+                <textarea name="bio" rows="8" placeholder="Tuliskan bio singkat..."
                           class="w-full px-4 py-2.5 rounded-xl bg-white dark:bg-slate-900 text-slate-800 dark:text-white
                                  border border-slate-300 dark:border-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none text-sm">{{ old('bio', auth()->user()->bio) }}</textarea>
             </div>
@@ -973,7 +974,7 @@ if (aboutInput) {
     aboutInput.addEventListener('change', function () {
         const file = this.files[0];
         if (!file) return;
-        if (file.size > 5 * 1024 * 1024) { alert('Ukuran foto maksimal 5 MB.'); this.value = ''; return; }
+        if (file.size > 5 * 1024 * 1024) { window.appAlert('Ukuran file foto maksimal 5 MB. Silakan pilih file yang lebih kecil.', { title: 'File Terlalu Besar' }); this.value = ''; return; }
         const preview     = document.getElementById('about-avatar-preview');
         const placeholder = document.getElementById('about-avatar-placeholder');
         const reader      = new FileReader();

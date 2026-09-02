@@ -423,10 +423,11 @@
                 {{-- Hapus — developer only --}}
                 @if(auth()->user()->isDeveloper())
                 <form method="POST" action="{{ route('about.changelog.destroy', $log) }}"
-                      onsubmit="return confirm('Hapus entry ini?')"
                       class="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
                     @csrf @method('DELETE')
                     <button type="submit"
+                            data-confirm="Hapus entry changelog ini?"
+                            data-confirm-title="Hapus Changelog"
                             class="p-1.5 text-slate-300 hover:text-rose-500 dark:text-slate-600 dark:hover:text-rose-400 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-colors">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"

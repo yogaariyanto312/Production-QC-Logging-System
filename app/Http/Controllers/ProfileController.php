@@ -96,6 +96,48 @@ class ProfileController extends Controller
         return back()->with('success', 'Profil berhasil diperbarui.');
     }
 
+    public function logoutOtherDevices(Request $request)
+    {
+        $request->validate([
+            'current_password' => ['required', 'string'],
+        ], [
+            'current_password.required' => 'Password saat ini wajib diisi.',
+        ]);
+
+        $user = auth()->user();
+
+        if (!Hash::check($request->current_password, $user->password)) {
+            return back()->withErrors(['logout_others' => 'Password saat ini tidak sesuai.']);
+        }
+
+        // Batalkan sesi di semua perangkat lain; perangkat ini tetap login.
+        auth()->logoutOtherDevices($request->current_password);
+
+        ActivityLog::record('update', "Logout dari semua perangkat lain: {$user->name}");
+
+        return back()->with('success', 'Berhasil keluar dari semua perangkat lain.');
+    }
+
+    public function updateAvatar(Request $request)
+    {
+        $user = auth()->user();
+        $request->validate(['avatar' => ['nullable', 'url', 'max:1000']]);
+
+        if ($user->avatar && !str_starts_with($user->avatar, 'http')) {
+            Storage::disk('public')->delete($user->avatar);
+        }
+
+        $user->avatar = $request->avatar ?: null;
+        $user->save();
+
+        ActivityLog::record('update', "Update avatar profil: {$user->name}");
+
+        if ($request->expectsJson()) {
+            return response()->json(['ok' => true]);
+        }
+        return back()->with('success', 'Foto profil berhasil diperbarui.');
+    }
+
     public function updateAboutInfo(Request $request)
     {
         $user = auth()->user();

@@ -42,8 +42,14 @@ class ActivityLog extends Model
             'created_at' => now(),
         ]);
 
-        try {
-            BotNotificationService::notify($action, $description, auth()->user());
-        } catch (\Throwable) {}
+        // Kirim notifikasi bot SETELAH response terkirim ke browser agar aksi
+        // (simpan/hapus) terasa instan — panggilan HTTP ke Telegram/Discord tidak
+        // lagi menahan response.
+        $user = auth()->user();
+        dispatch(function () use ($action, $description, $user) {
+            try {
+                BotNotificationService::notify($action, $description, $user);
+            } catch (\Throwable) {}
+        })->afterResponse();
     }
 }

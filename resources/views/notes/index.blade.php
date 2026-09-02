@@ -77,6 +77,12 @@
                 {{-- Top color bar --}}
                 <div class="h-1.5 w-full" :style="`background-color: ${colorHex(note.color)}`"></div>
 
+                {{-- Photo thumbnail --}}
+                <div x-show="note.photo_url" class="relative overflow-hidden" style="max-height:120px">
+                    <img :src="note.photo_url" class="w-full object-cover" style="max-height:120px">
+                    <div class="absolute inset-0 bg-linear-to-t from-slate-800/60 to-transparent"></div>
+                </div>
+
                 <div class="p-4">
                     {{-- Title row --}}
                     <div class="flex items-start justify-between gap-2 mb-2">
@@ -89,9 +95,9 @@
                         </span>
                     </div>
 
-                    {{-- Badge: dari siapa / untuk siapa --}}
-                    <div x-show="isAssigned(note) || note.target_user_id" class="mb-2">
-                        {{-- Catatan yang diterima dari orang lain --}}
+                    {{-- Badge: dari siapa / untuk siapa / broadcast --}}
+                    <div x-show="isAssigned(note) || note.target_user_id || note.is_broadcast" class="mb-2">
+                        {{-- Diterima dari orang lain (termasuk broadcast) --}}
                         <span x-show="isAssigned(note)"
                               class="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full
                                      bg-purple-900/40 text-purple-300">
@@ -101,8 +107,18 @@
                             </svg>
                             <span x-text="'Dari ' + roleLabel(note.user?.role) + ': ' + (note.user?.name ?? '?')"></span>
                         </span>
-                        {{-- Catatan yang dikirim ke orang lain --}}
-                        <span x-show="!isAssigned(note) && note.target_user_id"
+                        {{-- Broadcast badge (untuk sender) --}}
+                        <span x-show="note.is_broadcast && note.user_id === userId"
+                              class="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full
+                                     bg-orange-900/40 text-orange-300">
+                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                      d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z"/>
+                            </svg>
+                            Semua User
+                        </span>
+                        {{-- Dikirim ke satu user tertentu --}}
+                        <span x-show="!isAssigned(note) && note.target_user_id && !note.is_broadcast"
                               class="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full
                                      bg-blue-900/40 text-blue-300">
                             <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -146,11 +162,11 @@
 
         <div @click="closeModal()" class="absolute inset-0 bg-black/60 backdrop-blur-sm"></div>
 
-        <div class="relative w-full max-w-2xl bg-slate-900 rounded-2xl shadow-2xl border border-slate-700 overflow-hidden"
+        <div class="relative w-full max-w-2xl max-h-[90vh] flex flex-col bg-slate-900 rounded-2xl shadow-2xl border border-slate-700 overflow-hidden"
              @click.stop x-transition>
 
             {{-- Header --}}
-            <div class="flex items-center gap-3 px-5 py-4 border-b border-slate-800">
+            <div class="shrink-0 flex items-center gap-3 px-5 py-4 border-b border-slate-800">
                 {{-- Color dot --}}
                 <div class="w-3 h-3 rounded-full shrink-0" :style="`background-color: ${colorHex(form.color)}`"></div>
                 <h2 class="flex-1 text-white font-bold" x-text="editId ? 'Edit Catatan' : 'Catatan Baru'"></h2>
@@ -162,7 +178,7 @@
                 </button>
             </div>
 
-            <div class="p-5">
+            <div class="p-5 overflow-y-auto flex-1 min-h-0 no-scrollbar">
 
                 {{-- Info: catatan dari admin (read-only untuk operator) --}}
                 <div x-show="readOnly"
@@ -204,6 +220,7 @@
                                     class="w-full px-3 py-2.5 bg-slate-800 border border-slate-700 text-slate-200 text-sm
                                            rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer">
                                 <option value="">— Catatan pribadi —</option>
+                                <option value="all">— Semua User —</option>
                                 <template x-for="t in targets" :key="t.id">
                                     <option :value="t.id"
                                             x-text="roleLabel(t.role) + ': ' + t.name + (t.department ? ' (' + t.department + ')' : '')"></option>
@@ -282,10 +299,87 @@
                     </div>
 
                 </div>
+
+                {{-- ── Foto Bukti ── --}}
+                <div x-show="!readOnly || photoUrl" class="mt-4">
+                    <label class="block text-xs font-medium text-slate-400 mb-2">Foto Bukti</label>
+
+                    {{-- Preview foto yang sudah ada / baru dipilih — tinggi mengikuti rasio
+                         asli gambar (bukan dipotong/di-crop); kalau gambarnya panjang,
+                         modal-nya sendiri yang scroll (lihat overflow-y-auto di atas) --}}
+                    <div x-show="photoPreview || photoUrl" class="relative mb-2 rounded-xl overflow-hidden border border-slate-700">
+                        <img :src="photoPreview || photoUrl" class="w-full h-auto">
+                        <button x-show="!readOnly" @click="clearPhoto()" type="button"
+                                class="absolute top-2 right-2 w-7 h-7 bg-red-600 hover:bg-red-700 rounded-full flex items-center justify-center shadow-lg transition-colors">
+                            <svg class="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                            </svg>
+                        </button>
+                    </div>
+
+                    {{-- Tombol upload / kamera (hanya saat belum ada foto) --}}
+                    <div x-show="!readOnly && !photoPreview && !photoUrl" class="flex gap-2">
+                        <label class="flex-1 flex items-center justify-center gap-2 px-3 py-3
+                                      bg-slate-800 border border-dashed border-slate-600 rounded-xl cursor-pointer
+                                      hover:bg-slate-700 hover:border-slate-500 transition-colors">
+                            <svg class="w-4 h-4 text-slate-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                      d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01
+                                         M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                            </svg>
+                            <span class="text-xs text-slate-400">Upload Foto</span>
+                            <input type="file" accept="image/jpeg,image/png,image/webp" x-ref="fileInput"
+                                   class="hidden" @change="onFileSelect($event)">
+                        </label>
+
+                        <button @click="openCamera()" type="button"
+                                class="flex items-center gap-2 px-4 py-3 bg-slate-800 border border-slate-600 rounded-xl
+                                       hover:bg-slate-700 hover:border-slate-500 transition-colors shrink-0">
+                            <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                      d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22
+                                         A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/>
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/>
+                            </svg>
+                            <span class="text-xs text-slate-400">Kamera</span>
+                        </button>
+                        {{-- Fallback input kamera mobile --}}
+                        <input type="file" accept="image/*" capture="environment" x-ref="cameraInput"
+                               class="hidden" @change="onFileSelect($event)">
+                    </div>
+
+                    <p x-show="errors.photo" x-text="errors.photo" class="mt-1 text-xs text-red-400"></p>
+                    <p x-show="!readOnly" class="text-[10px] text-slate-600 mt-1">Maks. 5MB · JPG, PNG, WebP</p>
+                </div>
+            </div>
+
+            {{-- Camera overlay --}}
+            <div x-show="showCamera" x-cloak
+                 class="absolute inset-0 z-10 bg-slate-900 rounded-2xl flex flex-col overflow-hidden">
+                <div class="flex items-center justify-between px-5 py-4 border-b border-slate-800 shrink-0">
+                    <span class="text-white font-semibold text-sm">Ambil Foto</span>
+                    <button @click="stopCamera()" type="button"
+                            class="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                    </button>
+                </div>
+                <div class="flex-1 bg-black relative overflow-hidden">
+                    <video x-ref="cameraVideo" autoplay playsinline muted
+                           class="w-full h-full object-cover"></video>
+                </div>
+                <div class="shrink-0 px-5 py-5 flex justify-center bg-slate-900">
+                    <button @click="capturePhoto()" type="button"
+                            class="w-16 h-16 rounded-full bg-white border-4 border-slate-400
+                                   hover:border-blue-400 transition-colors flex items-center justify-center shadow-xl">
+                        <div class="w-11 h-11 bg-white rounded-full border-2 border-slate-300"></div>
+                    </button>
+                </div>
             </div>
 
             {{-- Footer --}}
-            <div class="flex items-center justify-between px-5 py-4 border-t border-slate-800 bg-slate-950/30">
+            <div class="shrink-0 flex items-center justify-between px-5 py-4 border-t border-slate-800 bg-slate-950/30">
                 <button x-show="!!editId && !readOnly" @click="deleteNote()" type="button"
                         class="flex items-center gap-1.5 px-3 py-1.5 text-sm text-red-400 hover:text-red-300
                                hover:bg-red-900/20 rounded-lg transition-colors">
@@ -335,6 +429,14 @@ function notesApp() {
         errors:      {},
         form: { title: '', content: '', due_date: '', color: 'blue', is_done: false, target_user_id: '', from_name: '', from_role: '' },
 
+        // Foto state
+        photoFile:       null,
+        photoPreview:    null,
+        photoUrl:        null,
+        removePhotoFlag: false,
+        showCamera:      false,
+        cameraStream:    null,
+
         userId:  {{ auth()->id() }},
         targets: @json($targets),
 
@@ -346,7 +448,7 @@ function notesApp() {
         },
 
         roleLabel(role) {
-            return { developer: 'Developer', admin: 'Admin', supervisor: 'Supervisor', operator: 'Operator' }[role] ?? (role ?? '');
+            return { developer: 'Developer', admin: 'Admin', supervisor: 'Supervisor', mandor: 'Mandor', operator: 'Operator', visitor: 'Visitor' }[role] ?? (role ?? '');
         },
 
         get stats() {
@@ -440,7 +542,7 @@ function notesApp() {
 
 
         isAssigned(note) {
-            return note.user_id !== this.userId && note.target_user_id === this.userId;
+            return note.user_id !== this.userId && (note.target_user_id === this.userId || note.is_broadcast);
         },
 
         get readOnly() {
@@ -451,15 +553,17 @@ function notesApp() {
 
         openModal(note = null) {
             this.errors = {};
+            this._resetPhoto();
             if (note) {
-                this.editId = note.id;
-                this.form   = {
+                this.editId  = note.id;
+                this.photoUrl = note.photo_url || null;
+                this.form    = {
                     title:          note.title,
                     content:        note.content || '',
                     due_date:       note.due_date ? note.due_date.slice(0, 10) : '',
                     color:          note.color || 'blue',
                     is_done:        note.is_done,
-                    target_user_id: note.target_user_id || '',
+                    target_user_id: note.is_broadcast ? 'all' : (note.target_user_id || ''),
                     from_name:      note.user?.name || '',
                     from_role:      note.user?.role ? this.roleLabel(note.user.role) + ' — ' : '',
                 };
@@ -472,34 +576,128 @@ function notesApp() {
         },
 
         closeModal() {
+            this.stopCamera();
+            this._resetPhoto();
             this.showModal = false;
             this.editId    = null;
+        },
+
+        _resetPhoto() {
+            if (this.photoPreview) URL.revokeObjectURL(this.photoPreview);
+            this.photoFile       = null;
+            this.photoPreview    = null;
+            this.photoUrl        = null;
+            this.removePhotoFlag = false;
+        },
+
+        onFileSelect(event) {
+            const file = event.target.files[0];
+            event.target.value = '';
+            if (!file) return;
+            if (file.size > 5 * 1024 * 1024) {
+                this.errors.photo = 'Foto terlalu besar, maksimal 5MB';
+                return;
+            }
+            delete this.errors.photo;
+            if (this.photoPreview) URL.revokeObjectURL(this.photoPreview);
+            this.photoFile       = file;
+            this.photoPreview    = URL.createObjectURL(file);
+            this.removePhotoFlag = false;
+        },
+
+        clearPhoto() {
+            if (this.photoPreview) URL.revokeObjectURL(this.photoPreview);
+            this.photoFile       = null;
+            this.photoPreview    = null;
+            this.removePhotoFlag = !!this.photoUrl;
+            this.photoUrl        = null;
+        },
+
+        async openCamera() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+                this.cameraStream = stream;
+                this.showCamera   = true;
+                this.$nextTick(() => {
+                    if (this.$refs.cameraVideo) {
+                        this.$refs.cameraVideo.srcObject = stream;
+                    }
+                });
+            } catch (_) {
+                // Fallback: buka file picker kamera (mobile)
+                this.$refs.cameraInput?.click();
+            }
+        },
+
+        capturePhoto() {
+            const video = this.$refs.cameraVideo;
+            if (!video) return;
+            const canvas = document.createElement('canvas');
+            canvas.width  = video.videoWidth;
+            canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0);
+            canvas.toBlob((blob) => {
+                if (!blob) return;
+                if (this.photoPreview) URL.revokeObjectURL(this.photoPreview);
+                this.photoFile    = new File([blob], 'kamera.jpg', { type: 'image/jpeg' });
+                this.photoPreview = URL.createObjectURL(blob);
+                this.removePhotoFlag = false;
+                this.stopCamera();
+            }, 'image/jpeg', 0.88);
+        },
+
+        stopCamera() {
+            if (this.cameraStream) {
+                this.cameraStream.getTracks().forEach(t => t.stop());
+                this.cameraStream = null;
+            }
+            this.showCamera = false;
         },
 
         async save() {
             this.errors = {};
             if (!this.readOnly && !this.form.title.trim()) { this.errors.title = 'Judul wajib diisi'; return; }
             this.saving = true;
-            const token   = document.querySelector('meta[name=csrf-token]').content;
-            const headers = { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': token, 'Accept': 'application/json' };
-            const body    = this.readOnly
-                ? JSON.stringify({ is_done: !!this.form.is_done })
-                : JSON.stringify({
-                    title:          this.form.title.trim(),
-                    content:        this.form.content.trim() || null,
-                    due_date:       this.form.due_date || null,
-                    color:          this.form.color,
-                    is_done:        !!this.form.is_done,
-                    target_user_id: this.form.target_user_id || null,
-                });
+            const token = document.querySelector('meta[name=csrf-token]').content;
+
+            // readOnly: hanya update is_done via JSON
+            if (this.readOnly) {
+                try {
+                    const res = await fetch(`${NOTES_BASE}/notes/${this.editId}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': token, 'Accept': 'application/json' },
+                        body: JSON.stringify({ is_done: !!this.form.is_done }),
+                    });
+                    if (res.ok) {
+                        const saved = await res.json();
+                        this.notes = this.notes.map(n => n.id === saved.id ? saved : n);
+                        this.closeModal();
+                    }
+                } catch (_) {}
+                this.saving = false;
+                return;
+            }
+
+            // Selalu pakai FormData agar bisa kirim file foto
+            const fd = new FormData();
+            fd.append('title',   this.form.title.trim());
+            fd.append('content', this.form.content.trim() || '');
+            fd.append('color',   this.form.color);
+            fd.append('is_done', this.form.is_done ? '1' : '0');
+            if (this.form.due_date)       fd.append('due_date',       this.form.due_date);
+            if (this.form.target_user_id) fd.append('target_user_id', this.form.target_user_id);
+            if (this.photoFile)           fd.append('photo',          this.photoFile);
+            if (this.removePhotoFlag)     fd.append('remove_photo',   '1');
+            if (this.editId)              fd.append('_method',        'PUT');
+
             try {
                 const url = this.editId
                     ? `${NOTES_BASE}/notes/${this.editId}`
                     : `${NOTES_BASE}/notes`;
                 const res = await fetch(url, {
-                    method: this.editId ? 'PUT' : 'POST',
-                    headers,
-                    body,
+                    method: 'POST',
+                    headers: { 'X-CSRF-TOKEN': token, 'Accept': 'application/json' },
+                    body: fd,
                 });
                 if (res.ok) {
                     const saved = await res.json();
@@ -517,12 +715,13 @@ function notesApp() {
                         );
                     }
                 }
-            } catch (e) {}
+            } catch (_) {}
             this.saving = false;
         },
 
         async deleteNote() {
-            if (!confirm('Hapus catatan ini?')) return;
+            const ok = await window.appConfirmAsync('Catatan ini akan dihapus permanen.', { title: 'Hapus Catatan?' });
+            if (!ok) return;
             const token = document.querySelector('meta[name=csrf-token]').content;
             const res   = await fetch(`${NOTES_BASE}/notes/${this.editId}`, {
                 method: 'DELETE',

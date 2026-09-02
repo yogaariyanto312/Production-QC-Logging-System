@@ -2,9 +2,13 @@
 
 @section('title', 'Target Produksi')
 @section('page-title', 'Target Produksi')
-@section('page-subtitle', 'Set & pantau target produksi mingguan per produk')
+@section('page-subtitle', 'Set & pantau target produksi per produk')
 
 @section('content')
+@php
+    $canSetTarget    = \App\Support\MenuAccess::can(auth()->user(), 'targets.edit');
+    $canDeleteTarget = \App\Support\MenuAccess::can(auth()->user(), 'targets.delete');
+@endphp
 <div class="space-y-5">
 
     {{-- Flash --}}
@@ -20,28 +24,18 @@
     </div>
     @endif
 
-    <div class="grid grid-cols-1 {{ auth()->user()->isOperator() ? '' : 'lg:grid-cols-3' }} gap-5">
+    <div class="grid grid-cols-1 {{ $canSetTarget ? 'lg:grid-cols-3' : '' }} gap-5">
 
         {{-- ── Kolom kiri: Form tambah target ── --}}
-        @unless(auth()->user()->isOperator())
+        @if($canSetTarget)
         <div class="lg:col-span-1">
             <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 overflow-hidden sticky top-4">
                 <div class="bg-gradient-to-r from-green-600 to-emerald-600 px-5 py-4">
                     <h3 class="text-base font-bold text-white">Set Target</h3>
-                    <p class="text-green-100 text-xs mt-0.5">Target produksi per produk per minggu</p>
+                    <p class="text-green-100 text-xs mt-0.5">Target produksi per produk · tanpa batas waktu</p>
                 </div>
                 <form method="POST" action="{{ route('production.targets.store') }}" class="p-5 space-y-4">
                     @csrf
-
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">Minggu</label>
-                        <input type="week" name="target_week"
-                               value="{{ old('target_week', \Carbon\Carbon::parse($weekStart)->format('Y-\WW')) }}"
-                               class="w-full px-3 py-2.5 text-sm rounded-xl border border-slate-300 dark:border-slate-600
-                                      bg-white dark:bg-slate-900 text-slate-800 dark:text-white
-                                      focus:outline-none focus:ring-2 focus:ring-green-500">
-                        @error('target_week')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
-                    </div>
 
                     <div>
                         <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">Produk</label>
@@ -230,13 +224,12 @@
 
                     async function autoFillSerialFrom() {
                         const productId = document.getElementById('tgt-product-select').value;
-                        const date      = document.querySelector('input[name="target_week"]').value;
                         const fromInput = document.getElementById('tgt-serial-from');
                         const toInput   = document.getElementById('tgt-serial-to');
                         const hint      = document.getElementById('tgt-serial-from-hint');
-                        if (!productId || !date) return;
+                        if (!productId) return;
                         try {
-                            const r = await fetch(`{{ route('api.targets.actual-qty') }}?product_id=${productId}&date=${date}`);
+                            const r = await fetch(`{{ route('api.targets.actual-qty') }}?product_id=${productId}`);
                             if (!r.ok) return;
                             const d = await r.json();
                             const dari = d.actual ?? 0;
@@ -323,11 +316,6 @@
                             autoFillSerialFrom();
                         }
                     });
-                    document.querySelector('input[name="target_week"]').addEventListener('change', function () {
-                        if (!document.getElementById('tgt-section-serial').classList.contains('hidden')) {
-                            autoFillSerialFrom();
-                        }
-                    });
                     </script>
 
                     <div>
@@ -346,25 +334,26 @@
                 </form>
             </div>
         </div>
-        @endunless
+        @endif
 
         {{-- ── Kolom kanan: Tabel target & progres ── --}}
-        <div class="{{ auth()->user()->isOperator() ? '' : 'lg:col-span-2' }} space-y-4">
+        <div class="{{ $canSetTarget ? 'lg:col-span-2' : '' }} space-y-4">
 
             {{-- Foto Jadwal --}}
             <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 overflow-hidden">
                 <div class="flex items-center justify-between px-4 py-3 border-b border-slate-100 dark:border-slate-700">
                     <div>
                         <h3 class="text-sm font-semibold text-slate-800 dark:text-white">Foto Jadwal</h3>
-                        <p class="text-xs text-slate-400">{{ \Carbon\Carbon::parse($date)->translatedFormat('d F Y') }}</p>
+                        <p class="text-xs text-slate-400">Minggu {{ \Carbon\Carbon::parse($weekStart)->translatedFormat('d M') }} – {{ \Carbon\Carbon::parse($weekEnd)->translatedFormat('d M Y') }}</p>
                     </div>
-                    @if($schedulePhoto && !auth()->user()->isOperator())
+                    @if($schedulePhoto && ($canSetTarget || $canDeleteTarget))
                     <div class="flex items-center gap-3">
                         {{-- Ganti --}}
+                        @if($canSetTarget)
                         <form method="POST" action="{{ route('production.targets.schedule-photo.store') }}"
                               enctype="multipart/form-data" id="replacePhotoForm">
                             @csrf
-                            <input type="hidden" name="target_date" value="{{ $date }}">
+                            <input type="hidden" name="target_date" value="{{ $scheduleDate }}">
                             <label class="flex items-center gap-1.5 text-xs text-blue-500 hover:text-blue-700 cursor-pointer font-medium">
                                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -372,15 +361,17 @@
                                 </svg>
                                 Ganti
                                 <input type="file" name="photo" accept="image/*,.pdf" class="hidden"
-                                       onchange="document.getElementById('replacePhotoForm').submit()">
+                                       onchange="showUploadOverlay(); document.getElementById('replacePhotoForm').submit();">
                             </label>
                         </form>
+                        @endif
                         {{-- Hapus --}}
+                        @if($canDeleteTarget)
                         <form method="POST" action="{{ route('production.targets.schedule-photo.destroy') }}">
                             @csrf @method('DELETE')
-                            <input type="hidden" name="target_date" value="{{ $date }}">
+                            <input type="hidden" name="target_date" value="{{ $scheduleDate }}">
                             <button type="submit"
-                                    data-confirm="Hapus foto jadwal tanggal ini?"
+                                    data-confirm="Hapus foto jadwal minggu ini?"
                                     class="flex items-center gap-1.5 text-xs text-red-400 hover:text-red-600 font-medium">
                                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -389,6 +380,7 @@
                                 Hapus
                             </button>
                         </form>
+                        @endif
                     </div>
                     @endif
                 </div>
@@ -426,13 +418,13 @@
                         Diupload oleh {{ $schedulePhoto->uploader->name ?? '-' }} · {{ $schedulePhoto->updated_at->diffForHumans() }}
                     </p>
                 </div>
-                @elseif(!auth()->user()->isOperator())
+                @elseif($canSetTarget)
                 {{-- Upload area --}}
                 <div class="p-4">
                     <form method="POST" action="{{ route('production.targets.schedule-photo.store') }}"
                           enctype="multipart/form-data" id="uploadPhotoForm">
                         @csrf
-                        <input type="hidden" name="target_date" value="{{ $date }}">
+                        <input type="hidden" name="target_date" value="{{ $scheduleDate }}">
                         <label for="photoInput"
                                class="flex flex-col items-center justify-center gap-2 py-6 px-4
                                       border-2 border-dashed border-slate-200 dark:border-slate-600
@@ -449,28 +441,15 @@
                                 <p class="text-xs text-slate-400 mt-0.5">JPG, PNG, WebP, PDF — maks 8 MB</p>
                             </div>
                             <input type="file" id="photoInput" name="photo" accept="image/*,.pdf" class="hidden"
-                                   onchange="document.getElementById('uploadPhotoForm').submit()">
+                                   onchange="showUploadOverlay(); document.getElementById('uploadPhotoForm').submit();">
                         </label>
                     </form>
                     @error('photo')<p class="mt-2 text-xs text-red-500 text-center">{{ $message }}</p>@enderror
                 </div>
                 @else
-                <div class="p-6 text-center text-sm text-slate-400">Belum ada foto jadwal untuk tanggal ini.</div>
+                <div class="p-6 text-center text-sm text-slate-400">Belum ada foto jadwal untuk minggu ini.</div>
                 @endif
             </div>
-
-            {{-- Filter minggu --}}
-            <form method="GET" class="flex items-center gap-3">
-                <input type="week" name="week_start" value="{{ \Carbon\Carbon::parse($weekStart)->format('Y-\WW') }}"
-                       class="px-3 py-2 text-sm rounded-xl border border-slate-300 dark:border-slate-600
-                              bg-white dark:bg-slate-800 text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
-                <button type="submit" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl transition-colors">
-                    Lihat
-                </button>
-                <a href="?" class="px-4 py-2 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-sm font-semibold rounded-xl transition-colors hover:bg-slate-200">
-                    Minggu Ini
-                </a>
-            </form>
 
             {{-- Summary card --}}
             <div class="grid grid-cols-3 gap-3">
@@ -495,7 +474,7 @@
             {{-- Tabel target --}}
             @if($targets->isEmpty())
             <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 p-12 text-center">
-                <p class="text-slate-400 text-sm">Belum ada target untuk minggu ini.</p>
+                <p class="text-slate-400 text-sm">Belum ada target aktif.</p>
                 <p class="text-slate-300 dark:text-slate-600 text-xs mt-1">Set target menggunakan form di sebelah kiri.</p>
             </div>
             @else
@@ -531,7 +510,7 @@
                                       class="text-sm font-black {{ $done ? 'text-green-600' : ($pct >= 70 ? 'text-amber-500' : 'text-blue-600') }} dark:opacity-90 w-12 text-right">
                                     {{ $pct }}%
                                 </span>
-                                @unless(auth()->user()->isOperator())
+                                @allowedTo('targets.delete')
                                 <form method="POST" action="{{ route('production.targets.destroy', $target->id) }}">
                                     @csrf @method('DELETE')
                                     <button type="submit"
@@ -543,7 +522,7 @@
                                         </svg>
                                     </button>
                                 </form>
-                                @endunless
+                                @endallowedTo
                             </div>
                         </div>
                         {{-- Progress bar --}}
@@ -553,7 +532,12 @@
                                  style="width: {{ $pct }}%"></div>
                         </div>
                         @if($done)
-                        <p id="tgt-label-{{ $target->product_id }}" class="text-[10px] text-green-600 dark:text-green-400 mt-1 font-semibold">✓ Target tercapai!</p>
+                        <p id="tgt-label-{{ $target->product_id }}" class="text-[10px] text-green-600 dark:text-green-400 mt-1 font-semibold">
+                            ✓ Target tercapai!
+                            @if($target->reached_at)
+                            <span class="text-slate-400 font-normal">· terhapus otomatis {{ $target->reached_at->copy()->addHours(2)->diffForHumans() }}</span>
+                            @endif
+                        </p>
                         @else
                         <p id="tgt-label-{{ $target->product_id }}" class="text-[10px] text-slate-400 mt-1">Kurang {{ number_format($target->target_qty - $actual) }} unit lagi</p>
                         @endif
@@ -562,6 +546,18 @@
                 </div>
             </div>
             @endif
+        </div>
+    </div>
+</div>
+
+{{-- Upload Loading Overlay --}}
+<div id="uploadOverlay" style="display:none"
+     class="fixed inset-0 z-[9999] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center">
+    <div class="bg-white dark:bg-slate-800 rounded-2xl px-10 py-8 flex flex-col items-center gap-4 shadow-2xl mx-4">
+        <div class="w-14 h-14 rounded-full border-[5px] border-blue-100 dark:border-slate-600 border-t-blue-500 animate-spin"></div>
+        <div class="text-center">
+            <p class="text-sm font-semibold text-slate-800 dark:text-white">Sedang mengupload...</p>
+            <p class="text-xs text-slate-400 mt-1">Mohon tunggu, jangan tutup halaman</p>
         </div>
     </div>
 </div>
@@ -638,9 +634,13 @@
 const TGT_DATE     = '{{ $date }}';
 const TGT_INTERVAL = 60;
 let tgtEnabled  = localStorage.getItem('tgtAutoRefresh') !== 'false';
-let tgtTimer    = null;
-let tgtCdTimer  = null;
 let tgtCdVal    = TGT_INTERVAL;
+
+// Clear timers from previous SPA eval context before creating new ones
+clearInterval(window._tgtTimer);
+clearInterval(window._tgtCdTimer);
+let tgtTimer   = null;
+let tgtCdTimer = null;
 
 function tgtBarColor(pct) {
     return pct >= 100 ? '#22c55e' : pct >= 70 ? '#f59e0b' : '#3b82f6';
@@ -711,8 +711,8 @@ async function fetchTargetLive() {
 function tgtStart() {
     tgtCdVal = TGT_INTERVAL;
     fetchTargetLive();
-    tgtTimer   = setInterval(fetchTargetLive, TGT_INTERVAL * 1000);
-    tgtCdTimer = setInterval(() => {
+    tgtTimer   = window._tgtTimer   = setInterval(fetchTargetLive, TGT_INTERVAL * 1000);
+    tgtCdTimer = window._tgtCdTimer = setInterval(() => {
         tgtCdVal--;
         if (tgtCdVal <= 0) tgtCdVal = TGT_INTERVAL;
         const el = document.getElementById('tgtCountdown');
@@ -723,7 +723,7 @@ function tgtStart() {
 
 function tgtStop() {
     clearInterval(tgtTimer); clearInterval(tgtCdTimer);
-    tgtTimer = null; tgtCdTimer = null;
+    tgtTimer = window._tgtTimer = null; tgtCdTimer = window._tgtCdTimer = null;
     tgtSetUI(false);
 }
 
@@ -743,5 +743,17 @@ document.getElementById('tgtRefreshBtn')?.addEventListener('click', () => {
 });
 
 tgtEnabled ? tgtStart() : tgtSetUI(false);
+
+document.addEventListener('spa:leave', function() {
+    clearInterval(window._tgtTimer);
+    clearInterval(window._tgtCdTimer);
+    window._tgtTimer = null;
+    window._tgtCdTimer = null;
+}, { once: true });
+
+function showUploadOverlay() {
+    var el = document.getElementById('uploadOverlay');
+    if (el) el.style.display = 'flex';
+}
 </script>
 @endpush

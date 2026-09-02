@@ -18,7 +18,11 @@ class LoginController extends Controller
             return redirect()->route('dashboard');
         }
         return response(view('auth.login'))
-            ->header('Permissions-Policy', 'publickey-credentials-get=(), publickey-credentials-create=()');
+            ->header('Permissions-Policy', 'publickey-credentials-get=(), publickey-credentials-create=()')
+            // Cegah browser menyajikan halaman login basi (bfcache / tombol Back)
+            // yang token CSRF-nya sudah kedaluwarsa → penyebab 419 "Page Expired".
+            ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
+            ->header('Pragma', 'no-cache');
     }
 
     public function login(Request $request)

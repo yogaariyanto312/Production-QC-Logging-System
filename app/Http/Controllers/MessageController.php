@@ -148,6 +148,27 @@ class MessageController extends Controller
         return response()->json(['ok' => true]);
     }
 
+    // Semua role: tandai seluruh pesan dari satu lawan bicara sebagai dibaca.
+    // Aman: hanya menandai pesan yang ditujukan ke user ini (broadcast lama hanya
+    // untuk role privileged, sesuai perilaku inbox admin/supervisor).
+    public function markConversationRead($partnerId)
+    {
+        $myId         = auth()->id();
+        $isPrivileged = \in_array(auth()->user()->role, ['developer', 'admin', 'supervisor', 'mandor'], true);
+
+        $updated = \App\Models\Message::where('sender_id', $partnerId)
+            ->where('is_read', false)
+            ->where(function ($q) use ($myId, $isPrivileged) {
+                $q->where('recipient_id', $myId);
+                if ($isPrivileged) {
+                    $q->orWhereNull('recipient_id'); // pesan lama tanpa recipient (operator→admin)
+                }
+            })
+            ->update(['is_read' => true]);
+
+        return response()->json(['ok' => true, 'updated' => $updated]);
+    }
+
     // Admin: hapus satu pesan
     public function destroy(\App\Models\Message $message)
     {
@@ -205,24 +226,30 @@ class MessageController extends Controller
         $user = auth()->user();
 
         if ($user->role === 'developer') {
-            // Developer melihat semua user aktif kecuali diri sendiri
             $users = \App\Models\User::where('id', '!=', $user->id)
                 ->where('is_active', true)
-                ->whereIn('role', ['admin', 'supervisor', 'operator', 'visitor'])
-                ->orderByRaw("FIELD(role, 'admin', 'supervisor', 'operator', 'visitor')")
+                ->whereIn('role', ['admin', 'supervisor', 'mandor', 'operator', 'visitor'])
+                ->orderByRaw("FIELD(role, 'admin', 'supervisor', 'mandor', 'operator', 'visitor')")
                 ->orderBy('name')
                 ->get(['id', 'name', 'role', 'department', 'avatar', 'last_seen_at']);
         } elseif ($user->role === 'admin') {
-            $users = \App\Models\User::whereIn('role', ['developer', 'supervisor', 'operator', 'visitor'])
+            $users = \App\Models\User::whereIn('role', ['developer', 'supervisor', 'mandor', 'operator', 'visitor'])
                 ->where('is_active', true)
-                ->orderByRaw("FIELD(role, 'developer', 'supervisor', 'operator', 'visitor')")
+                ->orderByRaw("FIELD(role, 'developer', 'supervisor', 'mandor', 'operator', 'visitor')")
                 ->orderBy('name')
                 ->get(['id', 'name', 'role', 'department', 'avatar', 'last_seen_at']);
         } elseif ($user->role === 'supervisor') {
-            $users = \App\Models\User::whereIn('role', ['developer', 'admin', 'operator', 'supervisor'])
+            $users = \App\Models\User::whereIn('role', ['developer', 'admin', 'supervisor', 'mandor', 'operator'])
                 ->where('id', '!=', $user->id)
                 ->where('is_active', true)
-                ->orderByRaw("FIELD(role, 'developer', 'admin', 'supervisor', 'operator')")
+                ->orderByRaw("FIELD(role, 'developer', 'admin', 'supervisor', 'mandor', 'operator')")
+                ->orderBy('name')
+                ->get(['id', 'name', 'role', 'department', 'avatar', 'last_seen_at']);
+        } elseif ($user->role === 'mandor') {
+            $users = \App\Models\User::whereIn('role', ['developer', 'admin', 'supervisor', 'mandor', 'operator'])
+                ->where('id', '!=', $user->id)
+                ->where('is_active', true)
+                ->orderByRaw("FIELD(role, 'developer', 'admin', 'supervisor', 'mandor', 'operator')")
                 ->orderBy('name')
                 ->get(['id', 'name', 'role', 'department', 'avatar', 'last_seen_at']);
         } elseif ($user->role === 'visitor') {
@@ -233,9 +260,9 @@ class MessageController extends Controller
                 ->get(['id', 'name', 'role', 'department', 'avatar', 'last_seen_at']);
         } else {
             // Operator
-            $users = \App\Models\User::whereIn('role', ['developer', 'admin', 'supervisor'])
+            $users = \App\Models\User::whereIn('role', ['developer', 'admin', 'supervisor', 'mandor'])
                 ->where('is_active', true)
-                ->orderByRaw("FIELD(role, 'developer', 'admin', 'supervisor')")
+                ->orderByRaw("FIELD(role, 'developer', 'admin', 'supervisor', 'mandor')")
                 ->orderBy('name')
                 ->get(['id', 'name', 'role', 'department', 'avatar', 'last_seen_at']);
         }

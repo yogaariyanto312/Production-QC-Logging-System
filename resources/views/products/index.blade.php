@@ -49,6 +49,7 @@
                    class="px-4 py-2.5 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 text-sm font-semibold rounded-xl transition-colors">
                     Reset
                 </a>
+                @allowedTo('master-produk.create')
                 <a href="{{ route('products.create') }}"
                    class="px-4 py-2.5 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold rounded-xl flex items-center gap-2 transition-colors">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -56,6 +57,7 @@
                     </svg>
                     Tambah Produk
                 </a>
+                @endallowedTo
             </div>
         </form>
     </div>
@@ -68,10 +70,12 @@
                   d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
         </svg>
         <p class="text-slate-500 font-medium">Belum ada produk</p>
+        @allowedTo('master-produk.create')
         <a href="{{ route('products.create') }}"
            class="mt-4 inline-block px-5 py-2 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700">
             Tambah Produk Pertama
         </a>
+        @endallowedTo
     </div>
 
     @else
@@ -128,7 +132,7 @@
                             <span class="text-xs text-slate-400">{{ $groupItems->count() }} varian</span>
                         </div>
                     </div>
-                    @if(auth()->user()->isPrivileged())
+                    @allowedTo('master-produk.create')
                     <a href="{{ route('products.create') }}?name={{ urlencode($productName) }}&category_id={{ $firstItem->category_id }}&type={{ $firstItem->type }}"
                        title="Tambah varian baru"
                        class="shrink-0 w-8 h-8 flex items-center justify-center rounded-xl
@@ -138,7 +142,7 @@
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
                         </svg>
                     </a>
-                    @endif
+                    @endallowedTo
                 </div>
 
                 {{-- Series Rows --}}
@@ -160,12 +164,24 @@
                             @endif
                         </div>
                         <div class="flex items-center gap-1.5 shrink-0">
+                            @allowedTo('master-produk.edit')
+                            <button type="button"
+                                    data-toggle-url="{{ route('products.toggle-active', $product) }}"
+                                    data-active="{{ $product->is_active ? '1' : '0' }}"
+                                    title="Klik untuk toggle status"
+                                    class="toggle-active-btn inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold cursor-pointer transition-colors
+                                           {{ $product->is_active ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-900/30 dark:hover:text-red-400'
+                                                                  : 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400 hover:bg-green-100 hover:text-green-700 dark:hover:bg-green-900/30 dark:hover:text-green-400' }}">
+                                {{ $product->is_active ? 'Aktif' : 'Nonaktif' }}
+                            </button>
+                            @else
                             <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold
                                          {{ $product->is_active ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
                                                                 : 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400' }}">
                                 {{ $product->is_active ? 'Aktif' : 'Nonaktif' }}
                             </span>
-                            @if(auth()->user()->isPrivileged())
+                            @endallowedTo
+                            @allowedTo('master-produk.edit')
                             <a href="{{ route('products.edit', $product) }}"
                                title="Edit"
                                class="p-1.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-lg transition-colors">
@@ -174,6 +190,8 @@
                                           d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
                                 </svg>
                             </a>
+                            @endallowedTo
+                            @allowedTo('master-produk.delete')
                             <form method="POST" action="{{ route('products.destroy', $product) }}" class="inline">
                                 @csrf @method('DELETE')
                                 <button type="submit"
@@ -186,7 +204,7 @@
                                     </svg>
                                 </button>
                             </form>
-                            @endif
+                            @endallowedTo
                         </div>
                     </div>
                     @endforeach
@@ -202,5 +220,31 @@
     @endif
 
 </div>
+
+<script>
+document.querySelectorAll('.toggle-active-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+        const url  = btn.dataset.toggleUrl;
+        const csrf = document.querySelector('meta[name="csrf-token"]')?.content || '{{ csrf_token() }}';
+
+        btn.disabled = true;
+        try {
+            const res  = await fetch(url, { method: 'PATCH', headers: { 'X-CSRF-TOKEN': csrf, 'Accept': 'application/json' } });
+            const data = await res.json();
+            const active = data.is_active;
+
+            btn.dataset.active = active ? '1' : '0';
+            btn.textContent    = active ? 'Aktif' : 'Nonaktif';
+
+            const onCls  = 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-900/30 dark:hover:text-red-400';
+            const offCls = 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400 hover:bg-green-100 hover:text-green-700 dark:hover:bg-green-900/30 dark:hover:text-green-400';
+            btn.classList.remove(...onCls.split(' '), ...offCls.split(' '));
+            btn.classList.add(...(active ? onCls : offCls).split(' '));
+        } finally {
+            btn.disabled = false;
+        }
+    });
+});
+</script>
 @endsection
 

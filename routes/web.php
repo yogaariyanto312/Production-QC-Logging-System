@@ -1,10 +1,12 @@
 <?php
 
+use App\Http\Controllers\AccessoryController;
 use App\Http\Controllers\Auth\ForgotPasswordController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\BotSettingController;
 use App\Http\Controllers\TelegramWebhookController;
 use App\Http\Controllers\ManagementController;
+use App\Http\Controllers\MandorController;
 use App\Http\Controllers\SupervisorController;
 use App\Http\Controllers\GambarKerjaController;
 use App\Http\Controllers\MessageController;
@@ -18,6 +20,7 @@ use App\Http\Controllers\ProductController;
 use App\Http\Controllers\ProductionLogController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ProductionTargetController;
+use App\Http\Controllers\ReplacementController;
 use App\Http\Controllers\ReportController;
 use Illuminate\Support\Facades\Route;
 
@@ -74,14 +77,16 @@ Route::middleware(['auth'])->group(function () {
     // Profil
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::put('/profile', [ProfileController::class, 'update'])->name('profile.update');
+    Route::post('/profile/avatar', [ProfileController::class, 'updateAvatar'])->name('profile.avatar');
+    Route::post('/profile/logout-others', [ProfileController::class, 'logoutOtherDevices'])->name('profile.logout-others');
     Route::post('/profile/about-avatar', [ProfileController::class, 'updateAboutAvatar'])->name('profile.about-avatar');
     Route::post('/profile/about-info',   [ProfileController::class, 'updateAboutInfo'])->name('profile.about-info');
 
     // Riwayat Produksi — semua role bisa lihat
     Route::get('/production', [ProductionLogController::class, 'index'])->name('production.index');
 
-    // Input / Edit Produksi — supervisor & visitor tidak bisa
-    Route::middleware('role:developer,admin,operator')->group(function () {
+    // Input / Edit Produksi — akses diatur via Hak Akses Menu (EnforceMenuAccess)
+    Route::group([], function () {
         Route::get('/production/create', [ProductionLogController::class, 'create'])->name('production.create');
         Route::post('/production', [ProductionLogController::class, 'store'])->name('production.store');
         Route::get('/production/{productionLog}/edit', [ProductionLogController::class, 'edit'])->name('production.edit');
@@ -89,11 +94,11 @@ Route::middleware(['auth'])->group(function () {
         Route::delete('/production/{productionLog}', [ProductionLogController::class, 'destroy'])->name('production.destroy');
     });
 
-    // Target Produksi — operator hanya bisa lihat
-    Route::get('/production/targets', [ProductionTargetController::class, 'index'])->name('production.targets.index')->middleware('role:developer,admin,supervisor,operator');
+    // Target Produksi — akses diatur via Hak Akses Menu
+    Route::get('/production/targets', [ProductionTargetController::class, 'index'])->name('production.targets.index');
 
-    // Target Produksi — set/hapus: developer, admin, supervisor saja
-    Route::middleware('role:developer,admin,supervisor')->group(function () {
+    // Target Produksi — set/hapus diatur via Hak Akses Menu (aksi targets.edit / targets.delete)
+    Route::group([], function () {
         Route::post('/production/targets',                      [ProductionTargetController::class, 'store'])->name('production.targets.store');
         // Literal routes HARUS sebelum wildcard {productionTarget}
         Route::post('/production/targets/schedule-photo',       [ProductionTargetController::class, 'uploadSchedulePhoto'])->name('production.targets.schedule-photo.store');
@@ -120,16 +125,30 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/products/ukuran', [ProductController::class, 'ukuranIndex'])->name('products.ukuran');
 
     // Gambar Kerja — literal routes HARUS sebelum wildcard
+    // Gambar Kerja — aksi (upload/edit/hapus) diatur via Hak Akses Menu
     Route::get('/gambar-kerja',           [GambarKerjaController::class, 'index'])->name('gambar-kerja.index');
-    Route::get('/gambar-kerja/create',    [GambarKerjaController::class, 'create'])->name('gambar-kerja.create')->middleware('role:developer,admin');
-    Route::post('/gambar-kerja',          [GambarKerjaController::class, 'store'])->name('gambar-kerja.store')->middleware('role:developer,admin');
+    Route::get('/gambar-kerja/create',    [GambarKerjaController::class, 'create'])->name('gambar-kerja.create');
+    Route::post('/gambar-kerja',          [GambarKerjaController::class, 'store'])->name('gambar-kerja.store');
     Route::get('/gambar-kerja/group',     [GambarKerjaController::class, 'byGroup'])->name('gambar-kerja.by-group');
-    Route::delete('/gambar-kerja/group',  [GambarKerjaController::class, 'destroyByGroup'])->name('gambar-kerja.destroy-by-group')->middleware('role:developer,admin');
-    Route::post('/gambar-kerja/group/thumbnail',          [GambarKerjaController::class, 'uploadThumbnail'])->name('gambar-kerja.upload-thumbnail')->middleware('role:developer,admin');
-    Route::delete('/gambar-kerja/group/thumbnail',       [GambarKerjaController::class, 'deleteThumbnail'])->name('gambar-kerja.delete-thumbnail')->middleware('role:developer,admin');
-    Route::patch('/gambar-kerja/group/kategori',         [GambarKerjaController::class, 'updateKategori'])->name('gambar-kerja.update-kategori')->middleware('role:developer,admin');
-    Route::patch('/gambar-kerja/group/info',             [GambarKerjaController::class, 'updateInfo'])->name('gambar-kerja.update-info')->middleware('role:developer,admin');
-    Route::delete('/gambar-kerja/{gambarKerja}', [GambarKerjaController::class, 'destroy'])->name('gambar-kerja.destroy')->middleware('role:developer,admin');
+    Route::delete('/gambar-kerja/group',  [GambarKerjaController::class, 'destroyByGroup'])->name('gambar-kerja.destroy-by-group');
+    Route::post('/gambar-kerja/group/thumbnail',          [GambarKerjaController::class, 'uploadThumbnail'])->name('gambar-kerja.upload-thumbnail');
+    Route::delete('/gambar-kerja/group/thumbnail',       [GambarKerjaController::class, 'deleteThumbnail'])->name('gambar-kerja.delete-thumbnail');
+    Route::patch('/gambar-kerja/group/kategori',         [GambarKerjaController::class, 'updateKategori'])->name('gambar-kerja.update-kategori');
+    Route::patch('/gambar-kerja/group/info',             [GambarKerjaController::class, 'updateInfo'])->name('gambar-kerja.update-info');
+    Route::delete('/gambar-kerja/{gambarKerja}', [GambarKerjaController::class, 'destroy'])->name('gambar-kerja.destroy');
+
+    // Barang Pengganti / Repair — akses diatur via Hak Akses Menu
+    Route::get('/replacements', [ReplacementController::class, 'index'])->name('replacements.index');
+    Route::post('/replacements', [ReplacementController::class, 'store'])->name('replacements.store');
+    Route::patch('/replacements/{replacement}/toggle-complete', [ReplacementController::class, 'toggleComplete'])->name('replacements.toggle-complete');
+    Route::delete('/replacements/{replacement}', [ReplacementController::class, 'destroy'])->name('replacements.destroy');
+
+    // Aksesoris Keluar — akses diatur via Hak Akses Menu
+    Route::get('/accessories', [AccessoryController::class, 'index'])->name('accessories.index');
+    Route::get('/accessories/export', [AccessoryController::class, 'exportExcel'])->name('accessories.export');
+    Route::post('/accessories', [AccessoryController::class, 'store'])->name('accessories.store');
+    Route::put('/accessories/{accessory}', [AccessoryController::class, 'update'])->name('accessories.update');
+    Route::delete('/accessories/{accessory}', [AccessoryController::class, 'destroy'])->name('accessories.destroy');
 
     // Notes
     Route::get('/notes', [NoteController::class, 'index'])->name('notes.index');
@@ -137,6 +156,11 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/notes', [NoteController::class, 'store'])->name('notes.store');
     Route::put('/notes/{note}', [NoteController::class, 'update'])->name('notes.update');
     Route::delete('/notes/{note}', [NoteController::class, 'destroy'])->name('notes.destroy');
+
+    // Agenda / Event Kalender
+    Route::get('/api/calendar-events', [\App\Http\Controllers\CalendarEventController::class, 'byMonth'])->name('calendar.events');
+    Route::post('/calendar-events', [\App\Http\Controllers\CalendarEventController::class, 'store'])->name('calendar.events.store');
+    Route::delete('/calendar-events/{calendarEvent}', [\App\Http\Controllers\CalendarEventController::class, 'destroy'])->name('calendar.events.destroy');
 
     // Chat / Pesan
     Route::post('/messages', [MessageController::class, 'store'])->name('messages.store');
@@ -150,9 +174,11 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/chat', [MessageController::class, 'chat'])->name('chat'); // legacy
     // Semua user bisa hapus percakapan mereka sendiri
     Route::delete('/messages/conversation/{partnerId}', [MessageController::class, 'destroyConversation'])->name('messages.destroy-conversation');
+    // Semua user bisa menandai pesan dari satu lawan bicara sebagai dibaca (read receipt dua arah)
+    Route::patch('/api/messages/read-conversation/{partnerId}', [MessageController::class, 'markConversationRead'])->name('messages.read-conversation');
 
-    // Admin + Supervisor routes (developer juga bisa akses)
-    Route::middleware('role:developer,admin,supervisor')->group(function () {
+    // Kategori (lihat) & Laporan — akses diatur via Hak Akses Menu
+    Route::group([], function () {
 
         // Kategori — hanya bisa lihat (index), create/edit/delete hanya untuk developer
         Route::get('/categories', [\App\Http\Controllers\CategoryController::class, 'index'])->name('categories.index');
@@ -167,22 +193,22 @@ Route::middleware(['auth'])->group(function () {
         });
     });
 
-    // Admin + Supervisor: Chat inbox
-    Route::middleware('role:developer,admin,supervisor')->group(function () {
+    // Admin + Supervisor + Mandor: Chat inbox
+    Route::middleware('role:developer,admin,supervisor,mandor')->group(function () {
         Route::get('/messages', [MessageController::class, 'adminMessages'])->name('messages.index');
         Route::post('/messages/{message}/reply', [MessageController::class, 'reply'])->name('messages.reply');
         Route::patch('/messages/{message}/read', [MessageController::class, 'markRead'])->name('messages.read');
         Route::delete('/messages/{message}', [MessageController::class, 'destroy'])->name('messages.destroy');
     });
 
-    // Halaman Manajemen — operator hanya lihat
-    Route::get('/management', [ManagementController::class, 'index'])->name('management.index')->middleware('role:developer,admin,operator');
+    // Halaman Manajemen — akses diatur via Hak Akses Menu
+    Route::get('/management', [ManagementController::class, 'index'])->name('management.index');
+
+    // Master Produk — akses (lihat/tambah/edit/hapus) diatur via Hak Akses Menu
+    Route::resource('products', ProductController::class);
+    Route::patch('products/{product}/toggle-active', [ProductController::class, 'toggleActive'])->name('products.toggle-active');
 
     Route::middleware('role:developer,admin')->group(function () {
-        // Produk (Master Produk) — supervisor tidak bisa akses
-        Route::resource('products', ProductController::class);
-        Route::patch('products/{product}/toggle-active', [ProductController::class, 'toggleActive'])->name('products.toggle-active');
-
         // Manajemen Operator (admin boleh kelola operator)
         Route::resource('operators', OperatorController::class)->except(['show']);
         Route::patch('/operators/{operator}/toggle-active', [OperatorController::class, 'toggleActive'])->name('operators.toggle-active');
@@ -191,11 +217,17 @@ Route::middleware(['auth'])->group(function () {
         Route::resource('visitors', \App\Http\Controllers\VisitorController::class)->except(['show', 'index']);
     });
 
-    // Developer only routes (permission tertinggi — hanya developer yg bisa kelola admin, supervisor, developer, departemen, kategori)
+    // Developer only routes (permission tertinggi — hanya developer yg bisa kelola admin, supervisor, mandor, developer, departemen, kategori)
     Route::middleware('role:developer')->group(function () {
+
+        // Hak Akses Menu per role
+        Route::get('/permissions',  [\App\Http\Controllers\PermissionController::class, 'index'])->name('permissions.index');
+        Route::post('/permissions', [\App\Http\Controllers\PermissionController::class, 'update'])->name('permissions.update');
+
         Route::resource('developers', \App\Http\Controllers\DeveloperController::class)->except(['show']);
         Route::resource('admins', AdminController::class)->except(['show']);
         Route::resource('supervisors', SupervisorController::class)->except(['show']);
+        Route::resource('mandors', MandorController::class)->except(['show']);
         Route::resource('departments', DepartmentController::class)->except(['show']);
         Route::post('/departments/quick-store', [DepartmentController::class, 'quickStore'])->name('departments.quick-store');
         Route::resource('categories', CategoryController::class)->except(['show']);

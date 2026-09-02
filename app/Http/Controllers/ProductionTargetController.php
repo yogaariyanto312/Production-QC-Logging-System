@@ -6,6 +6,7 @@ use App\Models\ActivityLog;
 use App\Models\Product;
 use App\Models\ProductionLog;
 use App\Models\ProductionTarget;
+use App\Models\Scopes\DepartmentScope;
 use App\Models\SchedulePhoto;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -14,37 +15,37 @@ class ProductionTargetController extends Controller
 {
     public function index(Request $request)
     {
-        // Filter minggu (week_start = tanggal Senin), default minggu ini
-        $weekStart = $request->week_start
-            ? \Carbon\Carbon::parse($request->week_start)->startOfWeek(\Carbon\Carbon::MONDAY)
-            : now()->startOfWeek(\Carbon\Carbon::MONDAY);
-        $weekEnd = $weekStart->copy()->endOfWeek(\Carbon\Carbon::SUNDAY);
+        // Target tanpa batas waktu: 1 target aktif per produk.
+        $rawTargets = ProductionTarget::with(['product'])->get();
 
-        // Target per produk untuk minggu ini
-        $rawTargets = ProductionTarget::with(['product'])
-            ->whereBetween('target_date', [$weekStart->toDateString(), $weekEnd->toDateString()])
-            ->get();
-
-        // Grup per produk, ambil target_qty & id terbaru
-        $targets = $rawTargets->groupBy('product_id')->map(function ($group) {
-            $latest = $group->sortByDesc('created_at')->first();
-            return (object) [
-                'id'         => $latest->id,
-                'product_id' => $latest->product_id,
-                'product'    => $latest->product,
-                'target_qty' => $group->sum('target_qty'),
-                'notes'      => $latest->notes,
-            ];
-        })->values();
-
-        // Aktual per produk minggu ini
-        $actuals = ProductionLog::whereBetween('production_date', [$weekStart->toDateString(), $weekEnd->toDateString()])
-            ->selectRaw('product_id, SUM(total_qty) as actual_qty')
+        // Produksi kumulatif per produk (untuk hitung progres sejak target dibuat).
+        // Target bersifat org-wide → aktual dihitung lintas departemen.
+        $cumulative = ProductionLog::withoutGlobalScope(DepartmentScope::class)
+            ->selectRaw('product_id, SUM(total_qty) as total')
             ->groupBy('product_id')
-            ->pluck('actual_qty', 'product_id');
+            ->pluck('total', 'product_id');
 
-        $totalTarget = $targets->sum('target_qty');
-        $totalActual = (int) ProductionLog::whereBetween('production_date', [$weekStart->toDateString(), $weekEnd->toDateString()])->sum('total_qty');
+        // Bangun daftar target + aktual (progres sejak baseline)
+        $targets  = collect();
+        $actuals  = [];
+        foreach ($rawTargets as $t) {
+            $actual = $t->actualProduced((int) ($cumulative[$t->product_id] ?? 0));
+            $actuals[$t->product_id] = $actual;
+            $targets->push((object) [
+                'id'         => $t->id,
+                'product_id' => $t->product_id,
+                'product'    => $t->product,
+                'target_qty' => (int) $t->target_qty,
+                'notes'      => $t->notes,
+                'reached_at' => $t->reached_at,
+            ]);
+        }
+        // Yang belum tercapai tampil dulu, lalu berdasarkan progres
+        $targets = $targets->sortBy(fn ($t) => $actuals[$t->product_id] >= $t->target_qty ? 1 : 0)->values();
+
+        $totalTarget = (int) $targets->sum('target_qty');
+        // Aktual di-cap per produk supaya over-produksi tidak menutupi produk lain
+        $totalActual = (int) $targets->sum(fn ($t) => min($actuals[$t->product_id], $t->target_qty));
 
         $products = Product::where('is_active', true)
             ->with('category')
@@ -53,12 +54,16 @@ class ProductionTargetController extends Controller
             ->orderBy('series')
             ->get();
 
-        // Foto jadwal tetap per hari ini
-        $date          = today()->toDateString();
-        $schedulePhoto = SchedulePhoto::with('uploader')->where('target_date', $date)->first();
+        $date = today()->toDateString();
+
+        // Foto jadwal tetap berlaku per minggu (dibersihkan tiap Senin via jadwal:clear)
+        $weekStart     = now()->startOfWeek(\Carbon\Carbon::MONDAY);
+        $weekEnd       = $weekStart->copy()->endOfWeek(\Carbon\Carbon::SUNDAY);
+        $scheduleDate  = $weekStart->toDateString();
+        $schedulePhoto = SchedulePhoto::with('uploader')->where('target_date', $scheduleDate)->first();
 
         return view('production.targets.index', compact(
-            'targets', 'actuals', 'weekStart', 'weekEnd', 'date', 'products',
+            'targets', 'actuals', 'weekStart', 'weekEnd', 'date', 'scheduleDate', 'products',
             'totalTarget', 'totalActual', 'schedulePhoto'
         ));
     }
@@ -67,16 +72,11 @@ class ProductionTargetController extends Controller
     {
         $request->validate([
             'product_id'    => ['required', 'exists:products,id'],
-            'target_week'   => ['required', 'date_format:Y-\WW'],
             'target_qty'    => ['required', 'integer', 'min:1', 'max:999999'],
             'notes'         => ['nullable', 'string', 'max:200'],
             'manual_series' => ['nullable', 'string', 'max:100'],
             'manual_kva'    => ['nullable', 'string', 'max:50'],
         ]);
-
-        // Konversi YYYY-WNN ke Senin awal minggu
-        [$yr, $wk] = sscanf($request->target_week, '%d-W%d');
-        $targetDate = \Carbon\Carbon::now()->setISODate($yr, $wk, 1)->toDateString();
 
         $productId = $request->product_id;
         $product   = Product::with('category')->find($productId);
@@ -93,48 +93,61 @@ class ProductionTargetController extends Controller
             $productId = $product->id;
         }
 
-        $weekLabel = \Carbon\Carbon::parse($targetDate)->translatedFormat('d M') . ' – '
-                   . \Carbon\Carbon::parse($targetDate)->endOfWeek()->translatedFormat('d M Y');
+        // Baseline = total produksi kumulatif produk saat ini → titik nol progres (org-wide).
+        $baseline = (int) ProductionLog::withoutGlobalScope(DepartmentScope::class)
+            ->where('product_id', $productId)->sum('total_qty');
 
         $target = ProductionTarget::updateOrCreate(
-            ['product_id' => $productId, 'target_date' => $targetDate],
-            ['target_qty' => $request->target_qty, 'notes' => $request->notes, 'created_by' => auth()->id()]
+            ['product_id' => $productId],
+            [
+                'target_qty'   => $request->target_qty,
+                'baseline_qty' => $baseline,
+                'notes'        => $request->notes,
+                'target_date'  => today()->toDateString(),
+                'reached_at'   => null,
+                'created_by'   => auth()->id(),
+            ]
         );
 
-        ActivityLog::record('create', "Set target produksi: {$product->name} = {$request->target_qty} unit minggu {$weekLabel}", $target);
+        if (!$product) {
+            return back()->withErrors(['product_id' => 'Produk tidak ditemukan.']);
+        }
+
+        ActivityLog::record('create', "Set target produksi: {$product->name} = {$request->target_qty} unit", $target);
 
         return back()->with('success', "Target untuk {$product->name} berhasil disimpan.");
     }
 
     public function liveData(Request $request)
     {
-        $date    = $request->date ?: today()->toDateString();
-        $targets = ProductionTarget::where('target_date', $date)->get();
+        $targets = ProductionTarget::whereNotNull('product_id')->get();
 
-        $actuals = ProductionLog::whereDate('production_date', $date)
-            ->selectRaw('product_id, SUM(total_qty) as actual_qty')
+        $cumulative = ProductionLog::withoutGlobalScope(DepartmentScope::class)
+            ->selectRaw('product_id, SUM(total_qty) as total')
             ->groupBy('product_id')
-            ->pluck('actual_qty', 'product_id');
+            ->pluck('total', 'product_id');
 
-        $totalTarget = $targets->sum('target_qty');
-        $totalActual = (float) ProductionLog::whereDate('production_date', $date)->sum('total_qty');
-        $overallPct  = $totalTarget > 0 ? min(round(($totalActual / $totalTarget) * 100), 100) : 0;
-
+        $totalTarget = 0;
+        $totalActualCapped = 0;
         $map = [];
         foreach ($targets as $t) {
-            $actual = (float) ($actuals[$t->product_id] ?? 0);
+            $actual = $t->actualProduced((int) ($cumulative[$t->product_id] ?? 0));
             $pct    = $t->target_qty > 0 ? min(round(($actual / $t->target_qty) * 100), 100) : 0;
             $map[$t->product_id] = [
-                'actual'     => $actual,
-                'target'     => (int) $t->target_qty,
-                'pct'        => $pct,
-                'done'       => $actual >= $t->target_qty,
-                'remaining'  => max(0, (int) $t->target_qty - (int) $actual),
+                'actual'    => $actual,
+                'target'    => (int) $t->target_qty,
+                'pct'       => $pct,
+                'done'      => $actual >= $t->target_qty,
+                'remaining' => max(0, (int) $t->target_qty - $actual),
             ];
+            $totalTarget       += (int) $t->target_qty;
+            $totalActualCapped += min($actual, (int) $t->target_qty);
         }
 
+        $overallPct = $totalTarget > 0 ? min(round(($totalActualCapped / $totalTarget) * 100), 100) : 0;
+
         return response()->json([
-            'total_actual' => $totalActual,
+            'total_actual' => $totalActualCapped,
             'total_target' => (int) $totalTarget,
             'overall_pct'  => $overallPct,
             'actuals'      => $map,
@@ -149,13 +162,31 @@ class ProductionTargetController extends Controller
             'photo'       => ['required', 'file', 'mimes:jpg,jpeg,png,webp,pdf', 'max:8192'],
         ]);
 
-        $date  = $request->target_date;
-        $old   = SchedulePhoto::where('target_date', $date)->first();
+        $date = $request->target_date;
+        $file = $request->file('photo');
+
+        // Guard: PHP marks error=0 but tmp_name can still be empty (e.g. antivirus
+        // deleted the temp file between upload and store). Catch it here to avoid
+        // an unhandled ValueError deep inside FilesystemAdapter::fopen('', 'r').
+        if (!$file || !$file->isValid() || !$file->getPathname()) {
+            return back()->withErrors(['photo' => 'File upload tidak valid atau sudah terhapus dari temp, coba upload ulang.']);
+        }
+
+        $old  = SchedulePhoto::where('target_date', $date)->first();
+
+        try {
+            $path = $file->store("schedule-photos/{$date}", 'public');
+        } catch (\ValueError $e) {
+            return back()->withErrors(['photo' => 'Gagal menyimpan file: path temp kosong. Coba upload ulang.']);
+        }
+
+        if ($path === false) {
+            return back()->withErrors(['photo' => 'Gagal menyimpan foto. Coba lagi.']);
+        }
+
         if ($old) {
             Storage::disk('public')->delete($old->file_path);
         }
-
-        $path = $request->file('photo')->store("schedule-photos/{$date}", 'public');
 
         SchedulePhoto::updateOrCreate(
             ['target_date' => $date],
@@ -178,19 +209,17 @@ class ProductionTargetController extends Controller
     public function actualQty(Request $request)
     {
         $productId = (int) $request->input('product_id');
-        $date      = $request->input('date', today()->toDateString());
 
         if (!$productId) {
             return response()->json(['actual' => 0, 'target_qty' => null]);
         }
 
-        // Total kumulatif semua tanggal = no. urut terakhir yang diproduksi
-        $actual = (int) ProductionLog::where('product_id', $productId)->sum('total_qty');
+        // Total kumulatif semua tanggal = no. urut terakhir yang diproduksi (org-wide)
+        $actual = (int) ProductionLog::withoutGlobalScope(DepartmentScope::class)
+            ->where('product_id', $productId)->sum('total_qty');
 
-        // Target yang sudah ada untuk produk ini pada tanggal yang dipilih
-        $target = ProductionTarget::where('product_id', $productId)
-            ->where('target_date', $date)
-            ->value('target_qty');
+        // Target aktif untuk produk ini (jika ada)
+        $target = ProductionTarget::where('product_id', $productId)->value('target_qty');
 
         return response()->json([
             'actual'     => $actual,
@@ -200,7 +229,7 @@ class ProductionTargetController extends Controller
 
     public function destroy(ProductionTarget $productionTarget)
     {
-        $info = "{$productionTarget->product->name} tgl {$productionTarget->target_date->format('d/m/Y')}";
+        $info = $productionTarget->product?->name ?? 'produk #' . $productionTarget->product_id;
         $productionTarget->delete();
         ActivityLog::record('delete', "Hapus target produksi: {$info}");
         return back()->with('success', 'Target berhasil dihapus.');

@@ -16,7 +16,8 @@ class ProductionReportExport implements FromCollection, WithHeadings, WithTitle,
 {
     public function __construct(
         private int $month,
-        private int $year
+        private int $year,
+        private ?string $deptFilter = null
     ) {}
 
     public function collection()
@@ -31,6 +32,7 @@ class ProductionReportExport implements FromCollection, WithHeadings, WithTitle,
             ->with('product.category')
             ->whereMonth('production_date', $this->month)
             ->whereYear('production_date', $this->year)
+            ->when($this->deptFilter, fn($q) => $q->where('production_logs.department', $this->deptFilter))
             ->groupBy('product_id')
             ->orderByDesc('grand_total')
             ->get()

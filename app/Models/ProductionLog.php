@@ -2,17 +2,19 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToDepartment;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class ProductionLog extends Model
 {
-    use HasFactory;
+    use HasFactory, BelongsToDepartment;
 
     protected $fillable = [
         'product_id',
         'user_id',
+        'department',
         'operator_name',
         'production_date',
         'shift1_qty',

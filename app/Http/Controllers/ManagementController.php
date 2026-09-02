@@ -30,10 +30,11 @@ class ManagementController extends Controller
             'developers'  => $query('developer'),
             'admins'      => $query('admin'),
             'supervisors' => $query('supervisor'),
+            'mandors'     => $query('mandor'),
             'operators'   => $query('operator'),
             'visitors'    => $query('visitor'),
             'departments' => $departments,
-            'tab'         => in_array($tab, ['developer', 'admin', 'supervisor', 'operator', 'visitor', 'department']) ? $tab : 'admin',
+            'tab'         => in_array($tab, ['developer', 'admin', 'supervisor', 'mandor', 'operator', 'visitor', 'department']) ? $tab : 'admin',
             'search'      => $search,
         ]);
     }

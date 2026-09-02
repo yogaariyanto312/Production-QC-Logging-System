@@ -1,258 +1,298 @@
-@extends('layouts.app')
+@php $isModal = request()->boolean('modal'); @endphp
+@extends($isModal ? 'layouts.bare' : 'layouts.app')
 
 @section('title', 'Input Produksi')
 @section('page-title', 'Input Produksi')
 @section('page-subtitle', 'Tambah data produksi harian')
 
 @section('content')
-<div class="max-w-2xl mx-auto">
-    <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 overflow-hidden">
+<div class="{{ $isModal ? '' : 'max-w-2xl lg:max-w-4xl mx-auto' }}">
+    <div class="bg-white dark:bg-slate-800 {{ $isModal ? '' : 'rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700' }} overflow-hidden">
 
-        <div class="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-5">
+        @unless($isModal)
+        <div class="bg-linear-to-r from-blue-600 to-blue-700 px-6 py-5">
             <h2 class="text-lg font-bold text-white">Form Input Produksi Harian</h2>
             <p class="text-blue-100 text-sm mt-1">Isi data produksi dengan lengkap</p>
         </div>
+        @endunless
 
         <form method="POST" action="{{ route('production.store') }}" class="p-6 space-y-6">
             @csrf
 
-            {{-- Tanggal Produksi --}}
-            <div>
-                <label for="production_date" class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                    Tanggal Produksi <span class="text-red-500">*</span>
+            @if(auth()->user()->role === 'developer' && $departments->isNotEmpty())
+            {{-- Departemen tujuan data (khusus developer — role lain otomatis ikut departemennya) --}}
+            <div class="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-4">
+                <label for="department" class="block text-sm font-semibold text-amber-800 dark:text-amber-300 mb-2">
+                    Departemen Tujuan <span class="text-red-500">*</span>
+                    <span class="font-normal text-xs text-amber-600 dark:text-amber-400">· data ini akan tercatat di departemen berikut</span>
                 </label>
-                <input type="date" id="production_date" name="production_date"
-                       value="{{ old('production_date', today()->toDateString()) }}"
-                       max="{{ today()->toDateString() }}"
-                       class="w-full px-4 py-3 rounded-xl bg-white dark:bg-slate-900 text-slate-800 dark:text-white
-                              border {{ $errors->has('production_date') ? 'border-red-500' : 'border-slate-300 dark:border-slate-600' }}
-                              focus:outline-none focus:ring-2 focus:ring-blue-500">
-                @error('production_date')
-                <p class="mt-1 text-xs text-red-500">{{ $message }}</p>
-                @enderror
-            </div>
-
-            {{-- Pilih Produk --}}
-            <div>
-                <label for="product_id" class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                    Produk <span class="text-red-500">*</span>
-                </label>
-                <select id="product_id" name="product_id"
+                <select id="department" name="department"
                         class="w-full px-4 py-3 rounded-xl bg-white dark:bg-slate-900 text-slate-800 dark:text-white
-                               border {{ $errors->has('product_id') ? 'border-red-500' : 'border-slate-300 dark:border-slate-600' }}
-                               focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    <option value="">-- Pilih Produk --</option>
-                    @foreach($products->groupBy('name') as $groupName => $groupItems)
-                    <optgroup label="{{ $groupName }}">
-                        @foreach($groupItems as $product)
-                        @php
-                            $isPlaceholder = $product->category && $product->category->has_manual_serial && !$product->series;
-                            if ($isPlaceholder) {
-                                $nl = strtolower($product->name);
-                                $typeTag = str_contains($nl, 'swasta') ? 'Swasta' : (str_contains($nl, 'type') ? 'TypeTest' : 'PLN');
-                            }
-                        @endphp
-                        <option value="{{ $product->id }}"
-                                data-type="{{ $product->type }}"
-                                data-manual="{{ $isPlaceholder ? '1' : '0' }}"
-                                {{ old('product_id') == $product->id ? 'selected' : '' }}>
-                            {{ $isPlaceholder ? 'Seri & KVA Manual → ' . $typeTag : (($product->series ?: '—') . ($product->kva ? ' · ' . $product->kva . ' KVA' : '')) }}
-                        </option>
-                        @endforeach
-                    </optgroup>
+                               border {{ $errors->has('department') ? 'border-red-500' : 'border-amber-300 dark:border-amber-700' }}
+                               focus:outline-none focus:ring-2 focus:ring-amber-500">
+                    <option value="">-- Pilih Departemen --</option>
+                    @foreach($departments as $d)
+                    <option value="{{ $d }}" {{ old('department') === $d ? 'selected' : '' }}>{{ $d }}</option>
                     @endforeach
                 </select>
-                @error('product_id')
+                @error('department')
                 <p class="mt-1 text-xs text-red-500">{{ $message }}</p>
                 @enderror
             </div>
+            @endif
 
+            {{-- Desktop: 2 kolom | Mobile: 1 kolom (urutan: tanggal → produk → qty → nomor urut) --}}
+            <div class="grid grid-cols-1 lg:grid-cols-2 lg:gap-x-8 gap-y-5 lg:items-start">
 
-            {{-- Channel UP + BT (tampil hanya jika produk = channel) --}}
-            <div id="section-channel" class="hidden space-y-4">
-                <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300">
-                    Jumlah Channel <span class="text-red-500">*</span>
-                </label>
-                <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-2 text-center">Channel UP</label>
-                        <input type="number" id="channel_up" name="shift1_qty"
-                               value="{{ old('shift1_qty', 0) }}"
-                               min="0" max="9999"
-                               class="w-full px-4 py-4 text-center text-xl font-bold rounded-xl
-                                      bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-white
-                                      border border-slate-300 dark:border-slate-600
-                                      focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-2 text-center">Channel BT</label>
-                        <input type="number" id="channel_bt" name="shift2_qty"
-                               value="{{ old('shift2_qty', 0) }}"
-                               min="0" max="9999"
-                               class="w-full px-4 py-4 text-center text-xl font-bold rounded-xl
-                                      bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-white
-                                      border border-slate-300 dark:border-slate-600
-                                      focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    </div>
-                </div>
-                <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4">
-                    <p class="text-xs text-blue-600 dark:text-blue-400 mb-2 font-medium">Total otomatis: (UP + BT) ÷ 2</p>
-                    <p id="channel-total-display" class="text-3xl font-black text-blue-700 dark:text-blue-300 text-center">0</p>
-                    <input type="hidden" id="total_qty_channel" name="total_qty" value="{{ old('total_qty', 0) }}">
-                </div>
-            </div>
-
-            {{-- Total Manual (tampil hanya jika produk = regular) --}}
-            <div id="section-regular">
-                <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4">
-                    <label for="total_qty_regular" class="block text-sm font-semibold text-blue-700 dark:text-blue-300 mb-2">
-                        Total Unit <span class="text-red-500">*</span>
-                        <span class="ml-1 text-xs font-normal text-blue-500">(isi manual)</span>
+                {{-- 1. Tanggal Produksi — kiri atas --}}
+                <div>
+                    <label for="production_date" class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                        Tanggal Produksi <span class="text-red-500">*</span>
                     </label>
-                    <input type="number" id="total_qty_regular" name="total_qty"
-                           value="{{ old('total_qty', 0) }}"
-                           min="0" max="99999" step="any"
-                           class="w-full px-4 py-4 text-center text-3xl font-black rounded-xl
-                                  bg-white dark:bg-slate-900 text-blue-700 dark:text-blue-300
-                                  border-2 {{ $errors->has('total_qty') ? 'border-red-500' : 'border-blue-300 dark:border-blue-700' }}
+                    <input type="date" id="production_date" name="production_date"
+                           value="{{ old('production_date', today()->toDateString()) }}"
+                           max="{{ today()->toDateString() }}"
+                           class="w-full px-4 py-3 rounded-xl bg-white dark:bg-slate-900 text-slate-800 dark:text-white
+                                  border {{ $errors->has('production_date') ? 'border-red-500' : 'border-slate-300 dark:border-slate-600' }}
                                   focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    @error('total_qty')
+                    @error('production_date')
                     <p class="mt-1 text-xs text-red-500">{{ $message }}</p>
                     @enderror
                 </div>
-            </div>
 
-            {{-- Nomor Urut - Regular --}}
-            <div id="section-notes-regular">
-                <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Nomor Urut</label>
-
-                {{-- Hint: nomor urut terakhir --}}
-                <div id="hint-regular" class="mb-3 items-start gap-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-xl px-3 py-2.5" style="display:none">
-                    <svg class="w-4 h-4 text-amber-500 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                              d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                    </svg>
-                    <div class="flex-1 min-w-0 text-xs">
-                        <p class="text-slate-500 dark:text-slate-400">
-                            Entri terakhir
-                            <span id="hint-regular-date" class="font-semibold text-amber-600 dark:text-amber-400"></span>:
-                        </p>
-                        <p id="hint-regular-text"
-                           class="mt-0.5 font-mono font-bold text-sm text-slate-800 dark:text-white truncate"></p>
-                        <button type="button" id="hint-regular-btn"
-                                class="hidden mt-1 text-blue-600 dark:text-blue-400 hover:underline font-medium">
-                            ↳ Lanjutkan dari nomor ini
-                        </button>
-                    </div>
+                {{-- 2. Pilih Produk — kanan atas (pada desktop); tepat di bawah tanggal pada mobile --}}
+                <div class="lg:col-start-2 lg:row-start-1">
+                    <label for="product_id" class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                        Produk <span class="text-red-500">*</span>
+                    </label>
+                    <select id="product_id" name="product_id"
+                            class="w-full px-4 py-3 rounded-xl bg-white dark:bg-slate-900 text-slate-800 dark:text-white
+                                   border {{ $errors->has('product_id') ? 'border-red-500' : 'border-slate-300 dark:border-slate-600' }}
+                                   focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="">-- Pilih Produk --</option>
+                        @foreach($products->groupBy('name') as $groupName => $groupItems)
+                        <optgroup label="{{ $groupName }}">
+                            @foreach($groupItems as $product)
+                            @php
+                                $isPlaceholder = $product->category && $product->category->has_manual_serial && !$product->series;
+                                if ($isPlaceholder) {
+                                    $nl = strtolower($product->name);
+                                    $typeTag  = str_contains($nl, 'swasta') ? 'Swasta' : (str_contains($nl, 'type') ? 'TypeTest' : 'PLN');
+                                    $catName  = strtolower($product->category->name ?? '');
+                                    $typeAbbr = match(true) {
+                                        $product->type === 'channel'           => ' CH',
+                                        str_contains($catName, 'cover')        => ' CV',
+                                        str_contains($catName, 'tangki')       => ' TK',
+                                        default                                => '',
+                                    };
+                                }
+                            @endphp
+                            <option value="{{ $product->id }}"
+                                    data-type="{{ $product->type }}"
+                                    data-manual="{{ $isPlaceholder ? '1' : '0' }}"
+                                    {{ old('product_id') == $product->id ? 'selected' : '' }}>
+                                {{ $isPlaceholder ? 'Seri & KVA Manual' . $typeAbbr . ' → ' . $typeTag : (($product->series ?: '—') . ($product->kva ? ' · ' . $product->kva . ' KVA' : '')) }}
+                            </option>
+                            @endforeach
+                        </optgroup>
+                        @endforeach
+                    </select>
+                    @error('product_id')
+                    <p class="mt-1 text-xs text-red-500">{{ $message }}</p>
+                    @enderror
                 </div>
 
-                <div class="flex items-center gap-3">
-                    <div class="flex-1">
-                        <label class="block text-xs text-slate-400 mb-1">Nomor Awal</label>
-                        <input type="number" id="no_awal_regular" min="1" placeholder="Contoh: 98"
-                               class="w-full px-4 py-3 rounded-xl bg-white dark:bg-slate-900 text-slate-800 dark:text-white
-                                      border border-slate-300 dark:border-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    </div>
-                    <div class="pt-4 text-slate-400 font-bold">→</div>
-                    <div class="flex-1">
-                        <label class="block text-xs text-slate-400 mb-1">Preview</label>
-                        <div class="px-4 py-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 font-mono text-sm text-blue-600 dark:text-blue-400 min-h-12">
-                            <span id="preview-regular">—</span>
+                {{-- 3. Qty group — kiri bawah --}}
+                <div class="space-y-5 lg:col-start-1 lg:row-start-2">
+
+                    {{-- Channel UP + BT --}}
+                    <div id="section-channel" class="hidden space-y-4">
+                        <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300">
+                            Jumlah Channel <span class="text-red-500">*</span>
+                        </label>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-2 text-center">Channel UP</label>
+                                <input type="number" id="channel_up" name="shift1_qty"
+                                       value="{{ old('shift1_qty', 0) }}"
+                                       min="0" max="9999"
+                                       class="w-full px-4 py-4 text-center text-xl font-bold rounded-xl
+                                              bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-white
+                                              border border-slate-300 dark:border-slate-600
+                                              focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-2 text-center">Channel BT</label>
+                                <input type="number" id="channel_bt" name="shift2_qty"
+                                       value="{{ old('shift2_qty', 0) }}"
+                                       min="0" max="9999"
+                                       class="w-full px-4 py-4 text-center text-xl font-bold rounded-xl
+                                              bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-white
+                                              border border-slate-300 dark:border-slate-600
+                                              focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            </div>
+                        </div>
+                        <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4">
+                            <p class="text-xs text-blue-600 dark:text-blue-400 mb-2 font-medium">Total otomatis: (UP + BT) ÷ 2</p>
+                            <p id="channel-total-display" class="text-3xl font-black text-blue-700 dark:text-blue-300 text-center">0</p>
+                            <input type="hidden" id="total_qty_channel" name="total_qty" value="{{ old('total_qty', 0) }}">
                         </div>
                     </div>
-                </div>
-            </div>
 
-            {{-- Nomor Urut - Channel --}}
-            <div id="section-notes-channel" class="hidden">
-                <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Nomor Urut</label>
-
-                {{-- Hint: nomor urut terakhir (channel) --}}
-                <div id="hint-channel" class="mb-3 items-start gap-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-xl px-3 py-2.5" style="display:none">
-                    <svg class="w-4 h-4 text-amber-500 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                              d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                    </svg>
-                    <div class="flex-1 min-w-0 text-xs">
-                        <p class="text-slate-500 dark:text-slate-400">
-                            Entri terakhir
-                            <span id="hint-channel-date" class="font-semibold text-amber-600 dark:text-amber-400"></span>:
-                        </p>
-                        <p id="hint-channel-text"
-                           class="mt-0.5 font-mono font-bold text-sm text-slate-800 dark:text-white"></p>
-                        <div class="flex gap-3 mt-1">
-                            <button type="button" id="hint-channel-btn-up"
-                                    class="hidden text-blue-600 dark:text-blue-400 hover:underline font-medium">
-                                ↳ Lanjut UP
-                            </button>
-                            <button type="button" id="hint-channel-btn-bt"
-                                    class="hidden text-purple-600 dark:text-purple-400 hover:underline font-medium">
-                                ↳ Lanjut BT
-                            </button>
+                    {{-- Total Manual --}}
+                    <div id="section-regular">
+                        <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4">
+                            <label for="total_qty_regular" class="block text-sm font-semibold text-blue-700 dark:text-blue-300 mb-2">
+                                Total Unit <span class="text-red-500">*</span>
+                                <span class="ml-1 text-xs font-normal text-blue-500">(isi manual)</span>
+                            </label>
+                            <input type="number" id="total_qty_regular" name="total_qty"
+                                   value="{{ old('total_qty', 0) }}"
+                                   min="0" max="99999" step="any"
+                                   class="w-full px-4 py-4 text-center text-3xl font-black rounded-xl
+                                          bg-white dark:bg-slate-900 text-blue-700 dark:text-blue-300
+                                          border-2 {{ $errors->has('total_qty') ? 'border-red-500' : 'border-blue-300 dark:border-blue-700' }}
+                                          focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            @error('total_qty')
+                            <p class="mt-1 text-xs text-red-500">{{ $message }}</p>
+                            @enderror
                         </div>
                     </div>
-                </div>
 
-                <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-2 text-center">Nomor Awal UP</label>
-                        <input type="number" id="no_awal_up" min="1" placeholder="Contoh: 435"
-                               class="w-full px-4 py-3 text-center text-lg font-bold rounded-xl
-                                      bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-white
-                                      border border-slate-300 dark:border-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                        <p id="preview-up" class="mt-2 text-xs text-center font-mono text-blue-500 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 rounded-lg px-2 py-1.5 min-h-7">—</p>
+                </div>{{-- /qty group --}}
+
+                {{-- 4. Nomor Urut & Manual Serial — kanan bawah --}}
+                <div class="space-y-5 lg:col-start-2 lg:row-start-2">
+
+                    {{-- Manual Seri & KVA (Swasta / Typetest) --}}
+                    <div id="section-manual-serial" class="hidden">
+                        <div class="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-4 space-y-3">
+                            <p class="text-sm font-semibold text-amber-700 dark:text-amber-400 flex items-center gap-2">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                          d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/>
+                                </svg>
+                                Identitas Produk <span class="text-red-500 font-normal text-xs">(wajib diisi)</span>
+                            </p>
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
+                                        Nomor Seri <span class="text-red-500">*</span>
+                                    </label>
+                                    <input type="text" name="manual_series" id="manual_series"
+                                           value="{{ old('manual_series') }}" maxlength="100"
+                                           placeholder="Contoh: A-1234 / 2026.001"
+                                           class="w-full px-4 py-3 rounded-xl bg-white dark:bg-slate-900 text-slate-800 dark:text-white
+                                                  border {{ $errors->has('manual_series') ? 'border-red-500' : 'border-amber-300 dark:border-amber-700' }}
+                                                  focus:outline-none focus:ring-2 focus:ring-amber-400 font-mono text-sm">
+                                    @error('manual_series')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
+                                        KVA <span class="text-red-500">*</span>
+                                    </label>
+                                    <input type="text" name="manual_kva" id="manual_kva"
+                                           value="{{ old('manual_kva') }}" maxlength="50"
+                                           placeholder="Contoh: 100 / 2x50 / 250"
+                                           class="w-full px-4 py-3 rounded-xl bg-white dark:bg-slate-900 text-slate-800 dark:text-white
+                                                  border {{ $errors->has('manual_kva') ? 'border-red-500' : 'border-amber-300 dark:border-amber-700' }}
+                                                  focus:outline-none focus:ring-2 focus:ring-amber-400 font-mono text-sm">
+                                    @error('manual_kva')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                    <div>
-                        <label class="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-2 text-center">Nomor Awal BT</label>
-                        <input type="number" id="no_awal_bt" min="1" placeholder="Contoh: 438"
-                               class="w-full px-4 py-3 text-center text-lg font-bold rounded-xl
-                                      bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-white
-                                      border border-slate-300 dark:border-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                        <p id="preview-bt" class="mt-2 text-xs text-center font-mono text-purple-500 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/20 rounded-lg px-2 py-1.5 min-h-7">—</p>
+
+                    {{-- Nomor Urut - Regular --}}
+                    <div id="section-notes-regular">
+                        <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Nomor Urut</label>
+                        <div id="hint-regular" class="mb-3 items-start gap-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-xl px-3 py-2.5" style="display:none">
+                            <svg class="w-4 h-4 text-amber-500 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                      d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                            </svg>
+                            <div class="flex-1 min-w-0 text-xs">
+                                <p class="text-slate-500 dark:text-slate-400">
+                                    Entri terakhir
+                                    <span id="hint-regular-date" class="font-semibold text-amber-600 dark:text-amber-400"></span>:
+                                </p>
+                                <p id="hint-regular-text"
+                                   class="mt-0.5 font-mono font-bold text-sm text-slate-800 dark:text-white truncate"></p>
+                                <button type="button" id="hint-regular-btn"
+                                        class="hidden mt-1 text-blue-600 dark:text-blue-400 hover:underline font-medium">
+                                    ↳ Lanjutkan dari nomor ini
+                                </button>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <div class="flex-1">
+                                <label class="block text-xs text-slate-400 mb-1">Nomor Awal</label>
+                                <input type="number" id="no_awal_regular" min="1" placeholder="Contoh: 98"
+                                       class="w-full px-4 py-3 rounded-xl bg-white dark:bg-slate-900 text-slate-800 dark:text-white
+                                              border border-slate-300 dark:border-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            </div>
+                            <div class="pt-4 text-slate-400 font-bold">→</div>
+                            <div class="flex-1">
+                                <label class="block text-xs text-slate-400 mb-1">Preview</label>
+                                <div class="px-4 py-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 font-mono text-sm text-blue-600 dark:text-blue-400 min-h-12">
+                                    <span id="preview-regular">—</span>
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                </div>
-            </div>
+
+                    {{-- Nomor Urut - Channel --}}
+                    <div id="section-notes-channel" class="hidden">
+                        <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Nomor Urut</label>
+                        <div id="hint-channel" class="mb-3 items-start gap-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-xl px-3 py-2.5" style="display:none">
+                            <svg class="w-4 h-4 text-amber-500 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                      d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                            </svg>
+                            <div class="flex-1 min-w-0 text-xs">
+                                <p class="text-slate-500 dark:text-slate-400">
+                                    Entri terakhir
+                                    <span id="hint-channel-date" class="font-semibold text-amber-600 dark:text-amber-400"></span>:
+                                </p>
+                                <p id="hint-channel-text"
+                                   class="mt-0.5 font-mono font-bold text-sm text-slate-800 dark:text-white"></p>
+                                <div class="flex gap-3 mt-1">
+                                    <button type="button" id="hint-channel-btn-up"
+                                            class="hidden text-blue-600 dark:text-blue-400 hover:underline font-medium">
+                                        ↳ Lanjut UP
+                                    </button>
+                                    <button type="button" id="hint-channel-btn-bt"
+                                            class="hidden text-purple-600 dark:text-purple-400 hover:underline font-medium">
+                                        ↳ Lanjut BT
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-2 text-center">Nomor Awal UP</label>
+                                <input type="number" id="no_awal_up" min="1" placeholder="Contoh: 435"
+                                       class="w-full px-4 py-3 text-center text-lg font-bold rounded-xl
+                                              bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-white
+                                              border border-slate-300 dark:border-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <p id="preview-up" class="mt-2 text-xs text-center font-mono text-blue-500 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 rounded-lg px-2 py-1.5 min-h-7">—</p>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-2 text-center">Nomor Awal BT</label>
+                                <input type="number" id="no_awal_bt" min="1" placeholder="Contoh: 438"
+                                       class="w-full px-4 py-3 text-center text-lg font-bold rounded-xl
+                                              bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-white
+                                              border border-slate-300 dark:border-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <p id="preview-bt" class="mt-2 text-xs text-center font-mono text-purple-500 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/20 rounded-lg px-2 py-1.5 min-h-7">—</p>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>{{-- /nomor urut group --}}
+
+            </div>{{-- /Grid 2-kolom --}}
 
             <input type="hidden" id="notes" name="notes" value="{{ old('notes') }}">
-
-            {{-- Manual Seri & KVA (Swasta / Typetest) --}}
-            <div id="section-manual-serial" class="hidden">
-                <div class="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-4 space-y-3">
-                    <p class="text-sm font-semibold text-amber-700 dark:text-amber-400 flex items-center gap-2">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                  d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/>
-                        </svg>
-                        Identitas Produk <span class="text-red-500 font-normal text-xs">(wajib diisi)</span>
-                    </p>
-                    <div class="grid grid-cols-2 gap-4">
-                        <div>
-                            <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
-                                Nomor Seri <span class="text-red-500">*</span>
-                            </label>
-                            <input type="text" name="manual_series" id="manual_series"
-                                   value="{{ old('manual_series') }}" maxlength="100"
-                                   placeholder="Contoh: A-1234 / 2026.001"
-                                   class="w-full px-4 py-3 rounded-xl bg-white dark:bg-slate-900 text-slate-800 dark:text-white
-                                          border {{ $errors->has('manual_series') ? 'border-red-500' : 'border-amber-300 dark:border-amber-700' }}
-                                          focus:outline-none focus:ring-2 focus:ring-amber-400 font-mono text-sm">
-                            @error('manual_series')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
-                        </div>
-                        <div>
-                            <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
-                                KVA <span class="text-red-500">*</span>
-                            </label>
-                            <input type="text" name="manual_kva" id="manual_kva"
-                                   value="{{ old('manual_kva') }}" maxlength="50"
-                                   placeholder="Contoh: 100 / 2x50 / 250"
-                                   class="w-full px-4 py-3 rounded-xl bg-white dark:bg-slate-900 text-slate-800 dark:text-white
-                                          border {{ $errors->has('manual_kva') ? 'border-red-500' : 'border-amber-300 dark:border-amber-700' }}
-                                          focus:outline-none focus:ring-2 focus:ring-amber-400 font-mono text-sm">
-                            @error('manual_kva')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
-                        </div>
-                    </div>
-                </div>
-            </div>
 
             {{-- Reject / Defect --}}
             <div x-data="{ open: {{ old('reject_qty') > 0 ? 'true' : 'false' }} }">
@@ -319,12 +359,21 @@
 
             {{-- Action Buttons --}}
             <div class="flex gap-3 pt-2">
+                @if($isModal)
+                <button type="button" data-modal-close
+                        class="flex-1 py-3 px-4 text-center text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-700
+                               hover:bg-slate-200 dark:hover:bg-slate-600 rounded-xl font-semibold transition-colors">
+                    <span class="md:hidden">Tutup</span>
+                    <span class="hidden md:inline">Tutup</span>
+                </button>
+                @else
                 <a href="{{ route('production.index') }}"
                    class="flex-1 py-3 px-4 text-center text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-700
                           hover:bg-slate-200 dark:hover:bg-slate-600 rounded-xl font-semibold transition-colors">
                     <span class="md:hidden">Cancel</span>
                     <span class="hidden md:inline">Batal</span>
                 </a>
+                @endif
                 <button type="submit"
                         class="flex-1 py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold
                                shadow-lg shadow-blue-900/20 transition-all hover:scale-[1.01]">
@@ -428,6 +477,11 @@
         sectionNotesRegular.classList.toggle('hidden', isChannel);
         sectionManualSerial.classList.toggle('hidden', !manual);
 
+        // Animasi muncul untuk seksi yang baru ditampilkan
+        replayAnim(isChannel ? sectionChannel : sectionRegular);
+        replayAnim(isChannel ? sectionNotesChannel : sectionNotesRegular);
+        if (manual) replayAnim(sectionManualSerial);
+
         totalRegular.disabled = isChannel;
         totalHidden.disabled  = !isChannel;
         channelUp.disabled    = !isChannel;
@@ -443,6 +497,27 @@
     function hideHints() {
         hintRegular.style.display = 'none';
         hintChannel.style.display = 'none';
+    }
+
+    // Mainkan ulang animasi "muncul" pada sebuah elemen
+    function replayAnim(el, cls = 'reveal-anim') {
+        if (!el) return;
+        el.classList.remove(cls);
+        void el.offsetWidth; // paksa reflow agar animasi bisa diputar ulang
+        el.classList.add(cls);
+    }
+
+    // Tampilkan elemen dengan animasi (display bisa 'flex'/'block')
+    function revealHint(el, display = 'flex') {
+        if (!el) return;
+        el.style.display = display;
+        replayAnim(el);
+    }
+
+    // Beri kilau singkat pada input yang baru terisi otomatis
+    function flashFilled(el) {
+        if (!el) return;
+        replayAnim(el, 'field-filled');
     }
 
     /**
@@ -472,12 +547,13 @@
             if (!noAwalRegular.value) {
                 noAwalRegular.value = nextNum;
                 noAwalRegular.dispatchEvent(new Event('input'));
+                flashFilled(noAwalRegular);
             }
         } else {
             hintRegularBtn.classList.add('hidden');
         }
 
-        hintRegular.style.display = 'flex';
+        revealHint(hintRegular);
     }
 
     function showHintChannel(notes, date) {
@@ -505,6 +581,7 @@
                 if (!noAwalUp.value) {
                     noAwalUp.value = nextUp;
                     noAwalUp.dispatchEvent(new Event('input'));
+                    flashFilled(noAwalUp);
                 }
             }
         } else {
@@ -525,13 +602,14 @@
                 if (!noAwalBt.value) {
                     noAwalBt.value = nextBt;
                     noAwalBt.dispatchEvent(new Event('input'));
+                    flashFilled(noAwalBt);
                 }
             }
         } else {
             hintChannelBtnBt.classList.add('hidden');
         }
 
-        hintChannel.style.display = 'flex';
+        revealHint(hintChannel);
     }
 
     const LAST_SERIAL_URL = '{{ route("api.production.last-serial") }}';
@@ -557,8 +635,19 @@
 
     // ─────────────────────────────────────────────────────────────────────────
 
+    // Kosongkan nomor awal agar auto-fill dari produk baru bisa mengisi ulang
+    function resetNoAwal() {
+        [noAwalRegular, noAwalUp, noAwalBt].forEach(el => {
+            if (el && el.value !== '') {
+                el.value = '';
+                el.dispatchEvent(new Event('input'));
+            }
+        });
+    }
+
     productSelect.addEventListener('change', () => {
         const sel = getSelected();
+        resetNoAwal();
         switchMode(sel);
         fetchLastSerial(productSelect.value, sel.type, sel.manual);
     });
@@ -570,6 +659,21 @@
     noAwalUp.addEventListener('input', generateChannel);
     noAwalBt.addEventListener('input', generateChannel);
 
+    // Scroll wheel untuk naikkan/turunkan angka
+    function wheelStep(el, e, callback) {
+        e.preventDefault();
+        const step = parseFloat(el.step) || 1;
+        const min  = el.min !== '' ? parseFloat(el.min) : -Infinity;
+        const max  = el.max !== '' ? parseFloat(el.max) :  Infinity;
+        const cur  = parseFloat(el.value) || 0;
+        el.value   = Math.min(max, Math.max(min, cur + (e.deltaY < 0 ? step : -step)));
+        el.dispatchEvent(new Event('input'));
+        if (callback) callback();
+    }
+    [totalRegular, channelUp, channelBt, noAwalRegular, noAwalUp, noAwalBt].forEach(el => {
+        el.addEventListener('wheel', e => wheelStep(el, e), { passive: false });
+    });
+
     // Init (termasuk fetch jika ada old value dari form validation error)
     const initSel = getSelected();
     switchMode(initSel);
@@ -577,27 +681,138 @@
         fetchLastSerial(productSelect.value, initSel.type, initSel.manual);
     }
 
-    // ── Cegah double-submit (penyebab data/total ganda di riwayat) ───────────
+    // ── Simpan via AJAX: cepat, tanpa reload halaman ─────────────────────────
     const form = productSelect.closest('form');
+
+    // Toast ringan khusus halaman ini
+    function flash(msg, type = 'success') {
+        let box = document.getElementById('prod-flash');
+        if (!box) {
+            box = document.createElement('div');
+            box.id = 'prod-flash';
+            box.className = 'fixed top-4 right-4 z-[9999] flex flex-col gap-2';
+            document.body.appendChild(box);
+        }
+        const color = type === 'success' ? 'bg-green-600' : (type === 'warning' ? 'bg-amber-500' : 'bg-red-600');
+        const el = document.createElement('div');
+        el.className = `flex items-center gap-2 px-4 py-3 ${color} text-white rounded-xl shadow-lg max-w-sm text-sm font-medium`;
+        el.textContent = msg;
+        box.appendChild(el);
+        setTimeout(() => { el.style.transition = 'opacity .3s'; el.style.opacity = '0';
+            setTimeout(() => el.remove(), 300); }, 3500);
+    }
+
+    // Kosongkan input isian untuk entri berikutnya (tanggal & produk tetap)
+    function resetForNextEntry() {
+        [channelUp, channelBt, totalRegular, noAwalRegular, noAwalUp, noAwalBt].forEach(el => { if (el) el.value = ''; });
+        if (notesHidden) notesHidden.value = '';
+        const ket = document.getElementById('keterangan');
+        if (ket) ket.value = '';
+        form.querySelectorAll('[name="reject_qty"]').forEach(el => el.value = 0);
+        form.querySelectorAll('[name="reject_notes"]').forEach(el => el.value = '');
+        if (manualSeriesInput) manualSeriesInput.value = '';
+        if (manualKvaInput)    manualKvaInput.value = '';
+        // Segarkan preview & hint nomor seri berikutnya
+        if (typeof calcChannel === 'function')    calcChannel();
+        if (typeof generateRegular === 'function') generateRegular();
+        if (typeof generateChannel === 'function') generateChannel();
+        const sel = getSelected();
+        if (productSelect.value) fetchLastSerial(productSelect.value, sel.type, sel.manual);
+    }
+
     if (form) {
-        let submitted = false;
-        form.addEventListener('submit', function (e) {
-            if (submitted) { e.preventDefault(); return; }
-            submitted = true;
+        let submitting = false;
+        form.addEventListener('submit', async function (e) {
+            e.preventDefault();
+            if (submitting) return;
+            submitting = true;
+
             const btn = form.querySelector('button[type="submit"]');
-            if (btn) { btn.disabled = true; btn.classList.add('opacity-60', 'cursor-not-allowed'); }
-        });
-        // Pulihkan tombol bila halaman dikembalikan dari cache (tombol Back)
-        window.addEventListener('pageshow', function (e) {
-            if (!e.persisted) return;
-            submitted = false;
-            const btn = form.querySelector('button[type="submit"]');
-            if (btn) { btn.disabled = false; btn.classList.remove('opacity-60', 'cursor-not-allowed'); }
+            const btnHtml = btn ? btn.innerHTML : '';
+            if (btn) {
+                btn.disabled = true;
+                btn.classList.add('opacity-60', 'cursor-not-allowed');
+                btn.innerHTML = 'Menyimpan...';
+            }
+            // Bersihkan error lama
+            form.querySelectorAll('.ajax-error').forEach(el => el.remove());
+
+            try {
+                const res = await fetch(form.action, {
+                    method: 'POST',
+                    body: new FormData(form),
+                    headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
+                    credentials: 'same-origin',
+                });
+
+                if (res.ok) {
+                    const data = await res.json().catch(() => ({}));
+                    flash(data.message || 'Data produksi berhasil disimpan.', 'success');
+                    resetForNextEntry();
+                    // Beri tahu halaman lain (index) bahwa ada data baru
+                    try { localStorage.setItem('prod:changed', Date.now().toString()); } catch (_) {}
+                } else if (res.status === 422) {
+                    const data = await res.json().catch(() => ({}));
+                    const errs = data.errors || {};
+                    let firstMsg = 'Periksa kembali isian form.';
+                    Object.keys(errs).forEach((key, idx) => {
+                        const msg = Array.isArray(errs[key]) ? errs[key][0] : errs[key];
+                        if (idx === 0) firstMsg = msg;
+                        const field = form.querySelector(`[name="${key}"]`);
+                        if (field) {
+                            const p = document.createElement('p');
+                            p.className = 'ajax-error mt-1 text-xs text-red-500';
+                            p.textContent = msg;
+                            field.insertAdjacentElement('afterend', p);
+                        }
+                    });
+                    flash(firstMsg, 'warning');
+                } else {
+                    flash('Gagal menyimpan. Coba lagi.', 'error');
+                }
+            } catch (_) {
+                flash('Koneksi bermasalah. Data belum tersimpan.', 'error');
+            } finally {
+                submitting = false;
+                if (btn) {
+                    btn.disabled = false;
+                    btn.classList.remove('opacity-60', 'cursor-not-allowed');
+                    btn.innerHTML = btnHtml;
+                }
+            }
         });
     }
 
 }());
 </script>
+
+@if($isModal)
+<script>
+(function () {
+    // Tombol "Tutup" di dalam iframe → minta induk menutup modal.
+    document.addEventListener('click', function (e) {
+        if (e.target.closest('[data-modal-close]')) {
+            e.preventDefault();
+            window.parent.postMessage({ type: 'prod-modal-close' }, '*');
+        }
+    });
+    // Beritahu induk setiap kali ada perubahan data (disimpan dari form ini)
+    // agar daftar di halaman induk ikut ter-refresh tanpa reload.
+    window.addEventListener('storage', function (e) {
+        if (e.key === 'prod:changed') {
+            window.parent.postMessage({ type: 'prod-changed' }, '*');
+        }
+    });
+    // localStorage yang di-set oleh form ini tidak memicu 'storage' pada window
+    // yang sama, jadi kirim juga sinyal via override singkat setItem.
+    var _set = localStorage.setItem.bind(localStorage);
+    localStorage.setItem = function (k, v) {
+        _set(k, v);
+        if (k === 'prod:changed') window.parent.postMessage({ type: 'prod-changed' }, '*');
+    };
+}());
+</script>
+@endif
 
 @push('styles')
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/css/tom-select.min.css">
@@ -620,6 +835,21 @@
     margin-top: 4px !important;
     color: #f1f5f9 !important;
     font-size: 0.875rem !important;
+    /* Animasi buka/tutup: paksa selalu ter-render, visibilitas diatur class
+       .dropdown-active dari TomSelect agar transisi jalan dua arah. */
+    display: block !important;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-6px) scale(0.98);
+    transform-origin: top center;
+    pointer-events: none;
+    transition: opacity 0.16s ease, transform 0.16s ease, visibility 0.16s ease;
+}
+.ts-wrapper.dropdown-active .ts-dropdown {
+    opacity: 1;
+    visibility: visible;
+    transform: none;
+    pointer-events: auto;
 }
 .ts-dropdown .option { padding: 8px 12px !important; }
 .ts-dropdown .option:hover,
@@ -636,6 +866,20 @@
 .ts-dropdown-content { max-height: 300px !important; }
 .ts-wrapper .ts-control input { color: #f1f5f9 !important; }
 .ts-wrapper .ts-control input::placeholder { color: #64748b !important; }
+
+/* Animasi muncul untuk hint "Nomor Urut" & seksi terkait */
+@keyframes hintReveal {
+    from { opacity: 0; transform: translateY(-8px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+.reveal-anim { animation: hintReveal 0.28s cubic-bezier(0.22, 1, 0.36, 1); }
+
+/* Kilau singkat saat nomor awal terisi otomatis */
+@keyframes fieldFill {
+    0%   { box-shadow: 0 0 0 0 rgba(59,130,246,0.55); }
+    100% { box-shadow: 0 0 0 6px rgba(59,130,246,0); }
+}
+.field-filled { animation: fieldFill 0.6s ease-out; }
 </style>
 @endpush
 

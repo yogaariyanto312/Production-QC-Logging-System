@@ -201,7 +201,16 @@ class GambarKerjaController extends Controller
     public function serveFile(string $path)
     {
         abort_unless(Storage::disk('public')->exists($path), 404);
-        return response()->file(Storage::disk('public')->path($path));
+
+        // File gambar kerja tidak pernah ditimpa — upload baru/ganti thumbnail selalu
+        // pakai nama file baru (UUID/hash) dan yang lama dihapus. Jadi aman di-cache
+        // lama (1 tahun, immutable): sekali browser sudah pernah ambil file ini, buka
+        // lagi nanti (bahkan setelah tutup browser) tidak perlu download ulang.
+        // setPrivate() wajib dipanggil terpisah — BinaryFileResponse selalu override
+        // ke "public" secara default kalau "private" cuma dikirim lewat header array.
+        return response()->file(Storage::disk('public')->path($path), [
+            'Cache-Control' => 'private, max-age=31536000, immutable',
+        ])->setPrivate();
     }
 
     public function deleteThumbnail(Request $request)

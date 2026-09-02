@@ -25,6 +25,8 @@ Thumbs.db
 
 # ─── Tooling lokal & sinkronisasi DB (berisi kredensial — JANGAN di-commit) ───
 /*.py
+# Folder script deploy & tooling (berisi kredensial)
+/deployment/
 /db_backups/
 /db_mirror_temp.sql*
 /test.txt

@@ -17,19 +17,30 @@ class ProductionLogController extends Controller
         $dateFrom = $request->date_from ?: null;
         $dateTo   = $request->date_to   ?: null;
 
-        $applyFilters = function ($q) use ($request, $dateFrom, $dateTo) {
+        // Developer bisa menyaring per departemen (role lain sudah di-scope otomatis).
+        $deptFilter = auth()->user()?->role === 'developer'
+            ? (trim((string) $request->input('department')) ?: null)
+            : null;
+
+        $applyFilters = function ($q) use ($request, $dateFrom, $dateTo, $deptFilter) {
             $q->when($request->search,       fn($q) => $q->search($request->search))
               ->when($request->product_name, fn($q) => $q->whereHas('product', fn($q) => $q->where('name', $request->product_name)))
               ->when($dateFrom,              fn($q) => $q->where('production_date', '>=', $dateFrom))
               ->when($dateTo,                fn($q) => $q->where('production_date', '<=', $dateTo))
               ->when($request->month,        fn($q) => $q->whereMonth('production_date', $request->month))
               ->when($request->year,         fn($q) => $q->whereYear('production_date', $request->year))
+              ->when($deptFilter,            fn($q) => $q->where('production_logs.department', $deptFilter))
 ;
         };
 
-        // Totals khusus hari ini untuk summary bar
+        $departments = auth()->user()?->role === 'developer'
+            ? \App\Models\Department::where('is_active', true)->orderBy('name')->pluck('name')
+            : collect();
+
+        // Totals hari ini untuk summary bar
         $todayLogs  = ProductionLog::with(['product:id,category_id,type', 'product.category:id,name'])
             ->where('production_date', today()->toDateString())
+            ->when($deptFilter, fn($q) => $q->where('production_logs.department', $deptFilter))
             ->get(['id', 'product_id', 'shift1_qty', 'shift2_qty', 'total_qty']);
 
         $totalUp    = $todayLogs->sum('shift1_qty');
@@ -77,14 +88,18 @@ class ProductionLogController extends Controller
             'logs', 'dates', 'products', 'categories', 'years',
             'dateFrom', 'dateTo',
             'totalUp', 'totalBt', 'totalTanki', 'totalCover', 'grandTotal', 'totalCount',
-            'lastChannelNums'
+            'lastChannelNums', 'departments', 'deptFilter'
         ));
     }
 
     public function create()
     {
-        $products = $this->dropdownProducts();
-        return view('production.create', compact('products'));
+        $products    = $this->dropdownProducts();
+        // Developer memilih departemen tujuan; role lain otomatis ikut departemennya.
+        $departments = auth()->user()?->role === 'developer'
+            ? \App\Models\Department::where('is_active', true)->orderBy('name')->pluck('name')
+            : collect();
+        return view('production.create', compact('products', 'departments'));
     }
 
     public function store(ProductionLogRequest $request)
@@ -94,6 +109,18 @@ class ProductionLogController extends Controller
         $data['operator_name'] = auth()->user()->name;
         $data['reject_qty']    = (int) ($data['reject_qty'] ?? 0);
 
+        // Departemen data: developer memilih di form; role lain otomatis ikut
+        // departemennya. Ditetapkan eksplisit di sini agar lookup merge & auto-fill
+        // trait konsisten (lihat App\Models\Concerns\BelongsToDepartment).
+        if (auth()->user()->role === 'developer' && \App\Models\Department::where('is_active', true)->exists()) {
+            $request->validate([
+                'department' => ['required', 'string', 'exists:departments,name'],
+            ], [], ['department' => 'departemen tujuan']);
+            $data['department'] = $request->input('department');
+        } else {
+            $data['department'] = auth()->user()->department;
+        }
+
         // Backstop double-submit (klik ganda): abaikan kiriman identik dalam 10 detik terakhir.
         // Penting untuk produk channel yang akan di-MERGE (jika tidak, qty bisa berlipat).
         $dupeKey = 'prodlog_dupe_' . md5(implode('|', [
@@ -102,8 +129,7 @@ class ProductionLogController extends Controller
             $data['manual_series'] ?? '', $data['notes'] ?? '',
         ]));
         if (\Illuminate\Support\Facades\Cache::get($dupeKey)) {
-            return redirect()->route('production.index')
-                ->with('success', 'Data produksi berhasil disimpan.');
+            return $this->storeResponse($request, 'Data produksi berhasil disimpan.');
         }
         \Illuminate\Support\Facades\Cache::put($dupeKey, true, now()->addSeconds(10));
 
@@ -144,13 +170,17 @@ class ProductionLogController extends Controller
             $data['shift3_qty'] = $data['shift3_qty'] ?? 0;
         }
 
-        // Cek merge hanya untuk channel: UP dan BT diinput terpisah oleh operator berbeda.
-        // Non-channel (Cover, Tangki, dll.) selalu buat entri baru per batch.
-        $existing = $isChannel
-            ? ProductionLog::where('product_id', $data['product_id'])
-                ->whereDate('production_date', $data['production_date'])
-                ->first()
-            : null;
+        // Merge: produk sama + tanggal sama → tambahkan ke entri yang ada, jangan
+        // buat baris baru. Untuk channel, UP/BT diinput terpisah. Untuk non-channel
+        // (Cover, Tangki, dll.) seri manual sudah jadi product_id spesifik, jadi
+        // product_id + tanggal sama berarti seri yang sama.
+        // Merge harus per-departemen: produk+tanggal sama di departemen berbeda
+        // adalah entri terpisah (penting untuk developer yang tak ter-scope).
+        $existing = ProductionLog::where('product_id', $data['product_id'])
+            ->whereDate('production_date', $data['production_date'])
+            ->when($data['department'] !== null, fn($q) => $q->where('department', $data['department']))
+            ->when($data['department'] === null, fn($q) => $q->whereNull('department'))
+            ->first();
 
         if ($existing) {
             // Merge: tambah ke entri yang ada
@@ -170,11 +200,7 @@ class ProductionLogController extends Controller
                 $combined = $existing->notes
                     ? $existing->notes . "\n" . $data['notes']
                     : $data['notes'];
-                $update['notes'] = collect(explode("\n", str_replace("\r\n", "\n", $combined)))
-                    ->map(fn($l) => trim($l))
-                    ->filter()
-                    ->unique()
-                    ->implode("\n");
+                $update['notes'] = $this->mergeSerialNotes($combined);
             }
 
             // Update keterangan jika ada isian baru
@@ -188,19 +214,15 @@ class ProductionLogController extends Controller
             $log = $existing->fresh(['product']);
 
             ActivityLog::record('update', "Tambah produksi: {$log->product->name} (total kini: {$log->total_qty} unit)", $log);
-            BotNotificationService::checkAndAlertRejectRate($product, $data['production_date']);
-            BotNotificationService::checkAndNotifyTargetReached($data['product_id'], $data['production_date']);
-            return redirect()->route('production.index')
-                ->with('success', "Ditambahkan ke entri yang ada. Total sekarang: {$log->total_qty} unit.");
+            $this->notifyAfterResponse($product, $data['production_date'], $data['product_id']);
+            return $this->storeResponse($request, "Ditambahkan ke entri yang ada. Total sekarang: {$this->fmtQty($log->total_qty)} unit.", $log);
         }
 
         $log = ProductionLog::create($data);
         ActivityLog::record('create', "Input produksi: {$log->product->name} ({$log->total_qty} unit)", $log);
-        BotNotificationService::checkAndAlertRejectRate($product, $data['production_date']);
-        BotNotificationService::checkAndNotifyTargetReached($data['product_id'], $data['production_date']);
+        $this->notifyAfterResponse($product, $data['production_date'], $data['product_id']);
 
-        return redirect()->route('production.index')
-            ->with('success', "Data produksi berhasil disimpan. Total: {$log->total_qty} unit.");
+        return $this->storeResponse($request, "Data produksi berhasil disimpan. Total: {$this->fmtQty($log->total_qty)} unit.", $log);
     }
 
     public function show(ProductionLog $productionLog)
@@ -228,6 +250,60 @@ class ProductionLogController extends Controller
             ->orderByRaw('CAST(kva AS UNSIGNED)')
             ->orderBy('series')
             ->get();
+    }
+
+    /**
+     * Gabung baris nomor urut, menyatukan rentang yang bersambung.
+     * Contoh: "NO.473-482" + "NO.483-492" → "NO.473-492".
+     * Baris non-rentang (tak cocok format) dipertahankan apa adanya (dedup).
+     */
+    private function mergeSerialNotes(string $combined): string
+    {
+        $lines = collect(explode("\n", str_replace("\r\n", "\n", $combined)))
+            ->map(fn($l) => trim($l))
+            ->filter()
+            ->unique()
+            ->values();
+
+        // Kelompokkan rentang per prefix (mis. "", "UP ", "BT "), pertahankan urutan kemunculan
+        $ranges = [];      // prefix => [[start, end], ...]
+        $order  = [];      // urutan kemunculan prefix pertama kali
+        $others = [];      // baris yang bukan format rentang
+
+        foreach ($lines as $line) {
+            if (preg_match('/^(.*?)NO\.(\d+)-(\d+)$/i', $line, $m)) {
+                $prefix = $m[1];
+                if (!array_key_exists($prefix, $ranges)) {
+                    $ranges[$prefix] = [];
+                    $order[] = $prefix;
+                }
+                $ranges[$prefix][] = [(int) $m[2], (int) $m[3]];
+            } else {
+                $others[] = $line;
+            }
+        }
+
+        $out = [];
+        foreach ($order as $prefix) {
+            $list = $ranges[$prefix];
+            usort($list, fn($a, $b) => $a[0] <=> $b[0]);
+
+            $merged = [];
+            foreach ($list as $r) {
+                if (!empty($merged) && $r[0] <= end($merged)[1] + 1) {
+                    // Bersambung/tumpang tindih — perluas rentang terakhir
+                    $merged[count($merged) - 1][1] = max(end($merged)[1], $r[1]);
+                } else {
+                    $merged[] = $r;
+                }
+            }
+
+            foreach ($merged as $r) {
+                $out[] = "{$prefix}NO.{$r[0]}-{$r[1]}";
+            }
+        }
+
+        return collect(array_merge($out, $others))->implode("\n");
     }
 
     /**
@@ -283,8 +359,7 @@ class ProductionLogController extends Controller
 
         $productionLog->update($data);
         ActivityLog::record('update', "Edit produksi: {$productionLog->product->name} ({$productionLog->total_qty} unit)", $productionLog);
-        BotNotificationService::checkAndAlertRejectRate($product, $data['production_date']);
-        BotNotificationService::checkAndNotifyTargetReached($data['product_id'], $data['production_date']);
+        $this->notifyAfterResponse($product, $data['production_date'], $data['product_id']);
         return redirect()->route('production.index')
             ->with('success', 'Data produksi berhasil diperbarui.');
     }
@@ -311,19 +386,80 @@ class ProductionLogController extends Controller
             return response()->json(['notes' => null]);
         }
 
+        $notes = $log->notes;
+
+        // Untuk produk channel: baris UP dan BT bisa berasal dari log berbeda
+        // (mis. hari terakhir hanya input UP, BT-nya di log sebelumnya). Ambil
+        // masing-masing baris terakhir secara terpisah agar hint tidak hilang.
+        $product = Product::find($productId);
+        if ($product && $product->isChannel()) {
+            $serials = $this->lastChannelSerials($productId);
+            $lines = array_values(array_filter([$serials['up'], $serials['bt']]));
+            if (!empty($lines)) {
+                $notes = implode("\n", $lines);
+            }
+        }
+
         return response()->json([
-            'notes' => $log->notes,
+            'notes' => $notes,
             'date'  => $log->production_date->translatedFormat('d M Y'),
         ]);
     }
 
-    public function destroy(ProductionLog $productionLog)
+    public function destroy(Request $request, ProductionLog $productionLog)
     {
         $info = "{$productionLog->product->name} tgl {$productionLog->production_date->format('d/m/Y')}";
         $productionLog->delete();
         ActivityLog::record('delete', "Hapus produksi: {$info}");
+
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Data produksi berhasil dihapus.',
+            ]);
+        }
+
         return redirect()->route('production.index')
             ->with('success', 'Data produksi berhasil dihapus.');
+    }
+
+    /** Format qty: buang desimal .0 tapi pertahankan .5 (mis. channel). */
+    private function fmtQty($v): string
+    {
+        return fmod((float) $v, 1) == 0 ? number_format((float) $v) : number_format((float) $v, 1);
+    }
+
+    /**
+     * Balas simpan produksi: JSON untuk request AJAX (tanpa reload), redirect biasa
+     * untuk submit form normal (progressive enhancement).
+     */
+    private function storeResponse(Request $request, string $message, ?ProductionLog $log = null)
+    {
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => $message,
+                'total'   => $log ? (float) $log->total_qty : null,
+            ]);
+        }
+
+        return redirect()->route('production.index')->with('success', $message);
+    }
+
+    /**
+     * Jalankan cek notifikasi bot (reject rate & target tercapai) SETELAH response
+     * terkirim ke browser, supaya simpan/update produksi terasa instan.
+     */
+    private function notifyAfterResponse(?Product $product, string $date, int $productId): void
+    {
+        dispatch(function () use ($product, $date, $productId) {
+            try {
+                if ($product) {
+                    BotNotificationService::checkAndAlertRejectRate($product, $date);
+                }
+                BotNotificationService::checkAndNotifyTargetReached($productId);
+            } catch (\Throwable) {}
+        })->afterResponse();
     }
 
     public function poll()

@@ -271,12 +271,9 @@
         </button>
 
         {{-- Accordion Body --}}
-        <div x-show="open === {{ $topic['id'] }}"
-             x-transition:enter="transition ease-out duration-200"
-             x-transition:enter-start="opacity-0 -translate-y-1"
-             x-transition:enter-end="opacity-100 translate-y-0"
-             x-cloak
-             class="border-t border-slate-100 dark:border-slate-700 px-5 py-4">
+        <div class="collapsible" :class="open === {{ $topic['id'] }} && 'is-open'">
+        <div class="collapsible-inner">
+        <div class="border-t border-slate-100 dark:border-slate-700 px-5 py-4">
             <ol class="space-y-3">
                 @foreach($topic['steps'] as $i => $step)
                 <li class="flex items-start gap-3">
@@ -289,6 +286,8 @@
                 @endforeach
             </ol>
         </div>
+        </div>{{-- /collapsible-inner --}}
+        </div>{{-- /collapsible --}}
 
     </div>
     @endforeach

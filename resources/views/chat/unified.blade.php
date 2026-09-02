@@ -78,12 +78,18 @@
                             </div>
                             <div class="flex items-center gap-1.5 mt-0.5">
                                 <span class="text-xs text-slate-400 truncate flex-1" x-text="lastMsg(conv)"></span>
+                                <span x-show="conv.sender.role === 'developer'"
+                                      class="shrink-0 text-[9px] bg-slate-700 text-slate-300 px-1.5 py-0.5 rounded font-bold">DEV</span>
                                 <span x-show="conv.sender.role === 'supervisor'"
                                       class="shrink-0 text-[9px] bg-teal-900/60 text-teal-400 px-1.5 py-0.5 rounded font-bold">SPV</span>
                                 <span x-show="conv.sender.role === 'admin'"
                                       class="shrink-0 text-[9px] bg-purple-900/60 text-purple-400 px-1.5 py-0.5 rounded font-bold">ADM</span>
+                                <span x-show="conv.sender.role === 'mandor'"
+                                      class="shrink-0 text-[9px] bg-orange-900/60 text-orange-400 px-1.5 py-0.5 rounded font-bold">MDR</span>
                                 <span x-show="conv.sender.role === 'operator'"
                                       class="shrink-0 text-[9px] bg-blue-900/60 text-blue-400 px-1.5 py-0.5 rounded font-bold">QC</span>
+                                <span x-show="conv.sender.role === 'visitor'"
+                                      class="shrink-0 text-[9px] bg-slate-800 text-slate-500 px-1.5 py-0.5 rounded font-bold">VST</span>
                             </div>
                         </div>
                     </button>
@@ -332,6 +338,9 @@ function chatApp() {
         lastMessageId: 0,
         sinceTimer: null,
         fullTimer: null,
+        pingTimer: null,
+        _visibilityHandler: null,
+        _resizeHandler: null,
 
         get isPrivileged() {
             return this.userRole === 'developer' || this.userRole === 'admin' || this.userRole === 'supervisor';
@@ -395,12 +404,35 @@ function chatApp() {
         },
 
         async init() {
-            window.addEventListener('resize', () => { this.isMobile = window.innerWidth < 1024; });
+            this._resizeHandler = () => { this.isMobile = window.innerWidth < 1024; };
+            window.addEventListener('resize', this._resizeHandler);
+
             await this.loadAll();
-            this.sinceTimer = setInterval(() => this.pollSince(), 2000);
-            this.fullTimer  = setInterval(() => this.loadAll(), 30000);
+            this.sinceTimer = setInterval(() => this.pollSince(), 5000);
+            this.fullTimer  = setInterval(() => this.loadAll(), 60000);
             this.pingServer();
-            setInterval(() => this.pingServer(), 30000);
+            this.pingTimer = setInterval(() => this.pingServer(), 60000);
+
+            // Hentikan polling saat tab tidak aktif
+            this._visibilityHandler = () => {
+                if (document.hidden) {
+                    clearInterval(this.sinceTimer);
+                    clearInterval(this.fullTimer);
+                } else {
+                    this.sinceTimer = setInterval(() => this.pollSince(), 5000);
+                    this.fullTimer  = setInterval(() => this.loadAll(), 60000);
+                    this.pollSince();
+                }
+            };
+            document.addEventListener('visibilitychange', this._visibilityHandler);
+        },
+
+        destroy() {
+            clearInterval(this.sinceTimer);
+            clearInterval(this.fullTimer);
+            clearInterval(this.pingTimer);
+            if (this._visibilityHandler) document.removeEventListener('visibilitychange', this._visibilityHandler);
+            if (this._resizeHandler) window.removeEventListener('resize', this._resizeHandler);
         },
 
         // Smart polling: hanya ambil pesan baru
@@ -583,6 +615,7 @@ function chatApp() {
                 const key = partnerId || 0;
                 if (!map[key]) map[key] = { sender: partnerInfo || { id: 0, name: 'Admin', role: 'admin', department: '' }, messages: [], unread: 0, type: 'own' };
                 map[key].messages.push(msg);
+                if (!msg.is_read && msg.sender_id !== this.userId) map[key].unread++;
             });
 
             // Kontak dari API yang belum ada percakapan tetap muncul; yang ada di-refresh datanya
@@ -612,15 +645,14 @@ function chatApp() {
 
         selectConv(conv) {
             this.activeConv = conv;
-            if (this.isPrivileged && conv.type === 'inbox' && conv.unread > 0) {
+            // Tandai semua pesan masuk dari kontak ini sebagai dibaca (semua role, dua arah).
+            if (conv.unread > 0 && conv.sender.id > 0) {
                 const token = document.querySelector('meta[name=csrf-token]').content;
-                conv.messages.filter(m => !m.is_read).forEach(m => {
-                    fetch(`${BASE}/messages/${m.id}/read`, {
-                        method: 'PATCH',
-                        headers: { 'X-CSRF-TOKEN': token, 'X-Requested-With': 'XMLHttpRequest' },
-                    });
-                    m.is_read = true;
-                });
+                fetch(`${BASE}/api/messages/read-conversation/${conv.sender.id}`, {
+                    method: 'PATCH',
+                    headers: { 'X-CSRF-TOKEN': token, 'X-Requested-With': 'XMLHttpRequest' },
+                }).catch(() => {});
+                conv.messages.forEach(m => { if (m.sender_id !== this.userId) m.is_read = true; });
                 conv.unread = 0;
             }
             this.$nextTick(() => this.scrollBottom());
@@ -652,7 +684,8 @@ function chatApp() {
         },
 
         async deleteConv() {
-            if (!confirm(`Hapus semua pesan dari ${this.activeConv.sender.name}?`)) return;
+            const ok = await window.appConfirmAsync(`Semua percakapan dengan ${this.activeConv.sender.name} akan dihapus permanen.`, { title: 'Hapus Percakapan?' });
+            if (!ok) return;
             const token = document.querySelector('meta[name=csrf-token]').content;
             await fetch(`${BASE}/messages/conversation/${this.activeConv.sender.id}`, {
                 method: 'DELETE',
@@ -708,15 +741,16 @@ function chatApp() {
         initial(name) { return (name || '?').charAt(0).toUpperCase(); },
 
         avatarBg(role) {
+            if (role === 'developer')  return 'bg-slate-600';
             if (role === 'admin')      return 'bg-purple-600';
             if (role === 'supervisor') return 'bg-teal-600';
+            if (role === 'mandor')     return 'bg-orange-600';
+            if (role === 'visitor')    return 'bg-slate-500';
             return 'bg-blue-600';
         },
 
         roleLabel(role) {
-            if (role === 'admin')      return 'Admin';
-            if (role === 'supervisor') return 'Supervisor';
-            return 'Operator';
+            return { developer: 'Developer', admin: 'Admin', supervisor: 'Supervisor', mandor: 'Mandor', operator: 'Operator', visitor: 'Visitor' }[role] ?? (role ?? 'Operator');
         },
 
         lastSeen(sender) {

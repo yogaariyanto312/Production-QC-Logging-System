@@ -41,7 +41,8 @@ class BotNotificationService
             $cacheKey = "reject_alert_{$product->id}_{$date}";
             if (\Illuminate\Support\Facades\Cache::has($cacheKey)) return;
 
-            $row = \App\Models\ProductionLog::where('product_id', $product->id)
+            $row = \App\Models\ProductionLog::withoutGlobalScope(\App\Models\Scopes\DepartmentScope::class)
+                ->where('product_id', $product->id)
                 ->whereDate('production_date', $date)
                 ->selectRaw('SUM(total_qty) as total, SUM(reject_qty) as reject')
                 ->first();
@@ -94,45 +95,40 @@ class BotNotificationService
         } catch (\Throwable) {}
     }
 
-    public static function checkAndNotifyTargetReached(int $productId, string $date): void
+    public static function checkAndNotifyTargetReached(int $productId): void
     {
         try {
+            // Target aktif (tanpa batas waktu) untuk produk ini
+            $target = \App\Models\ProductionTarget::where('product_id', $productId)->first();
+            if (!$target || $target->target_qty <= 0) return;
+            if ($target->reached_at) return; // quick pre-check
+
+            // Progres = produksi kumulatif sekarang − baseline saat target dibuat
+            $cumulative = (int) \App\Models\ProductionLog::withoutGlobalScope(\App\Models\Scopes\DepartmentScope::class)
+                ->where('product_id', $productId)->sum('total_qty');
+            $actual     = max(0, $cumulative - (int) $target->baseline_qty);
+
+            if ($actual < $target->target_qty) return;
+
+            // Tandai tercapai secara atomik — cegah notifikasi ganda dari request concurrent
+            $marked = \App\Models\ProductionTarget::where('id', $target->id)
+                ->whereNull('reached_at')
+                ->update(['reached_at' => now()]);
+            if ($marked === 0) return; // request lain sudah tandai duluan
+
             $setting = BotSetting::instance();
             if (!$setting->telegram_enabled && !$setting->discord_enabled) return;
 
-            $carbon    = \Carbon\Carbon::parse($date);
-            $weekStart = $carbon->copy()->startOfWeek(\Carbon\Carbon::MONDAY)->toDateString();
-            $weekEnd   = $carbon->copy()->endOfWeek(\Carbon\Carbon::SUNDAY)->toDateString();
-
-            $cacheKey = "target_reached_{$productId}_{$weekStart}";
-            if (\Illuminate\Support\Facades\Cache::has($cacheKey)) return;
-
-            $target = \App\Models\ProductionTarget::where('product_id', $productId)
-                ->whereBetween('target_date', [$weekStart, $weekEnd])
-                ->sum('target_qty');
-
-            if ($target <= 0) return;
-
-            $actual = \App\Models\ProductionLog::where('product_id', $productId)
-                ->whereBetween('production_date', [$weekStart, $weekEnd])
-                ->sum('total_qty');
-
-            if ($actual < $target) return;
-
-            \Illuminate\Support\Facades\Cache::put($cacheKey, true, now()->endOfWeek());
-
             $product   = \App\Models\Product::find($productId);
-            $weekFmt   = \Carbon\Carbon::parse($weekStart)->translatedFormat('d M') . ' – ' . \Carbon\Carbon::parse($weekEnd)->translatedFormat('d M Y');
             $time      = now()->timezone('Asia/Jakarta')->format('H:i') . ' WIB';
-            $pctActual = number_format($actual);
-            $pctTarget = number_format($target);
+            $actualFmt = number_format($actual);
+            $targetFmt = number_format($target->target_qty);
 
             $reportChatId = $setting->telegram_report_chat_id ?: $setting->telegram_chat_id;
             if ($setting->telegram_enabled && $setting->telegram_token && $reportChatId) {
                 $text = "🎯 <b>TARGET TERCAPAI!</b>\n"
                       . "📦 Produk: <b>" . htmlspecialchars($product->name ?? '-') . "</b>\n"
-                      . "✅ Produksi: <b>{$pctActual}</b> / {$pctTarget} unit (100%)\n"
-                      . "📅 Minggu: <b>{$weekFmt}</b>\n"
+                      . "✅ Produksi: <b>{$actualFmt}</b> / {$targetFmt} unit (100%)\n"
                       . "🕒 {$time}\n\n"
                       . "<i>QC Production System</i>";
 
@@ -146,12 +142,12 @@ class BotNotificationService
                 Http::withoutVerifying()->timeout(5)->post($setting->discord_webhook, [
                     'embeds' => [[
                         'title'       => '🎯 Target Tercapai!',
-                        'description' => "Produksi **" . ($product->name ?? '-') . "** telah mencapai target minggu **{$weekFmt}**!",
+                        'description' => "Produksi **" . ($product->name ?? '-') . "** telah mencapai target!",
                         'color'       => 0x2ecc71,
                         'fields'      => [
-                            ['name' => '📦 Produk',   'value' => $product->name ?? '-',     'inline' => true],
-                            ['name' => '✅ Produksi', 'value' => "{$pctActual} unit",        'inline' => true],
-                            ['name' => '🎯 Target',   'value' => "{$pctTarget} unit",        'inline' => true],
+                            ['name' => '📦 Produk',   'value' => $product->name ?? '-', 'inline' => true],
+                            ['name' => '✅ Produksi', 'value' => "{$actualFmt} unit",   'inline' => true],
+                            ['name' => '🎯 Target',   'value' => "{$targetFmt} unit",   'inline' => true],
                         ],
                         'footer'    => ['text' => 'QC Production System'],
                         'timestamp' => now()->toIso8601String(),
@@ -171,8 +167,10 @@ class BotNotificationService
                 return ['ok' => false, 'message' => 'Semua bot nonaktif.'];
             }
 
-            $logs = \App\Models\ProductionLog::with('product.category')
+            $logs = \App\Models\ProductionLog::withoutGlobalScope(\App\Models\Scopes\DepartmentScope::class)
+                ->with('product.category')
                 ->whereDate('production_date', $date)
+                ->orderBy('product_id')
                 ->get();
 
             if ($logs->isEmpty()) {
@@ -182,22 +180,48 @@ class BotNotificationService
 
             $totalQty    = (float) $logs->sum('total_qty');
             $totalReject = (int)   $logs->sum('reject_qty');
-            $rejectRate  = $totalQty > 0 ? round(($totalReject / $totalQty) * 100, 1) : 0;
+            $rejectRate  = $totalQty > 0 ? round(($totalReject / ($totalQty + $totalReject)) * 100, 1) : 0;
             $dateFmt     = \Carbon\Carbon::parse($date)->translatedFormat('d F Y');
             $time        = now()->timezone('Asia/Jakarta')->format('H:i') . ' WIB';
-            $byCategory  = $logs->groupBy(fn($l) => $l->product->category->name ?? 'Lainnya');
+            $rateEmoji   = $rejectRate > 5 ? '🔴' : ($rejectRate > 2 ? '🟡' : '🟢');
 
-            $text   = "📊 <b>Laporan Harian Produksi</b>\n"
-                    . "📅 <b>{$dateFmt}</b> · 🕕 {$time}\n"
-                    . "━━━━━━━━━━━━━━━━━━\n";
-            $fields = [];
+            // Helper: label seri produk (pakai manual override jika ada)
+            $seriesLabel = function ($log) {
+                $series = $log->manual_series ?: ($log->product?->series ?? null);
+                $kva    = $log->manual_kva    ?: ($log->product?->kva    ?? null);
+                if ($series && $kva) return "{$series}-{$kva}KVA";
+                if ($series)         return $series;
+                return $log->product?->name ?? '-';
+            };
+
+            // Kelompokkan per kategori, lalu per produk (merge baris produk yang sama)
+            $byCategory = $logs->groupBy(fn($l) => $l->product?->category?->name ?? 'Lainnya');
+
+            // ── Telegram text ────────────────────────────────────────────
+            $text = "📊 <b>Laporan Harian Produksi</b>\n"
+                  . "📅 <b>{$dateFmt}</b> · 🕕 {$time}\n"
+                  . "━━━━━━━━━━━━━━━━━━\n";
+
+            $fields = [];   // Discord embed fields
 
             foreach ($byCategory as $catName => $catLogs) {
                 $catQty    = (float) $catLogs->sum('total_qty');
                 $catReject = (int)   $catLogs->sum('reject_qty');
-                $line      = "📦 <b>{$catName}</b>: " . number_format($catQty) . " unit";
-                if ($catReject > 0) $line .= " · ✕ {$catReject} reject";
-                $text   .= $line . "\n";
+
+                $text .= "\n📦 <b>{$catName}</b>";
+                if ($catReject > 0) $text .= " <i>(✕ {$catReject} reject)</i>";
+                $text .= "\n";
+
+                // Merge entries dengan seri yang sama dalam kategori yang sama
+                $byProduct = $catLogs->groupBy(fn($l) => $seriesLabel($l));
+                foreach ($byProduct as $label => $productLogs) {
+                    $qty    = (float) $productLogs->sum('total_qty');
+                    $reject = (int)   $productLogs->sum('reject_qty');
+                    $text  .= "  · {$label} : " . number_format($qty) . " unit";
+                    if ($reject > 0) $text .= " ✕{$reject}";
+                    $text  .= "\n";
+                }
+
                 $fields[] = [
                     'name'   => "📦 {$catName}",
                     'value'  => number_format($catQty) . " unit" . ($catReject > 0 ? " (✕ {$catReject})" : ''),
@@ -205,11 +229,28 @@ class BotNotificationService
                 ];
             }
 
-            $rateEmoji = $rejectRate > 5 ? '🔴' : ($rejectRate > 2 ? '🟡' : '🟢');
-            $text .= "━━━━━━━━━━━━━━━━━━\n"
+            // ── Reject detail ────────────────────────────────────────────
+            $rejectLogs = $logs->filter(fn($l) => $l->reject_qty > 0);
+            $text .= "\n━━━━━━━━━━━━━━━━━━\n"
                    . "📈 Total: <b>" . number_format($totalQty) . " unit</b>\n"
-                   . "✕ Reject: <b>{$totalReject} unit</b>\n"
-                   . "{$rateEmoji} Reject Rate: <b>{$rejectRate}%</b>\n"
+                   . "✕ Reject: <b>{$totalReject} unit</b>\n";
+
+            if ($rejectLogs->isNotEmpty()) {
+                $text .= "<i>Detail reject:</i>\n";
+                foreach ($rejectLogs as $log) {
+                    $catName = $log->product?->category?->name ?? 'Lainnya';
+                    $label   = $seriesLabel($log);
+                    $reason  = $log->reject_category
+                        ? (\App\Models\ProductionLog::$rejectCategories[$log->reject_category] ?? $log->reject_category)
+                        : '';
+                    $text .= "  ▸ <b>{$catName}</b> · {$label} : {$log->reject_qty} unit";
+                    if ($reason)            $text .= " [{$reason}]";
+                    if ($log->reject_notes) $text .= " — {$log->reject_notes}";
+                    $text .= "\n";
+                }
+            }
+
+            $text .= "{$rateEmoji} Reject Rate: <b>{$rejectRate}%</b>\n"
                    . "\n<i>QC Production System</i>";
 
             $sent = 0;
@@ -226,9 +267,22 @@ class BotNotificationService
 
             if ($setting->discord_enabled && $setting->discord_webhook) {
                 $color  = $rejectRate > 5 ? 0xe74c3c : ($rejectRate > 2 ? 0xf39c12 : 0x2ecc71);
+                $rejectDetail = '';
+                if ($rejectLogs->isNotEmpty()) {
+                    foreach ($rejectLogs as $log) {
+                        $catName = $log->product?->category?->name ?? 'Lainnya';
+                        $label   = $seriesLabel($log);
+                        $reason  = $log->reject_category
+                            ? (\App\Models\ProductionLog::$rejectCategories[$log->reject_category] ?? $log->reject_category)
+                            : '';
+                        $rejectDetail .= "▸ {$catName} · {$label} : {$log->reject_qty} unit";
+                        if ($reason) $rejectDetail .= " [{$reason}]";
+                        $rejectDetail .= "\n";
+                    }
+                }
                 $fields = array_merge($fields, [
                     ['name' => '📈 Total Produksi', 'value' => number_format($totalQty) . ' unit', 'inline' => true],
-                    ['name' => '✕ Total Reject',   'value' => "{$totalReject} unit",              'inline' => true],
+                    ['name' => '✕ Total Reject',   'value' => $totalReject > 0 ? "{$totalReject} unit\n{$rejectDetail}" : '0 unit', 'inline' => true],
                     ['name' => "{$rateEmoji} Reject Rate", 'value' => "{$rejectRate}%",            'inline' => true],
                 ]);
                 $res = Http::withoutVerifying()->timeout(8)->post($setting->discord_webhook, [
@@ -321,6 +375,10 @@ class BotNotificationService
             return 'Local Network';
         }
 
+        $cacheKey = 'ip_location_' . md5($ip);
+        $cached   = \Illuminate\Support\Facades\Cache::get($cacheKey);
+        if ($cached !== null) return $cached;
+
         try {
             $res = Http::timeout(3)->get("http://ip-api.com/json/{$ip}", [
                 'fields' => 'status,city,regionName,country,isp',
@@ -331,10 +389,13 @@ class BotNotificationService
                 $country = $res->json('country') ?? '';
                 $isp     = $res->json('isp') ?? '';
                 $parts   = array_filter([$city, $country]);
-                return implode(', ', $parts) . ($isp ? " · {$isp}" : '');
+                $location = implode(', ', $parts) . ($isp ? " · {$isp}" : '');
+                \Illuminate\Support\Facades\Cache::put($cacheKey, $location, now()->addHours(6));
+                return $location;
             }
         } catch (\Throwable) {}
 
+        \Illuminate\Support\Facades\Cache::put($cacheKey, '', now()->addHours(1));
         return '';
     }
 

@@ -44,8 +44,10 @@ class User extends Authenticatable
     {
         return [
             'email_verified_at' => 'datetime',
-            'password' => 'hashed',
-            'is_active' => 'boolean',
+            'last_seen_at'      => 'datetime',
+            'typing_at'         => 'datetime',
+            'password'          => 'hashed',
+            'is_active'         => 'boolean',
         ];
     }
 
@@ -74,6 +76,11 @@ class User extends Authenticatable
     public function isSupervisor(): bool
     {
         return $this->role === 'supervisor';
+    }
+
+    public function isMandor(): bool
+    {
+        return $this->role === 'mandor';
     }
 
     public function isVisitor(): bool

@@ -72,6 +72,14 @@
                 <p class="text-slate-400 mt-2">Masuk ke QC Production System</p>
             </div>
 
+            @php
+                $throttleSeconds = 0;
+                $firstError = $errors->first();
+                if ($firstError && preg_match('/Coba lagi dalam (\d+) detik/', $firstError, $_m)) {
+                    $throttleSeconds = (int) $_m[1];
+                }
+            @endphp
+
             {{-- Error --}}
             @if($errors->any())
             <div class="mb-6 p-4 bg-red-900/30 border border-red-700 rounded-xl">
@@ -80,7 +88,7 @@
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                               d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
                     </svg>
-                    <p class="text-sm font-medium">{{ $errors->first() }}</p>
+                    <p class="text-sm font-medium" id="login-error-msg">{{ $firstError }}</p>
                 </div>
             </div>
             @endif
@@ -92,7 +100,7 @@
             @endif
 
             {{-- Form --}}
-            <form method="POST" action="{{ route('login') }}" class="space-y-5">
+            <form method="POST" action="{{ route('login') }}" class="space-y-5" id="login-form">
                 @csrf
 
                 {{-- Username / Email --}}
@@ -111,8 +119,10 @@
                                value="{{ old('identifier') }}"
                                autocomplete="username"
                                autofocus
+                               @if($throttleSeconds > 0) disabled @endif
                                class="w-full pl-10 pr-4 py-3 bg-slate-800 border text-white rounded-xl
                                       placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent
+                                      disabled:opacity-50 disabled:cursor-not-allowed
                                       {{ $errors->has('identifier') ? 'border-red-500' : 'border-slate-600' }}"
                                placeholder="Username atau email Anda">
                     </div>
@@ -128,10 +138,12 @@
                                       d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
                             </svg>
                         </div>
-                        <input type="password" id="password" name="password" required
+                        <input type="password" id="password" name="password"
                                autocomplete="current-password"
+                               @if($throttleSeconds > 0) disabled @endif
                                class="w-full pl-10 pr-12 py-3 bg-slate-800 border border-slate-600 text-white rounded-xl
-                                      placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                      placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent
+                                      disabled:opacity-50 disabled:cursor-not-allowed"
                                placeholder="••••••••">
                         <button type="button" onclick="togglePassword()"
                                 class="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-500 hover:text-slate-300">
@@ -148,7 +160,9 @@
                 <div class="flex items-center justify-between">
                     <label class="flex items-center gap-2 cursor-pointer">
                         <input type="checkbox" name="remember" value="1"
-                               class="w-4 h-4 rounded border-slate-600 bg-slate-800 text-blue-600 focus:ring-blue-500">
+                               @if($throttleSeconds > 0) disabled @endif
+                               class="w-4 h-4 rounded border-slate-600 bg-slate-800 text-blue-600 focus:ring-blue-500
+                                      disabled:opacity-50 disabled:cursor-not-allowed">
                         <span class="text-sm text-slate-400">Ingat saya</span>
                     </label>
                     <a href="{{ route('password.request') }}"
@@ -157,11 +171,17 @@
                     </a>
                 </div>
 
-                <button type="submit"
+                <button type="submit" id="login-btn"
+                        @if($throttleSeconds > 0) disabled @endif
                         class="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl
-                               shadow-lg shadow-blue-900/30 transition-all duration-200 transform hover:scale-[1.02]
+                               shadow-lg shadow-blue-900/30 transition-all duration-200
+                               disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-blue-600 disabled:hover:scale-100
                                focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-slate-900">
-                    Masuk ke Sistem
+                    @if($throttleSeconds > 0)
+                        Tunggu <span id="login-countdown">{{ $throttleSeconds }}</span> detik...
+                    @else
+                        Masuk ke Sistem
+                    @endif
                 </button>
             </form>
 
@@ -177,5 +197,31 @@ function togglePassword() {
     const input = document.getElementById('password');
     input.type = input.type === 'password' ? 'text' : 'password';
 }
+
+// Countdown throttle — re-enable form saat waktu habis
+(function () {
+    var secs = {{ $throttleSeconds ?? 0 }};
+    if (secs <= 0) return;
+
+    var countEl = document.getElementById('login-countdown');
+    var btn     = document.getElementById('login-btn');
+    var form    = document.getElementById('login-form');
+    var errMsg  = document.getElementById('login-error-msg');
+
+    var timer = setInterval(function () {
+        secs--;
+        if (countEl) countEl.textContent = secs;
+
+        if (secs <= 0) {
+            clearInterval(timer);
+            // Re-enable semua elemen form
+            form.querySelectorAll('input, button[type=submit]').forEach(function (el) {
+                el.disabled = false;
+            });
+            if (btn) btn.textContent = 'Masuk ke Sistem';
+            if (errMsg) errMsg.closest('div.mb-6')?.remove();
+        }
+    }, 1000);
+}());
 </script>
 @endsection

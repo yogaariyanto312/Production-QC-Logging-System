@@ -15,7 +15,8 @@
             </p>
         </div>
 
-        <form method="POST" action="{{ route('gambar-kerja.store') }}" enctype="multipart/form-data" class="p-6 space-y-5">
+        <form method="POST" action="{{ route('gambar-kerja.store') }}" enctype="multipart/form-data" class="p-6 space-y-5"
+              onsubmit="if(this.querySelector('input[type=file]').files.length){var o=document.getElementById('gkUploadOverlay');if(o)o.style.display='flex';}">
             @csrf
 
             @if($isAddMode)
@@ -258,6 +259,18 @@
                               d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.446 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
                     </svg>
                     Kalimat Anda melebihi batas maksimum (18 kata)
+                </div>
+            </div>
+
+            {{-- Upload Loading Overlay --}}
+            <div id="gkUploadOverlay" style="display:none"
+                 class="fixed inset-0 z-[9999] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center">
+                <div class="bg-white dark:bg-slate-800 rounded-2xl px-10 py-8 flex flex-col items-center gap-4 shadow-2xl mx-4">
+                    <div class="w-14 h-14 rounded-full border-[5px] border-blue-100 dark:border-slate-600 border-t-blue-500 animate-spin"></div>
+                    <div class="text-center">
+                        <p class="text-sm font-semibold text-slate-800 dark:text-white">Sedang mengupload...</p>
+                        <p class="text-xs text-slate-400 mt-1">Mohon tunggu, jangan tutup halaman</p>
+                    </div>
                 </div>
             </div>
 

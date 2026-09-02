@@ -53,6 +53,19 @@
                         @endforeach
                     </select>
                 </div>
+                @if($departments->isNotEmpty())
+                <div>
+                    <label class="block text-xs font-medium text-slate-500 mb-1">Departemen</label>
+                    <select name="department" onchange="this.form.submit()"
+                            class="px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-xl
+                                   bg-white dark:bg-slate-900 text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="">Semua Dept</option>
+                        @foreach($departments as $d)
+                        <option value="{{ $d }}" {{ $deptFilter === $d ? 'selected' : '' }}>{{ $d }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                @endif
                 <button type="submit"
                         class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl transition-colors whitespace-nowrap">
                     Tampilkan
@@ -60,7 +73,7 @@
             </div>
             {{-- Row 2: Action buttons --}}
             <div class="flex items-center gap-2">
-                <a href="{{ route('reports.daily') }}"
+                <a href="{{ route('reports.daily', array_filter(['department' => $deptFilter])) }}"
                    class="flex-1 sm:flex-none px-3 py-2 bg-slate-600 hover:bg-slate-700 text-white text-sm font-semibold rounded-xl flex items-center justify-center gap-1.5 transition-colors">
                     <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -68,7 +81,8 @@
                     </svg>
                     <span class="whitespace-nowrap">Harian</span>
                 </a>
-                <a href="{{ route('reports.export-excel', ['month' => $month, 'year' => $year]) }}"
+                @allowedTo('laporan.export')
+                <a href="{{ route('reports.export-excel', array_filter(['month' => $month, 'year' => $year, 'department' => $deptFilter])) }}"
                    class="flex-1 sm:flex-none px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-xl flex items-center justify-center gap-1.5 transition-colors">
                     <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -76,7 +90,7 @@
                     </svg>
                     Excel
                 </a>
-                <a href="{{ route('reports.export-pdf', ['month' => $month, 'year' => $year]) }}"
+                <a href="{{ route('reports.export-pdf', array_filter(['month' => $month, 'year' => $year, 'department' => $deptFilter])) }}"
                    class="flex-1 sm:flex-none px-3 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-xl flex items-center justify-center gap-1.5 transition-colors">
                     <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -84,6 +98,7 @@
                     </svg>
                     PDF
                 </a>
+                @endallowedTo
             </div>
         </form>
     </div>

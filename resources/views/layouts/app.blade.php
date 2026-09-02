@@ -8,7 +8,9 @@
     <link rel="icon" type="image/svg+xml" href="{{ asset('favicon.svg') }}">
     <link rel="alternate icon" type="image/x-icon" href="{{ asset('favicon.ico') }}">
     <link rel="icon" type="image/png" sizes="32x32" href="{{ asset('favicon-32x32.png') }}">
-    <link rel="apple-touch-icon" sizes="180x180" href="{{ asset('apple-touch-icon.png') }}">
+    <link rel="apple-touch-icon" sizes="180x180" href="{{ asset('icon-192.png') }}">
+    <link rel="manifest" href="{{ asset('manifest.json') }}">
+    <meta name="theme-color" content="#2563EB">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     @vite(['resources/css/app.css', 'resources/js/app.js'])
@@ -18,8 +20,65 @@
     </script>
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     @stack('styles')
+    <style>
+        @keyframes pgIn  { from { opacity:0; } to { opacity:1; } }
+        @keyframes pgOut { from { opacity:1; } to { opacity:0; } }
+        .pg-enter { animation: pgIn  .22s ease both; }
+        .pg-exit  { animation: pgOut .18s ease both; }
+
+        /* Sidebar mobile: transisi lebih halus + GPU accelerated */
+        #sidebar {
+            will-change: transform;
+            transform: translate3d(-100%, 0, 0);
+            transition: transform .32s cubic-bezier(.4, 0, .2, 1);
+            -webkit-backface-visibility: hidden;
+            backface-visibility: hidden;
+        }
+        #sidebar:not(.-translate-x-full) {
+            transform: translate3d(0, 0, 0);
+        }
+        @media (min-width: 1024px) {
+            #sidebar { transform: translate3d(0, 0, 0); }
+        }
+        #sidebar-overlay {
+            will-change: opacity;
+            transition: opacity .32s cubic-bezier(.4, 0, .2, 1);
+        }
+
+        /* Panel buka-tutup (sidebar, accordion): buka/tutup dengan tinggi yang ikut beranimasi.
+           Trik grid-template-rows 0fr → 1fr membuat tinggi bisa ditransisikan tanpa
+           perlu tahu tinggi isinya (max-height tebakan selalu meleset). Alpine cuma
+           menyalakan/mematikan .is-open, sisanya urusan CSS — plugin x-collapse tidak
+           ikut terbawa build Alpine CDN yang dipakai di sini. */
+        .collapsible {
+            display: grid;
+            grid-template-rows: 0fr;
+            opacity: 0;
+            visibility: hidden;
+            transition: grid-template-rows .3s cubic-bezier(.4, 0, .2, 1),
+                        opacity .2s ease,
+                        visibility 0s linear .3s;
+        }
+        .collapsible.is-open {
+            grid-template-rows: 1fr;
+            opacity: 1;
+            visibility: visible;
+            transition: grid-template-rows .3s cubic-bezier(.4, 0, .2, 1),
+                        opacity .25s ease .05s,
+                        visibility 0s linear;
+        }
+        /* Anak grid wajib overflow:hidden + min-height:0, kalau tidak isinya tetap
+           meluber saat baris grid menyusut ke 0fr. */
+        .collapsible > .collapsible-inner {
+            overflow: hidden;
+            min-height: 0;
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .collapsible, .collapsible.is-open { transition: none; }
+        }
+    </style>
 </head>
-<body class="h-full bg-slate-50 dark:bg-slate-900 font-sans antialiased">
+<body class="min-h-full bg-slate-50 dark:bg-slate-900 font-sans antialiased">
 
 @php
     $__maint        = \App\Models\BotSetting::instance();
@@ -133,10 +192,10 @@
 </div>
 @endif
 
-<div class="flex h-full">
+<div class="flex min-h-screen" style="min-height:100dvh">
 
     {{-- Sidebar Overlay (mobile) --}}
-    <div id="sidebar-overlay" class="fixed inset-0 z-20 bg-black/50 hidden lg:hidden"></div>
+    <div id="sidebar-overlay" class="fixed inset-0 z-20 bg-black/50 hidden lg:hidden opacity-0 transition-opacity duration-300 ease-in-out"></div>
 
     {{-- ====== SIDEBAR ====== --}}
     <aside id="sidebar"
@@ -157,65 +216,104 @@
         </div>
 
         {{-- Navigation --}}
-        <nav class="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+        <nav class="flex-1 px-3 py-4 space-y-1 overflow-y-auto no-scrollbar">
             @php
-                $all      = ['developer', 'admin', 'supervisor', 'operator'];
-                $withVisitor = ['developer', 'admin', 'supervisor', 'operator', 'visitor'];
-                $navItems = [
-                    ['route' => 'dashboard',         'icon' => 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6', 'label' => 'Dashboard',        'roles' => $withVisitor],
-                    ['route' => 'notes.index',       'icon' => 'M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z', 'label' => 'Catatan',             'roles' => $all],
-                    ['route' => 'production.targets.index', 'icon' => 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z', 'label' => 'Target Produksi', 'roles' => ['developer', 'admin', 'supervisor', 'operator']],
-                    ['route' => 'chatting',          'icon' => 'M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-3 3v-3z', 'label' => 'Chatting',           'roles' => $withVisitor],
-                    ['route' => 'gambar-kerja.index','icon' => 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z', 'label' => 'Gambar Kerja',    'roles' => $withVisitor],
-                    ['route' => 'production.create', 'icon' => 'M12 4v16m8-8H4', 'label' => 'Input Produksi',                                                                                                                                                        'roles' => ['developer', 'admin', 'operator']],
-                    ['route' => 'production.index',  'icon' => 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01', 'label' => 'Riwayat Produksi', 'roles' => $withVisitor],
-                    ['route' => 'products.index',    'icon' => 'M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4', 'label' => 'Master Produk',        'roles' => ['developer', 'admin']],
-                    ['route' => 'reports.index',     'icon' => 'M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z', 'label' => 'Laporan',            'roles' => ['developer', 'admin', 'supervisor']],
-                    ['route' => 'categories.index',       'icon' => 'M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z', 'label' => 'Kategori',           'roles' => ['developer']],
-                    ['route' => 'management.index',  'icon' => 'M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z', 'label' => 'Manajemen', 'roles' => ['developer', 'admin', 'operator'], 'activeRoutes' => ['management.*', 'admins.*', 'supervisors.*', 'operators.*', 'developers.*']],
-                    ['route' => 'tutorial', 'label' => 'Tutorial', 'roles' => $withVisitor, 'paths' => [
-                        'M11.5 6H4a1 1 0 00-1 1v11a1 1 0 001 1h7.5V6z',
-                        'M12.5 6H20a1 1 0 011 1v11a1 1 0 01-1 1h-7.5V6z',
-                        'M11.5 18.5c.3.4.8.5 1.3.5s1-.3 1.3-.5',
-                        'M12 1a3 3 0 100 6 3 3 0 000-6z',
-                        'M11 3l3 1-3 1V3z',
-                        'M4.5 10h5.5M4.5 12.5h3.5M4.5 15h5.5',
-                        'M13.5 10h5.5M13.5 12.5h3.5M13.5 15h5.5',
-                    ]],
-                    ['route' => 'developer.bot-settings', 'icon' => 'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065zM15 12a3 3 0 11-6 0 3 3 0 016 0z', 'label' => 'Settings', 'roles' => ['developer']],
-                    ['route' => 'about',             'icon' => 'M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z', 'label' => 'Tentang Aplikasi',   'roles' => $withVisitor],
-                ];
+                // Sumber menu tunggal + hak akses dari config/menus.php & MenuAccess.
+                $role     = auth()->user()->role;
+                $navItems = \App\Support\MenuAccess::items();
+                // Uji coba: hanya untuk developer, kelompokkan menu produksi ke dropdown.
+                $isDev = $role === 'developer';
+
+                // Cek aktif berdasarkan pola 'match' menu.
+                $isActiveFn = fn($it) => collect($it['match'] ?? [])->some(fn($p) => request()->routeIs($p));
             @endphp
 
             @foreach($navItems as $item)
-                @if(in_array(auth()->user()->role, $item['roles']))
+                @if(\App\Support\MenuAccess::can(auth()->user(), $item['key']))
                     @php
-                        $isActive = isset($item['activeRoutes'])
-                            ? collect($item['activeRoutes'])->some(fn($p) => request()->routeIs($p))
-                            : request()->routeIs($item['route'].'*');
+                        $isActive    = $isActiveFn($item);
+                        $inProdGroup = $isDev && ($item['group'] ?? null) === 'produksi';
                     @endphp
-                    <a href="{{ route($item['route']) }}"
-                       class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all
-                              {{ $isActive
-                                 ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/30'
-                                 : 'text-slate-300 hover:bg-slate-800 hover:text-white' }}">
-                        <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            @foreach($item['paths'] ?? [$item['icon']] as $p)
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="{{ $p }}"/>
-                            @endforeach
-                        </svg>
-                        {{ $item['label'] }}
-                        <span class="ml-auto flex items-center gap-1.5">
-                            @if($item['route'] === 'chatting')
-                            <span id="sidebar-chat-badge"
-                                  class="hidden min-w-[20px] h-5 px-1.5 bg-red-500 text-white text-[10px] font-bold
-                                         rounded-full flex items-center justify-center leading-none"></span>
-                            @endif
-                            @if($isActive)
-                            <span class="w-1.5 h-1.5 bg-white rounded-full"></span>
-                            @endif
-                        </span>
-                    </a>
+
+                    {{-- Item anggota grup selain anchor: dilewati (dirender di dropdown) --}}
+                    @if($inProdGroup && $item['key'] !== 'input-produksi')
+                        @continue
+                    @endif
+
+                    @if($inProdGroup)
+                        {{-- ═══ Dropdown "Produksi" (developer only) ═══ --}}
+                        @php
+                            $groupItems = collect($navItems)->filter(fn($n) =>
+                                ($n['group'] ?? null) === 'produksi'
+                                && \App\Support\MenuAccess::can(auth()->user(), $n['key'])
+                            );
+                            $groupActive = $groupItems->contains(fn($n) => $isActiveFn($n));
+                        @endphp
+                        <div x-data="{ open: {{ $groupActive ? 'true' : 'false' }} }">
+                            <button type="button" @click="open = !open"
+                                    class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all
+                                           {{ $groupActive ? 'text-white bg-slate-800/60' : 'text-slate-300 hover:bg-slate-800 hover:text-white' }}">
+                                <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                          d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v7a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"/>
+                                </svg>
+                                QC-Welding
+                                <svg class="w-4 h-4 ml-auto shrink-0 transition-transform duration-200"
+                                     :class="open && 'rotate-180'"
+                                     fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                                </svg>
+                            </button>
+                            <div class="collapsible {{ $groupActive ? 'is-open' : '' }}"
+                                 :class="open && 'is-open'">
+                            <div class="collapsible-inner">
+                            <div class="mt-1 ml-4 pl-3 border-l border-slate-700 space-y-1">
+                                @foreach($groupItems as $gi)
+                                    @php $giActive = $isActiveFn($gi); @endphp
+                                    <a href="{{ route($gi['route']) }}"
+                                       class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-all
+                                              {{ $giActive
+                                                 ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/30'
+                                                 : 'text-slate-400 hover:bg-slate-800 hover:text-white' }}">
+                                        <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            @foreach($gi['paths'] ?? [$gi['icon']] as $p)
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="{{ $p }}"/>
+                                            @endforeach
+                                        </svg>
+                                        {{ $gi['label'] }}
+                                        @if($giActive)
+                                        <span class="ml-auto w-1.5 h-1.5 bg-white rounded-full"></span>
+                                        @endif
+                                    </a>
+                                @endforeach
+                            </div>
+                            </div>{{-- /collapsible-inner --}}
+                            </div>{{-- /collapsible --}}
+                        </div>
+                    @else
+                        <a href="{{ route($item['route']) }}"
+                           class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all
+                                  {{ $isActive
+                                     ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/30'
+                                     : 'text-slate-300 hover:bg-slate-800 hover:text-white' }}">
+                            <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                @foreach($item['paths'] ?? [$item['icon']] as $p)
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="{{ $p }}"/>
+                                @endforeach
+                            </svg>
+                            {{ $item['label'] }}
+                            <span class="ml-auto flex items-center gap-1.5">
+                                @if($item['key'] === 'chatting')
+                                <span id="sidebar-chat-badge"
+                                      class="hidden min-w-5 h-5 px-1.5 bg-red-500 text-white text-[10px] font-bold
+                                             rounded-full flex items-center justify-center leading-none"></span>
+                                @endif
+                                @if($isActive)
+                                <span class="w-1.5 h-1.5 bg-white rounded-full"></span>
+                                @endif
+                            </span>
+                        </a>
+                    @endif
                 @endif
             @endforeach
         </nav>
@@ -297,8 +395,8 @@
 
                     {{-- Page title --}}
                     <div>
-                        <h1 class="text-base font-semibold text-slate-800 dark:text-white">@yield('page-title', 'Dashboard')</h1>
-                        <p class="text-xs text-slate-500 dark:text-slate-400">@yield('page-subtitle', 'QC Production System')</p>
+                        <h1 id="topbar-title" class="text-base font-semibold text-slate-800 dark:text-white">@yield('page-title', 'Dashboard')</h1>
+                        <p id="topbar-subtitle" class="text-xs text-slate-500 dark:text-slate-400">@yield('page-subtitle', 'QC Production System')</p>
                     </div>
                 </div>
 
@@ -346,7 +444,7 @@
         @endif
 
         {{-- Main Page Content --}}
-        <main class="@yield('main-class', 'flex-1 p-4 lg:p-6 overflow-auto')">
+        <main id="main-content" class="pg-enter @yield('main-class', 'flex-1 p-4 lg:p-6')">
             @yield('content')
         </main>
 
@@ -374,6 +472,239 @@
     }
     tick();
     setInterval(tick, 1000);
+})();
+</script>
+
+<script data-spa-core="1">
+(function () {
+    'use strict';
+
+    var busy = false;
+
+    /* ── helpers ─────────────────────────────────────────── */
+    function qs(sel, ctx)  { return (ctx || document).querySelector(sel); }
+    function qsa(sel, ctx) { return (ctx || document).querySelectorAll(sel); }
+
+    function parseDoc(html) {
+        return (new DOMParser()).parseFromString(html, 'text/html');
+    }
+
+    /* Re-run <script> tags inserted into container */
+    function runScripts(container) {
+        qsa('script', container).forEach(function (old) {
+            var s = document.createElement('script');
+            Array.from(old.attributes).forEach(function (a) { s.setAttribute(a.name, a.value); });
+            s.textContent = old.textContent;
+            old.parentNode.replaceChild(s, old);
+        });
+    }
+
+    /* Auto-dismiss flash toasts */
+    function initToasts() {
+        qsa('.toast-auto').forEach(function (el) {
+            setTimeout(function () {
+                el.style.transition = 'opacity .3s ease';
+                el.style.opacity    = '0';
+                setTimeout(function () { el.remove(); }, 320);
+            }, 4500);
+        });
+    }
+
+    /* Load a CDN <script src> once; resolve immediately if already loaded */
+    var _spaLoaded = new Set(
+        Array.from(document.querySelectorAll('script[src]')).map(function(s) { return s.src; })
+    );
+    function loadSpaScript(src) {
+        return new Promise(function (resolve) {
+            var abs = new URL(src, location.href).href;
+            if (_spaLoaded.has(abs)) return resolve();
+            var el = document.createElement('script');
+            el.src = abs;
+            el.onload  = function () { _spaLoaded.add(abs); resolve(); };
+            el.onerror = resolve; // don't block navigation on CDN failure
+            document.head.appendChild(el);
+        });
+    }
+
+    /* ── main navigate function ───────────────────────────── */
+    async function navigate(url, push) {
+        if (busy) return;
+        busy = true;
+
+        var main = document.getElementById('main-content');
+
+        /* animate out */
+        main.style.cssText = 'opacity:0;transition:opacity .17s ease;pointer-events:none;';
+
+        var html, newDoc;
+        try {
+            var res = await fetch(url, {
+                headers: { 'X-Requested-With': 'SPA', 'Accept': 'text/html' },
+                credentials: 'same-origin'
+            });
+
+            /* redirect ke login (302) → full reload */
+            if (res.redirected && new URL(res.url).pathname.includes('login')) {
+                busy = false; location.href = url; return;
+            }
+            if (!res.ok) { busy = false; location.href = url; return; }
+
+            html   = await res.text();
+            newDoc = parseDoc(html);
+        } catch (e) {
+            location.href = url;
+            busy = false;
+            return;
+        }
+
+        var newMain = newDoc.getElementById('main-content');
+        if (!newMain) { location.href = url; return; }
+
+        /* ── swap parts ────────────────────────────────────── */
+
+        /* 1. notify current page it's about to be left (for cleanup) */
+        document.dispatchEvent(new CustomEvent('spa:leave'));
+
+        /* 1b. refresh CSRF token — meta + semua hidden _token (mis. form logout
+               di shell persisten yang tak pernah ikut ter-swap) supaya tidak
+               basi dan menyebabkan 419 "Page Expired" saat logout. */
+        var newTok = newDoc.querySelector('meta[name="csrf-token"]');
+        if (newTok) {
+            var tok = newTok.getAttribute('content');
+            var metaTok = document.querySelector('meta[name="csrf-token"]');
+            if (metaTok) metaTok.setAttribute('content', tok);
+            document.querySelectorAll('input[name="_token"]').forEach(function (i) { i.value = tok; });
+        }
+
+        /* 2. document title */
+        document.title = newDoc.title;
+
+        /* 3. topbar title + subtitle */
+        var ot = document.getElementById('topbar-title'),
+            os = document.getElementById('topbar-subtitle'),
+            nt = newDoc.getElementById('topbar-title'),
+            ns = newDoc.getElementById('topbar-subtitle');
+        if (ot && nt) ot.textContent = nt.textContent;
+        if (os && ns) os.textContent = ns.textContent;
+
+        /* 4. sidebar nav active state (server already computed it) */
+        var oldNav = qs('aside nav'), newNav = newDoc.querySelector('aside nav');
+        if (oldNav && newNav) oldNav.innerHTML = newNav.innerHTML;
+
+        /* 5. flash messages */
+        var oldFlash = document.getElementById('flash-toast-container');
+        var newFlash = newDoc.getElementById('flash-toast-container');
+        if (oldFlash) oldFlash.remove();
+        if (newFlash) {
+            document.body.insertAdjacentHTML('afterbegin', newFlash.outerHTML);
+            initToasts();
+        }
+
+        /* 6. update <main> class to match new page's @section('main-class') */
+        var newMainEl = newDoc.getElementById('main-content');
+        if (newMainEl) {
+            var newClass = newMainEl.className
+                .replace(/\bpg-enter\b/g, '').replace(/\bpg-exit\b/g, '').trim();
+            main.className = newClass;
+        }
+
+        /* 7. swap main content */
+        main.innerHTML = newMain.innerHTML;
+
+        /* 8. push history */
+        if (push !== false) history.pushState({ spa: url }, newDoc.title, url);
+
+        /* 9. re-run inline <script> tags inside the new content */
+        runScripts(main);
+
+        /* 9.5 inject page-specific styles from @stack('styles') not yet in <head>.
+               Must run before @push('scripts') so CSS is ready when libs like
+               TomSelect initialize and render their DOM. */
+        newDoc.querySelectorAll('head > style, head > link[rel="stylesheet"]').forEach(function (el) {
+            if (el.tagName === 'LINK') {
+                var href = el.getAttribute('href') || '';
+                if (!href || document.head.querySelector('link[rel="stylesheet"][href="' + href + '"]')) return;
+                var lnk = document.createElement('link');
+                lnk.rel = 'stylesheet';
+                lnk.href = href;
+                document.head.appendChild(lnk);
+            } else {
+                var txt = el.textContent.trim();
+                if (!txt) return;
+                var dup = [].some.call(document.head.querySelectorAll('style'), function (s) {
+                    return s.textContent.trim() === txt;
+                });
+                if (!dup) {
+                    var sty = document.createElement('style');
+                    sty.textContent = txt;
+                    document.head.appendChild(sty);
+                }
+            }
+        });
+
+        /* 10a. load external CDN scripts from @push('scripts') not yet in the page */
+        var extScripts = Array.from(newDoc.querySelectorAll('body > script[src]:not([data-spa-core])'));
+        for (var _i = 0; _i < extScripts.length; _i++) {
+            await loadSpaScript(extScripts[_i].getAttribute('src'));
+        }
+
+        /* 10b. run inline @push('scripts') AFTER CDN libs are ready and AFTER
+                innerHTML so DOM is ready for things like Chart.js canvas init. */
+        newDoc.querySelectorAll('body > script:not([data-spa-core]):not([src])').forEach(function (s) {
+            try { (0, eval)(s.textContent); } catch (e) { /* ignore */ }
+        });
+
+        /* 11. scroll top */
+        window.scrollTo(0, 0);
+
+        /* 10. animate in */
+        requestAnimationFrame(function () {
+            requestAnimationFrame(function () {
+                main.style.cssText = 'opacity:1;transition:opacity .22s ease;';
+                setTimeout(function () { main.style.cssText = ''; busy = false; }, 240);
+            });
+        });
+    }
+
+    /* ── click interceptor ────────────────────────────────── */
+    document.addEventListener('click', function (e) {
+        var link = e.target.closest('a[href]');
+        if (!link) return;
+
+        var href = link.getAttribute('href') || '';
+        /* skip: non-http, anchor-only, new tab, download, logout, file serve */
+        if (!href || href.startsWith('#') || href.startsWith('javascript') ||
+            href.startsWith('mailto') || href.startsWith('tel') ||
+            link.target === '_blank' || link.hasAttribute('download')) return;
+
+        var dest;
+        try { dest = new URL(href, location.origin); } catch (e) { return; }
+        if (dest.origin !== location.origin) return;
+
+        var destPath = dest.pathname + dest.search;
+        var curPath  = location.pathname + location.search;
+
+        /* same page → only scroll top, no reload */
+        if (destPath === curPath) {
+            e.preventDefault();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            return;
+        }
+
+        /* skip: logout, file download routes */
+        if (/\/(logout|file\/)/.test(dest.pathname)) return;
+
+        e.preventDefault();
+        navigate(href, true);
+    }, true);
+
+    /* ── browser back / forward ───────────────────────────── */
+    window.addEventListener('popstate', function () {
+        navigate(location.href, false);
+    });
+
+    /* ── init toasts on first load ────────────────────────── */
+    initToasts();
 })();
 </script>
 
@@ -536,7 +867,7 @@ function globalMsgToast() {
 
         init() {
             this.poll();
-            setInterval(() => this.poll(), 30000);
+            setInterval(() => this.poll(), 60000);
         }
     };
 }
@@ -544,7 +875,7 @@ function globalMsgToast() {
 @endif
 
 {{-- Toast Notification Container --}}
-<div id="toast-container" class="fixed bottom-20 right-4 z-[9999] flex flex-col gap-2 pointer-events-none" style="max-width:320px"></div>
+<div id="toast-container" class="fixed bottom-20 right-4 z-9999 flex flex-col gap-2 pointer-events-none" style="max-width:320px"></div>
 
 <script>
 (function () {
@@ -553,7 +884,7 @@ function globalMsgToast() {
     const NOTES_URL   = window.APP_BASE + '/notes';
     const MSG_KEY     = 'notif_last_msg_id';
     const NOTE_KEY    = 'notif_notes_shown';
-    const IS_CHAT     = /\/(chatting|chat)\b/.test(window.location.pathname);
+    function isChat()  { return /\/(chatting|chat)\b/.test(window.location.pathname); }
 
     let lastMsgId  = parseInt(localStorage.getItem(MSG_KEY) || '0');
     let shownNotes = (() => { try { return JSON.parse(localStorage.getItem(NOTE_KEY) || '[]'); } catch { return []; } })();
@@ -623,7 +954,7 @@ function globalMsgToast() {
                 // Note reminders tetap ditampilkan pada poll pertama (bukan "pesan baru")
             } else {
                 // Pesan baru: tampilkan toast jika bukan di halaman chat
-                if (!IS_CHAT && newMsgs.length > 0) {
+                if (!isChat() && newMsgs.length > 0) {
                     // Max 3 toast sekaligus agar tidak spam
                     newMsgs.slice(0, 3).forEach(m => {
                         showToast('💬', m.sender_name, m.preview, CHAT_URL,
@@ -678,9 +1009,179 @@ function globalMsgToast() {
         }
     }
 
-    // Poll pertama langsung (sync baseline), lalu setiap 8 detik
-    poll();
-    setInterval(poll, 8000);
+    // Poll pertama langsung (sync baseline), lalu setiap 30 detik
+    // Hentikan polling saat tab tidak aktif untuk hemat koneksi server
+    let pollTimer = null;
+
+    function startPolling() {
+        if (pollTimer) return;
+        poll();
+        pollTimer = setInterval(poll, 30000);
+    }
+
+    function stopPolling() {
+        if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+    }
+
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden) stopPolling();
+        else startPolling();
+    });
+
+    startPolling();
+
+}());
+</script>
+
+{{-- ====== CUSTOM CONFIRM / ALERT MODAL (global) ====== --}}
+<div id="app-modal-overlay"
+     role="dialog" aria-modal="true"
+     style="display:none;position:fixed;inset:0;z-index:100000;
+            background:rgba(0,0,0,.6);backdrop-filter:blur(4px);
+            align-items:center;justify-content:center;padding:1rem">
+  <div id="app-modal-box"
+       style="background:#1e293b;border:1px solid #334155;border-radius:1.25rem;
+              padding:1.75rem 1.75rem 1.5rem;max-width:23rem;width:100%;
+              box-shadow:0 24px 64px rgba(0,0,0,.6);
+              transform:scale(.9) translateY(10px);opacity:0;
+              transition:transform .22s cubic-bezier(.34,1.4,.64,1),opacity .18s ease">
+
+    <div style="display:flex;align-items:flex-start;gap:.875rem;margin-bottom:1.25rem">
+      <div id="app-modal-icon"
+           style="width:2.75rem;height:2.75rem;border-radius:.875rem;
+                  display:flex;align-items:center;justify-content:center;flex-shrink:0"></div>
+      <div style="flex:1;min-width:0">
+        <p id="app-modal-title"
+           style="font-size:.9375rem;font-weight:700;color:#f1f5f9;line-height:1.35;margin:0 0 .35rem"></p>
+        <p id="app-modal-message"
+           style="font-size:.8125rem;color:#94a3b8;line-height:1.65;margin:0"></p>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:.625rem;justify-content:flex-end">
+      <button id="app-modal-cancel"
+              style="padding:.5rem 1.125rem;border-radius:.75rem;border:1px solid #475569;
+                     background:transparent;color:#94a3b8;font-size:.8125rem;font-weight:600;
+                     cursor:pointer;font-family:inherit;transition:background .15s,color .15s">
+        Batal
+      </button>
+      <button id="app-modal-ok"
+              style="padding:.5rem 1.25rem;border-radius:.75rem;border:none;color:#fff;
+                     font-size:.8125rem;font-weight:700;cursor:pointer;font-family:inherit;
+                     transition:opacity .15s">
+        OK
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+    const overlay  = document.getElementById('app-modal-overlay');
+    const box      = document.getElementById('app-modal-box');
+    const iconEl   = document.getElementById('app-modal-icon');
+    const titleEl  = document.getElementById('app-modal-title');
+    const msgEl    = document.getElementById('app-modal-message');
+    const cancelBtn= document.getElementById('app-modal-cancel');
+    const okBtn    = document.getElementById('app-modal-ok');
+
+    const ICONS = {
+        danger: {
+            bg: 'rgba(239,68,68,.15)', border: '1px solid rgba(239,68,68,.3)',
+            btn: 'linear-gradient(135deg,#dc2626,#b91c1c)',
+            svg: '<svg width="18" height="18" fill="none" stroke="#f87171" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>',
+        },
+        warning: {
+            bg: 'rgba(245,158,11,.15)', border: '1px solid rgba(245,158,11,.3)',
+            btn: 'linear-gradient(135deg,#d97706,#b45309)',
+            svg: '<svg width="18" height="18" fill="none" stroke="#fbbf24" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>',
+        },
+        info: {
+            bg: 'rgba(59,130,246,.15)', border: '1px solid rgba(59,130,246,.3)',
+            btn: 'linear-gradient(135deg,#2563eb,#1d4ed8)',
+            svg: '<svg width="18" height="18" fill="none" stroke="#60a5fa" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/></svg>',
+        },
+        success: {
+            bg: 'rgba(34,197,94,.15)', border: '1px solid rgba(34,197,94,.3)',
+            btn: 'linear-gradient(135deg,#16a34a,#15803d)',
+            svg: '<svg width="18" height="18" fill="none" stroke="#4ade80" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>',
+        },
+    };
+
+    let _resolve = null;
+
+    function openModal(opts) {
+        return new Promise(res => {
+            _resolve = res;
+            const cfg = ICONS[opts.type || 'danger'];
+
+            iconEl.style.cssText += ';background:' + cfg.bg + ';border:' + cfg.border;
+            iconEl.innerHTML      = cfg.svg;
+            titleEl.textContent   = opts.title   || 'Konfirmasi';
+            msgEl.textContent     = opts.message || '';
+            okBtn.textContent     = opts.okText  || 'Ya, Lanjutkan';
+            okBtn.style.background= cfg.btn;
+            cancelBtn.style.display = opts.alertOnly ? 'none' : '';
+            cancelBtn.textContent   = opts.cancelText || 'Batal';
+
+            overlay.style.display = 'flex';
+            requestAnimationFrame(() => requestAnimationFrame(() => {
+                box.style.transform = 'scale(1) translateY(0)';
+                box.style.opacity   = '1';
+            }));
+            okBtn.focus();
+        });
+    }
+
+    function closeModal(result) {
+        box.style.transform = 'scale(.9) translateY(10px)';
+        box.style.opacity   = '0';
+        setTimeout(() => { overlay.style.display = 'none'; }, 200);
+        if (_resolve) { _resolve(result); _resolve = null; }
+    }
+
+    cancelBtn.addEventListener('click', () => closeModal(false));
+    okBtn.addEventListener('click',     () => closeModal(true));
+    overlay.addEventListener('click', e => { if (e.target === overlay) closeModal(false); });
+    document.addEventListener('keydown', e => {
+        if (overlay.style.display !== 'flex') return;
+        if (e.key === 'Escape') { e.preventDefault(); closeModal(false); }
+        if (e.key === 'Enter')  { e.preventDefault(); closeModal(true); }
+    });
+
+    // ── Public API ────────────────────────────────────────────────────
+    // appConfirm('Pesan?', onConfirm, { title, type, okText })
+    window.appConfirm = function (message, callback, opts) {
+        openModal({ message, type: 'danger', ...opts })
+            .then(ok => { if (ok && callback) callback(); });
+    };
+
+    // appConfirmAsync('Pesan?', opts) → Promise<boolean>
+    window.appConfirmAsync = function (message, opts) {
+        return openModal({ message, type: 'danger', ...opts });
+    };
+
+    // appAlert('Pesan', { title, type }) — hanya tombol OK
+    window.appAlert = function (message, opts) {
+        return openModal({ message, alertOnly: true, okText: 'OK', type: 'warning', ...opts });
+    };
+
+    // Tangani semua [data-confirm] via event delegation (termasuk konten AJAX)
+    document.addEventListener('click', function (e) {
+        const btn = e.target.closest('[data-confirm]');
+        if (!btn) return;
+        e.preventDefault();
+        e.stopImmediatePropagation();
+
+        const msg   = btn.dataset.confirm || 'Apakah Anda yakin?';
+        const title = btn.dataset.confirmTitle || 'Konfirmasi Aksi';
+        const form  = btn.closest('form');
+
+        window.appConfirm(msg, function () {
+            btn.removeAttribute('data-confirm');
+            btn.click();
+        }, { title });
+    }, true);
 
 }());
 </script>

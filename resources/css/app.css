@@ -22,20 +22,14 @@
 .no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
 .no-scrollbar::-webkit-scrollbar { display: none; }
 
-/* Custom scrollbar */
-::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
+/* Hide main page scrollbar */
+html, body {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
 }
-::-webkit-scrollbar-track {
-    background: #f1f5f9;
-}
-::-webkit-scrollbar-thumb {
-    background: #94a3b8;
-    border-radius: 3px;
-}
-::-webkit-scrollbar-thumb:hover {
-    background: #64748b;
+html::-webkit-scrollbar,
+body::-webkit-scrollbar {
+    display: none;
 }
 
 /* Smooth transitions */

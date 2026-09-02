@@ -306,7 +306,8 @@ function adminChatPage() {
         },
 
         async deleteMsg(id) {
-            if (!confirm('Hapus pesan ini?')) return;
+            const ok = await window.appConfirmAsync('Pesan ini akan dihapus permanen.', { title: 'Hapus Pesan?' });
+            if (!ok) return;
             try {
                 await fetch(`/messages/${id}`, {
                     method: 'DELETE',
@@ -320,7 +321,8 @@ function adminChatPage() {
         },
 
         async deleteConversation(senderId) {
-            if (!confirm('Hapus semua pesan dari operator ini? Aksi ini tidak bisa dibatalkan.')) return;
+            const ok = await window.appConfirmAsync('Semua pesan dari operator ini akan dihapus permanen dan tidak bisa dikembalikan.', { title: 'Hapus Semua Pesan?' });
+            if (!ok) return;
             try {
                 await fetch(`/messages/conversation/${senderId}`, {
                     method: 'DELETE',

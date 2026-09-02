@@ -6,13 +6,21 @@ use Illuminate\Database\Eloquent\Model;
 
 class Note extends Model
 {
-    protected $fillable = ['user_id', 'target_user_id', 'title', 'content', 'due_date', 'color', 'is_done', 'done_at'];
+    protected $fillable = ['user_id', 'target_user_id', 'is_broadcast', 'title', 'content', 'due_date', 'color', 'photo_path', 'is_done', 'done_at'];
+
+    protected $appends = ['photo_url'];
 
     protected $casts = [
-        'due_date' => 'date',
-        'is_done'  => 'boolean',
-        'done_at'  => 'datetime',
+        'due_date'     => 'date',
+        'is_done'      => 'boolean',
+        'is_broadcast' => 'boolean',
+        'done_at'      => 'datetime',
     ];
+
+    public function getPhotoUrlAttribute(): ?string
+    {
+        return $this->photo_path ? asset('storage/' . $this->photo_path) : null;
+    }
 
     public function user()
     {

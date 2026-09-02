@@ -5,149 +5,243 @@
 @section('page-subtitle', 'Kelola informasi akun Anda')
 
 @section('content')
-<div class="max-w-2xl mx-auto space-y-6">
 
-    {{-- ═══════════════════════════════════════════════════════════════════ --}}
-    {{-- CARD 1: Informasi Akun + Password (+ Developer fields)             --}}
-    {{-- ═══════════════════════════════════════════════════════════════════ --}}
+@php
+$baseUrl = 'https://api.dicebear.com/9.x/adventurer/svg?backgroundColor=b6e3f4,c0aede,d1d4f9,ffd5dc,ffdfbf&seed=';
+
+$seeds = [
+    'Felix','Aneka','Liam','Sophie','Max','Lily','Jack','Emma','Oliver','Zoe',
+    'Henry','Grace','Ethan','Mia','Noah','Ava','Leo','Sara','Adam','Luna',
+    'Kai','Nara','Rio','Hana','Budi','Indah','Raka','Sari','Dani','Putri',
+    'Arya','Wulan','Bagas','Tari','Rian','Dewi','Fajar','Laras','Dimas','Ayu',
+];
+
+$currentAvatar = str_starts_with($user->avatar ?? '', 'http') ? $user->avatar : '';
+
+// Cari seed dari URL (cocok dengan format lama maupun baru)
+$currentSeed = '';
+foreach ($seeds as $s) {
+    if ($currentAvatar && str_contains($currentAvatar, 'seed=' . $s)) {
+        $currentSeed = $s;
+        break;
+    }
+}
+@endphp
+
+<div class="max-w-2xl mx-auto space-y-5">
+
+    {{-- ══════════════════════════ CARD 1: Avatar ══════════════════════════ --}}
+    <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 p-6"
+         x-data="{
+             selected: '{{ $currentSeed }}',
+             baseUrl:  '{{ $baseUrl }}',
+             saving:   false,
+             saved:    false,
+             get avatarUrl() { return this.selected ? this.baseUrl + this.selected : ''; },
+             async save() {
+                 this.saving = true;
+                 this.saved  = false;
+                 const res = await fetch('{{ route('profile.avatar') }}', {
+                     method: 'POST',
+                     headers: {
+                         'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]').content,
+                         'Content-Type': 'application/json',
+                         'Accept': 'application/json',
+                     },
+                     body: JSON.stringify({ avatar: this.avatarUrl }),
+                 });
+                 this.saving = false;
+                 if (res.ok) {
+                     this.saved = true;
+                     setTimeout(() => this.saved = false, 2500);
+                     // Update avatar di header sidebar/navbar
+                     const img = document.getElementById('header-avatar');
+                     const ini = document.getElementById('header-initials');
+                     if (img && ini) {
+                         if (this.avatarUrl) {
+                             img.src = this.avatarUrl;
+                             img.style.display = '';
+                             ini.style.display = 'none';
+                         } else {
+                             img.src = '';
+                             img.style.display = 'none';
+                             ini.style.display = 'flex';
+                         }
+                     }
+                 }
+             }
+         }">
+
+        <h3 class="text-base font-bold text-slate-800 dark:text-white">Avatar Profil</h3>
+        <p class="text-sm text-slate-400 mt-0.3" style="margin-bottom:20px;">
+            Pilih avatar dari pilihan di bawah, atau biarkan kosong untuk menggunakan inisial nama Anda.
+        </p>
+
+        {{-- Preview --}}
+        <div class="flex items-center gap-4 rounded-2xl"
+             style="padding:16px 20px; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1);">
+
+            {{-- Avatar preview --}}
+            <div class="w-16 h-16 rounded-full overflow-hidden shrink-0 bg-blue-600 flex items-center justify-center"
+                 style="box-shadow:0 0 0 3px rgba(59,130,246,0.35);">
+                <template x-if="selected">
+                    <img :src="avatarUrl" alt="Preview" class="w-full h-full object-cover">
+                </template>
+                <template x-if="!selected">
+                    <span class="text-2xl font-bold text-white">{{ strtoupper(substr($user->name, 0, 1)) }}</span>
+                </template>
+            </div>
+
+            {{-- Teks info --}}
+            <div class="flex-1 min-w-0">
+                <p style="font-size:0.875rem; font-weight:600; color:rgba(255,255,255,0.9); margin:0;"
+                   x-text="selected ? 'Avatar dipilih: ' + selected : 'Belum ada avatar'"></p>
+                <template x-if="selected">
+                    <button type="button" @click="selected = ''"
+                            style="margin-top:4px; font-size:0.75rem; color:rgba(255,255,255,0.4);
+                                   background:none; border:none; cursor:pointer; padding:0;
+                                   text-decoration:underline;"
+                            onmouseover="this.style.color='#f87171'"
+                            onmouseout="this.style.color='rgba(255,255,255,0.4)'">
+                        Hapus avatar
+                    </button>
+                </template>
+                <template x-if="!selected">
+                    <p style="margin-top:4px; font-size:0.75rem; color:rgba(255,255,255,0.4); margin-bottom:0;">
+                        Pilih avatar dari pilihan di bawah
+                    </p>
+                </template>
+            </div>
+
+            {{-- Tombol simpan --}}
+            <div class="shrink-0 flex flex-col items-end" style="gap:6px;">
+                <button type="button" @click="save()" :disabled="saving"
+                        class="px-5 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50
+                               text-white text-sm font-semibold rounded-xl transition-colors">
+                    <span x-show="!saving">Simpan Avatar</span>
+                    <span x-show="saving" x-cloak>Menyimpan…</span>
+                </button>
+                <span x-show="saved" x-cloak x-transition
+                      style="font-size:0.75rem; color:#34d399; font-weight:500;">✓ Tersimpan!</span>
+            </div>
+        </div>
+
+        {{-- Label grid --}}
+        <p style="font-size:0.7rem; font-weight:600; color:rgba(255,255,255,0.35);
+                  letter-spacing:0.1em; text-transform:uppercase; margin:24px 0 10px;">
+            Pilih Avatar
+        </p>
+
+        {{-- Grid avatar --}}
+        <style>
+            .av-grid {
+                display: grid;
+                grid-template-columns: repeat(5, 1fr);
+                gap: 10px;
+            }
+            @media (min-width: 640px) {
+                .av-grid { grid-template-columns: repeat(10, 1fr); }
+            }
+            .av-btn {
+                position: relative;
+                width: 100%;
+                aspect-ratio: 1 / 1;
+                border-radius: 9999px;
+                overflow: hidden;
+                transition: all 150ms ease;
+                opacity: .75;
+                outline: none;
+                cursor: pointer;
+                background: transparent;
+                border: none;
+                padding: 0;
+            }
+            .av-btn:hover { opacity: 1; transform: scale(1.06); }
+            .av-btn.av-selected {
+                opacity: 1;
+                transform: scale(1.1);
+                box-shadow: 0 0 0 3px #3b82f6;
+            }
+            .av-btn img {
+                position: absolute;
+                inset: 0;
+                width: 100%;
+                height: 100%;
+                object-fit: cover;
+                display: block;
+            }
+        </style>
+        <div class="av-grid">
+            @foreach($seeds as $seed)
+            <button type="button"
+                    @click="selected = '{{ $seed }}'"
+                    :class="selected === '{{ $seed }}' ? 'av-btn av-selected' : 'av-btn'"
+                    class="av-btn">
+                <img src="{{ $baseUrl }}{{ $seed }}"
+                     alt="{{ $seed }}"
+                     loading="lazy">
+            </button>
+            @endforeach
+        </div>
+
+    </div>
+    {{-- END CARD 1 --}}
+
+
+    {{-- ══════════════════════════ CARD 2: Akun & Password ══════════════════════════ --}}
     <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 overflow-hidden">
 
-        {{-- Header / Avatar --}}
-        <div class="bg-gradient-to-r from-slate-700 to-slate-800 px-6 py-6">
+        {{-- Header banner --}}
+        <div class="bg-linear-to-r from-slate-700 to-slate-800 px-6 py-5">
+            @php
+                $avatarUrl = $user->avatar
+                    ? (str_starts_with($user->avatar, 'http')
+                        ? $user->avatar
+                        : route('storage.file', ['path' => $user->avatar]))
+                    : null;
+            @endphp
             <div class="flex items-center gap-4">
-
-                @php
-                    $avatarUrl = $user->avatar
-                        ? (str_starts_with($user->avatar, 'http')
-                            ? $user->avatar
-                            : route('storage.file', ['path' => $user->avatar]))
-                        : null;
-                @endphp
-
-                @if(auth()->user()->isVisitor())
-                {{-- Visitor: avatar dengan fallback inisial kalau file tidak ada --}}
-                <div class="relative shrink-0 w-16 h-16">
-                    <div class="w-16 h-16 rounded-2xl bg-blue-600 flex items-center justify-center absolute inset-0"
-                         id="vis-avatar-initials" style="{{ $avatarUrl ? 'display:none' : '' }}">
-                        <span class="text-2xl font-black text-white">{{ strtoupper(substr($user->name, 0, 1)) }}</span>
-                    </div>
-                    <img src="{{ $avatarUrl ?? '' }}" alt="Foto Profil"
-                         class="w-16 h-16 rounded-2xl object-cover border-2 border-white/20 relative z-10"
-                         style="{{ $avatarUrl ? '' : 'display:none' }}"
-                         onerror="this.style.display='none'; document.getElementById('vis-avatar-initials').style.display='flex';">
-                </div>
-                @else
-                {{-- Non-visitor: sama, plus hover overlay untuk klik ubah foto --}}
-                <div class="relative shrink-0 group w-16 h-16" id="avatar-wrapper">
-                    {{-- Initials fallback (tampil kalau belum ada foto atau foto gagal load) --}}
-                    <div id="avatar-initials"
-                         class="w-16 h-16 rounded-2xl bg-blue-600 flex items-center justify-center absolute inset-0"
+                <div class="relative shrink-0 w-14 h-14">
+                    <div id="header-initials"
+                         class="w-14 h-14 rounded-full bg-blue-600 flex items-center justify-center absolute inset-0"
                          style="{{ $avatarUrl ? 'display:none' : '' }}">
-                        <span class="text-2xl font-black text-white">{{ strtoupper(substr($user->name, 0, 1)) }}</span>
+                        <span class="text-xl font-black text-white">{{ strtoupper(substr($user->name, 0, 1)) }}</span>
                     </div>
-                    {{-- Avatar image --}}
-                    <img id="avatar-preview"
+                    <img id="header-avatar"
                          src="{{ $avatarUrl ?? '' }}" alt="Foto Profil"
-                         class="w-16 h-16 rounded-2xl object-cover border-2 border-white/20 relative z-10"
+                         class="w-14 h-14 rounded-full object-cover border-2 border-white/30"
                          style="{{ $avatarUrl ? '' : 'display:none' }}"
-                         onerror="this.style.display='none'; document.getElementById('avatar-initials').style.display='flex';">
-                    <div onclick="document.getElementById('avatar-url-section').scrollIntoView({behavior:'smooth'})"
-                         class="absolute inset-0 rounded-2xl bg-black/50 flex items-center justify-center
-                                opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
-                        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                  d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/>
-                        </svg>
-                    </div>
+                         onerror="this.style.display='none';document.getElementById('header-initials').style.display='flex'">
                 </div>
-                @endif
-
                 <div>
-                    <p class="text-lg font-bold text-white">{{ $user->name }}</p>
+                    <p class="text-base font-bold text-white">{{ $user->name }}</p>
                     <p class="text-slate-400 text-sm capitalize mt-0.5">{{ $user->role }}
                         @if($user->department) · {{ $user->department }} @endif
                     </p>
                     <p class="text-slate-500 text-xs mt-1">Bergabung {{ $user->created_at->format('d M Y') }}</p>
-                    @unless(auth()->user()->isVisitor())
-                    <p class="text-slate-500 text-xs mt-0.5">Klik foto untuk scroll ke field link foto</p>
-                    @endunless
                 </div>
             </div>
         </div>
 
-        {{-- ── MAIN PROFILE FORM ── --}}
+        {{-- Form info & password --}}
         <form method="POST" action="{{ route('profile.update') }}" class="p-6 space-y-5">
             @csrf @method('PUT')
 
-            {{-- URL Foto Profil --}}
-            @unless(auth()->user()->isVisitor())
-            <div id="avatar-url-section">
-                <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                    Link Foto Profil
-                    <span class="ml-1 text-xs font-normal text-slate-400">(URL gambar / Google Drive)</span>
-                </label>
-                <div class="flex gap-2">
-                    <input type="url" id="avatar-url-input" name="avatar"
-                           value="{{ old('avatar', str_starts_with($user->avatar ?? '', 'http') ? $user->avatar : '') }}"
-                           placeholder="https://... link langsung ke gambar"
-                           class="flex-1 px-4 py-3 rounded-xl bg-white dark:bg-slate-900 text-slate-800 dark:text-white
-                                  border {{ $errors->has('avatar') ? 'border-red-500' : 'border-slate-300 dark:border-slate-600' }}
-                                  focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
-                    <button type="button" onclick="previewAvatarUrl()"
-                            class="shrink-0 px-3 py-2 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600
-                                   text-slate-600 dark:text-slate-300 rounded-xl transition-colors text-sm font-medium">
-                        Preview
-                    </button>
-                </div>
-                @error('avatar')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
-                <div class="mt-2 bg-slate-50 dark:bg-slate-700/50 rounded-xl p-3 space-y-2">
-                    <p class="text-xs font-semibold text-slate-600 dark:text-slate-300">Cara upload foto:</p>
-                    <ol class="text-xs text-slate-500 dark:text-slate-400 space-y-1 list-none">
-                        <li>1. Buka <a href="https://imgbb.com" target="_blank" class="text-blue-500 hover:underline font-medium">imgbb.com</a> → upload foto</li>
-                        <li>2. Setelah upload, di bawah foto ada pilihan link:</li>
-                    </ol>
-                    <div class="bg-white dark:bg-slate-800 rounded-lg p-2.5 text-xs space-y-1 border border-slate-200 dark:border-slate-600">
-                        <p class="text-red-500">❌ <span class="line-through">https://ibb.co/SwhYCW43</span> <span class="text-slate-400">(Viewer — jangan ini)</span></p>
-                        <p class="text-green-500">✓ <span class="font-mono">https://i.ibb.co/xxx/foto.jpg</span> <span class="text-slate-400">(Direct link — ini yang benar)</span></p>
-                    </div>
-                    <p id="avatar-url-hint" class="hidden text-xs text-amber-500 font-medium">
-                        ⚠ Saat upload selesai, pilih dropdown di bawah gambar → pilih <strong>Direct link</strong>
-                    </p>
-                    <p class="text-xs text-slate-400 dark:text-slate-500 italic">
-                        Google Drive juga bisa — link share akan otomatis dikonversi.
-                    </p>
-                </div>
-                <div id="avatar-url-preview" class="mt-2 hidden items-center gap-3">
-                    <img id="avatar-url-preview-img" src="" alt="Preview"
-                         class="w-14 h-14 rounded-xl object-cover border border-slate-200 dark:border-slate-700"
-                         onerror="document.getElementById('avatar-url-preview').classList.add('hidden');
-                                  document.getElementById('avatar-url-error').classList.remove('hidden');">
-                    <p class="text-xs text-green-500">Preview berhasil dimuat</p>
-                </div>
-                <p id="avatar-url-error" class="mt-1 text-xs text-red-500 hidden">
-                    Gambar tidak bisa dimuat — pastikan link langsung ke file gambar.
-                </p>
-            </div>
-            @endunless
-
-            {{-- Informasi Akun --}}
             <div>
                 <h3 class="text-sm font-bold text-slate-700 dark:text-slate-300 mb-4 uppercase tracking-wide">
                     Informasi Akun
                 </h3>
                 <div class="space-y-4">
-
                     <div>
                         <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
                             Nama Lengkap <span class="text-red-500">*</span>
                         </label>
-                        <input type="text" name="name" value="{{ old('name', $user->name) }}"
+                        <input type="text" name="name" value="{{ old('name', $user->name) }}" required
                                class="w-full px-4 py-3 rounded-xl bg-white dark:bg-slate-900 text-slate-800 dark:text-white
                                       border {{ $errors->has('name') ? 'border-red-500' : 'border-slate-300 dark:border-slate-600' }}
                                       focus:outline-none focus:ring-2 focus:ring-blue-500">
                         @error('name')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
                     </div>
-
                     <div>
                         <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
                             Email <span class="text-red-500">*</span>
@@ -159,20 +253,17 @@
                                       focus:outline-none focus:ring-2 focus:ring-blue-500">
                         @error('email')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
                     </div>
-
                 </div>
             </div>
 
             <hr class="border-slate-100 dark:border-slate-700">
 
-            {{-- Ganti Password --}}
             <div>
                 <h3 class="text-sm font-bold text-slate-700 dark:text-slate-300 mb-1 uppercase tracking-wide">
                     Ganti Password
                 </h3>
                 <p class="text-xs text-slate-400 mb-4">Kosongkan jika tidak ingin mengubah password</p>
                 <div class="space-y-4">
-
                     <div>
                         <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
                             Password Saat Ini
@@ -183,7 +274,7 @@
                                    class="w-full px-4 py-3 pr-11 rounded-xl bg-white dark:bg-slate-900 text-slate-800 dark:text-white
                                           border {{ $errors->has('current_password') ? 'border-red-500' : 'border-slate-300 dark:border-slate-600' }}
                                           focus:outline-none focus:ring-2 focus:ring-blue-500">
-                            <button type="button" onclick="togglePwd('current_password', this)"
+                            <button type="button" onclick="togglePwd('current_password',this)"
                                     class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
                                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -195,7 +286,6 @@
                         </div>
                         @error('current_password')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
                     </div>
-
                     <div class="grid grid-cols-2 gap-4">
                         <div>
                             <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
@@ -207,7 +297,7 @@
                                        class="w-full px-4 py-3 pr-11 rounded-xl bg-white dark:bg-slate-900 text-slate-800 dark:text-white
                                               border {{ $errors->has('password') ? 'border-red-500' : 'border-slate-300 dark:border-slate-600' }}
                                               focus:outline-none focus:ring-2 focus:ring-blue-500">
-                                <button type="button" onclick="togglePwd('new_password', this)"
+                                <button type="button" onclick="togglePwd('new_password',this)"
                                         class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
                                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -219,7 +309,6 @@
                             </div>
                             @error('password')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
                         </div>
-
                         <div>
                             <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
                                 Konfirmasi Password
@@ -231,16 +320,14 @@
                                           focus:outline-none focus:ring-2 focus:ring-blue-500">
                         </div>
                     </div>
-
                 </div>
             </div>
 
-
-            {{-- Submit --}}
             <div class="flex gap-3 pt-2">
                 <a href="{{ route('dashboard') }}"
-                   class="flex-1 py-3 text-center text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-700
-                          hover:bg-slate-200 dark:hover:bg-slate-600 rounded-xl font-semibold transition-colors">
+                   class="flex-1 py-3 text-center text-slate-700 dark:text-slate-300
+                          bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600
+                          rounded-xl font-semibold transition-colors">
                     Batal
                 </a>
                 <button type="submit"
@@ -248,81 +335,78 @@
                     Simpan Perubahan
                 </button>
             </div>
-
         </form>
-        {{-- ── END MAIN FORM ── --}}
-
     </div>
-    {{-- END CARD 1 --}}
+    {{-- END CARD 2 --}}
 
 
+    {{-- ══════════════════════════ CARD 3: Keamanan Sesi ══════════════════════════ --}}
+    <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 p-6">
+        <h3 class="text-sm font-bold text-slate-700 dark:text-slate-300 mb-1 uppercase tracking-wide">
+            Keamanan Sesi
+        </h3>
+        <p class="text-xs text-slate-400 mb-4">
+            Lupa logout di perangkat lain (HP, komputer kantor, warnet)? Keluarkan semua sesi lain
+            sekaligus. Perangkat ini tetap login.
+        </p>
+
+        @if($errors->has('logout_others'))
+        <p class="mb-3 text-xs text-red-500">{{ $errors->first('logout_others') }}</p>
+        @endif
+
+        <form method="POST" action="{{ route('profile.logout-others') }}"
+              class="flex flex-col sm:flex-row sm:items-end gap-3">
+            @csrf
+            <div class="flex-1">
+                <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                    Konfirmasi Password Saat Ini
+                </label>
+                <div class="relative">
+                    <input type="password" id="logout_others_password" name="current_password"
+                           placeholder="Masukkan password untuk konfirmasi" required
+                           class="w-full px-4 py-3 pr-11 rounded-xl bg-white dark:bg-slate-900 text-slate-800 dark:text-white
+                                  border {{ $errors->has('logout_others') ? 'border-red-500' : 'border-slate-300 dark:border-slate-600' }}
+                                  focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <button type="button" onclick="togglePwd('logout_others_password',this)"
+                            class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                  d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                  d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+            <button type="submit"
+                    data-confirm="Semua sesi di perangkat lain akan dikeluarkan. Perangkat ini tetap login. Lanjutkan?"
+                    data-confirm-title="Logout Semua Perangkat Lain"
+                    class="shrink-0 inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl font-semibold
+                           text-white bg-red-600 hover:bg-red-700 transition-colors">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+                </svg>
+                Logout Semua Perangkat
+            </button>
+        </form>
+    </div>
+    {{-- END CARD 3 --}}
 
 </div>
 
 <script>
-// ── Avatar profil: preview dari URL ──
-function convertToDirectImageUrl(url) {
-    // Google Drive: /file/d/FILE_ID/view  atau  /file/d/FILE_ID/
-    const gdFile = url.match(/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/);
-    if (gdFile) return `https://drive.google.com/uc?export=view&id=${gdFile[1]}`;
-
-    // Google Drive: open?id=FILE_ID  atau  uc?id=FILE_ID
-    const gdOpen = url.match(/drive\.google\.com\/(?:open|uc)\?(?:.*&)?id=([a-zA-Z0-9_-]+)/);
-    if (gdOpen) return `https://drive.google.com/uc?export=view&id=${gdOpen[1]}`;
-
-    // Google Drive thumbnail: thumbnail?id=FILE_ID
-    const gdThumb = url.match(/drive\.google\.com\/thumbnail\?(?:.*&)?id=([a-zA-Z0-9_-]+)/);
-    if (gdThumb) return `https://drive.google.com/uc?export=view&id=${gdThumb[1]}`;
-
-    return url; // URL lain dikembalikan apa adanya
-}
-
-function previewAvatarUrl() {
-    const input      = document.getElementById('avatar-url-input');
-    const preview    = document.getElementById('avatar-url-preview');
-    const previewImg = document.getElementById('avatar-url-preview-img');
-    const error      = document.getElementById('avatar-url-error');
-    const hint       = document.getElementById('avatar-url-hint');
-    const raw        = input?.value?.trim();
-    if (!raw) return;
-
-    // Deteksi link viewer imgbb (ibb.co/xxxx) bukan direct (i.ibb.co/xxxx/...)
-    if (/^https?:\/\/ibb\.co\//i.test(raw) && !/^https?:\/\/i\.ibb\.co\//i.test(raw)) {
-        preview.classList.add('hidden');
-        error.classList.remove('hidden');
-        error.textContent = 'Ini adalah link halaman viewer imgbb. Salin "Direct link" yang dimulai dengan https://i.ibb.co/...';
-        if (hint) hint.classList.remove('hidden');
-        return;
-    }
-
-    const url = convertToDirectImageUrl(raw);
-    input.value = url;
-
-    error.classList.add('hidden');
-    if (hint) hint.classList.add('hidden');
-    preview.classList.remove('hidden');
-    preview.classList.add('flex');
-    previewImg.src = url;
-
-    const headerImg = document.getElementById('avatar-preview');
-    const initials  = document.getElementById('avatar-initials');
-    if (headerImg) { headerImg.src = url; headerImg.style.display = ''; }
-    if (initials)  initials.style.display = 'none';
-}
-
-
-// ── Toggle password visibility ──
 function togglePwd(id, btn) {
-    const input  = document.getElementById(id);
-    const isText = input.type === 'text';
-    input.type   = isText ? 'password' : 'text';
-    const paths  = btn.querySelectorAll('path');
-    if (isText) {
-        paths[0].setAttribute('d', 'M15 12a3 3 0 11-6 0 3 3 0 016 0z');
-        paths[1].setAttribute('d', 'M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z');
-    } else {
+    const input = document.getElementById(id);
+    const show  = input.type === 'password';
+    input.type  = show ? 'text' : 'password';
+    const paths = btn.querySelectorAll('path');
+    if (show) {
         paths[0].setAttribute('d', 'M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21');
         paths[1].setAttribute('d', '');
+    } else {
+        paths[0].setAttribute('d', 'M15 12a3 3 0 11-6 0 3 3 0 016 0z');
+        paths[1].setAttribute('d', 'M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z');
     }
 }
 </script>
