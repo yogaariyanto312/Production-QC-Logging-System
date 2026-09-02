@@ -73,6 +73,10 @@
             overflow: hidden;
             min-height: 0;
         }
+        /* Dipakai hanya sampai Alpine selesai boot: panel yang memang harus terbuka
+           saat halaman dimuat (mis. sedang berada di menu dalam grup) langsung
+           terbuka tanpa ikut beranimasi. */
+        .collapsible.no-anim, .collapsible.no-anim.is-open { transition: none; }
         @media (prefers-reduced-motion: reduce) {
             .collapsible, .collapsible.is-open { transition: none; }
         }
@@ -249,7 +253,8 @@
                             );
                             $groupActive = $groupItems->contains(fn($n) => $isActiveFn($n));
                         @endphp
-                        <div x-data="{ open: {{ $groupActive ? 'true' : 'false' }} }">
+                        <div x-data="{ open: {{ $groupActive ? 'true' : 'false' }}, booted: false }"
+                             x-init="$nextTick(() => booted = true)">
                             <button type="button" @click="open = !open"
                                     class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all
                                            {{ $groupActive ? 'text-white bg-slate-800/60' : 'text-slate-300 hover:bg-slate-800 hover:text-white' }}">
@@ -264,8 +269,12 @@
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
                                 </svg>
                             </button>
-                            <div class="collapsible {{ $groupActive ? 'is-open' : '' }}"
-                                 :class="open && 'is-open'">
+                            {{-- is-open TIDAK boleh ditulis sebagai class statis: Alpine
+                                 mempertahankan class asli elemen, jadi panel akan terkunci
+                                 terbuka dan tombolnya tak berfungsi. Keadaan awal diurus
+                                 lewat `open`, kedipan saat load dicegah oleh `no-anim`. --}}
+                            <div class="collapsible"
+                                 :class="{ 'is-open': open, 'no-anim': !booted }">
                             <div class="collapsible-inner">
                             <div class="mt-1 ml-4 pl-3 border-l border-slate-700 space-y-1">
                                 @foreach($groupItems as $gi)

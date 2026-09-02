@@ -298,8 +298,13 @@ class ProductionLogController extends Controller
                 }
             }
 
+            // Kembalikan padding nol seperti format yang dipakai form input
+            // (minimal 3 digit): tanpa ini "NO.001-010" tersimpan jadi "NO.1-10"
+            // setelah merge, karena rentangnya sempat di-cast ke integer.
             foreach ($merged as $r) {
-                $out[] = "{$prefix}NO.{$r[0]}-{$r[1]}";
+                $awal   = str_pad((string) $r[0], 3, '0', STR_PAD_LEFT);
+                $akhir  = str_pad((string) $r[1], 3, '0', STR_PAD_LEFT);
+                $out[] = "{$prefix}NO.{$awal}-{$akhir}";
             }
         }
 

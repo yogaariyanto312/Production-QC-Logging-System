@@ -2,16 +2,20 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /** Nama index yang sudah ada pada tabel messages. */
+    /**
+     * Nama index yang sudah ada pada tabel messages.
+     *
+     * Pakai Schema::getIndexes (portabel) — bukan "SHOW INDEX FROM", yang hanya
+     * dikenal MySQL dan bikin seluruh test suite gagal di SQLite.
+     */
     private function existingIndexes(): array
     {
-        return collect(DB::select('SHOW INDEX FROM messages'))
-            ->pluck('Key_name')->unique()->all();
+        return collect(Schema::getIndexes('messages'))
+            ->pluck('name')->unique()->all();
     }
 
     public function up(): void
